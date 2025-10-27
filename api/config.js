@@ -10,11 +10,12 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         source: 'env',
+        writable: false,
         mpToken: !!ENV_MP_TOKEN ? 'set' : null,
         publicUrl: ENV_PUBLIC_URL || null,
       });
     }
-    return res.status(500).json({ ok: false, error: 'SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados' });
+    return res.status(400).json({ ok: false, error: 'SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados. Configurações são somente leitura via variáveis de ambiente.' });
   }
 
   const table = 'app_config';
@@ -38,6 +39,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           ok: true,
           source: 'env',
+          writable: false,
           mpToken: !!ENV_MP_TOKEN ? 'set' : null,
           publicUrl: ENV_PUBLIC_URL || null,
         });
@@ -47,6 +49,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         source: row ? 'db' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty'),
+        writable: true,
         mpToken: row?.mp_token ? 'set' : (!!ENV_MP_TOKEN ? 'set' : null),
         publicUrl: row?.public_url || ENV_PUBLIC_URL || null,
         bootstrapMoviesUrl: row?.bootstrap_movies_url || null,

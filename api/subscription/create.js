@@ -16,10 +16,7 @@ export default async function handler(req, res) {
   const ENV_MP_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN;
   const PUBLIC_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
   const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || null;
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(500).json({ ok: false, error: 'SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados' });
-  }
+  const SUPABASE_READY = !!(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 
   try {
     const body = await readBody(req);
@@ -67,33 +64,37 @@ export default async function handler(req, res) {
     const qr = payment?.point_of_interaction?.transaction_data?.qr_code_base64 || null;
     const qrCode = payment?.point_of_interaction?.transaction_data?.qr_code || null;
 
-    // Persiste compra no Supabase
-    const table = 'purchases';
-    const upsertUrl = `${SUPABASE_URL}/rest/v1/${table}?on_conflict=id`;
-    const headers = {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_SERVICE_ROLE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      'Prefer': 'resolution=merge-duplicates',
-    };
+    // Persiste compra no Supabase, se disponível
+    if (SUPABASE_READY) {
+      const table = 'purchases';
+      const upsertUrl = `${SUPABASE_URL}/rest/v1/${table}?on_conflict=id`;
+      const headers = {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Prefer': 'resolution=merge-duplicates',
+      };
 
-    const purchaseRow = {
-      id: String(paymentId),
-      user_id: userId,
-      plan,
-      amount,
-      status: payment?.status || 'pending',
-      created_at: new Date().toISOString(),
-    };
+      const purchaseRow = {
+        id: String(paymentId),
+        user_id: userId,
+        plan,
+        amount,
+        status: payment?.status || 'pending',
+        created_at: new Date().toISOString(),
+      };
 
-    const saveResp = await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(purchaseRow) });
-    if (!saveResp.ok) {
-      const text = await saveResp.text();
-      // Ainda assim retorna os dados do pagamento para continuar no frontend
-      return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Compra criada, mas não persistida no Supabase', details: text });
+      const saveResp = await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(purchaseRow) });
+      if (!saveResp.ok) {
+        const text = await saveResp.text();
+        // Ainda assim retorna os dados do pagamento para continuar no frontend
+        return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Compra criada, mas não persistida no Supabase', details: text });
+      }
+      return res.status(200).json({ ok: true, paymentId, qr, qrCode });
     }
 
-    return res.status(200).json({ ok: true, paymentId, qr, qrCode });
+    // Sem Supabase: retorna dados de pagamento e avisa que não foi persistido
+    return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Supabase não configurado; pagamento não foi persistido no banco.' });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err?.message || 'Erro interno em /api/subscription/create' });
   }
@@ -101,6 +102,7 @@ export default async function handler(req, res) {
 
 async function getMpToken(supabaseUrl, serviceKey, envToken) {
   if (envToken) return envToken;
+  if (!supabaseUrl || !serviceKey) return null;
   try {
     const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
       headers: {

@@ -669,7 +669,14 @@ if(saveMpTokenBtn){
     const bootstrapMoviesUrl = (document.getElementById('bootstrapMoviesUrl').value||'').trim();
     const bootstrapAuto = !!(document.getElementById('bootstrapAuto')?.checked);
     try{
-      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, publicUrl, bootstrapMoviesUrl, bootstrapAuto }) });
+      // Verifica se configuração é gravável antes de tentar salvar
+      const probe = await fetch('/api/config');
+      const cfgProbe = probe.ok ? await probe.json() : { writable:false, source:'env' };
+      if (!cfgProbe.writable) {
+        alert('Configurações gerenciadas por ambiente. Edite no Vercel/variáveis de ambiente.');
+        return;
+      }
+      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mpToken: token, publicUrl, bootstrapMoviesUrl, bootstrapAuto }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
@@ -683,13 +690,16 @@ if(saveMpTokenBtn){
     if(res.ok){
       const cfg = await res.json();
       const inp = document.getElementById('mpToken');
-      if(inp) inp.value = cfg.mercadoPagoAccessToken || '';
+      // Não mostramos o token real por segurança; apenas indicamos se está definido
+      if(inp) inp.value = (cfg.mpToken === 'set') ? '[definido em ambiente]' : '';
       const pub = document.getElementById('publicUrl');
       if(pub) pub.value = cfg.publicUrl || 'https://gouflix.discloud.app';
       const bm = document.getElementById('bootstrapMoviesUrl');
       if(bm) bm.value = cfg.bootstrapMoviesUrl || '';
       const ba = document.getElementById('bootstrapAuto');
       if(ba) ba.checked = !!cfg.bootstrapAuto;
+      // Se não for gravável, desabilitar botão salvar para evitar erro 500
+      if(!cfg.writable && saveMpTokenBtn){ saveMpTokenBtn.disabled = true; saveMpTokenBtn.title = 'Somente leitura. Gerenciado por variáveis de ambiente.'; }
     }
   }catch(_){/* ignore */}
 })();
