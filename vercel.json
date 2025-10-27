@@ -3,6 +3,9 @@
   "public": true,
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/api/subscription/create", "destination": "/api/subscription?action=create" },
+    { "source": "/api/subscription/activate", "destination": "/api/subscription?action=activate" },
+    { "source": "/api/subscription/deactivate", "destination": "/api/subscription?action=deactivate" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
