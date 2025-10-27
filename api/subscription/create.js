@@ -17,6 +17,7 @@ export default async function handler(req, res) {
   const PUBLIC_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
   const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || null;
   const SUPABASE_READY = !!(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+  const COOKIES = parseCookies(req.headers?.cookie || '');
 
   try {
     const body = await readBody(req);
@@ -27,13 +28,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
     }
 
-    const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN);
+    const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token']);
     if (!mpToken) {
       return res.status(400).json({ ok: false, error: 'MP_ACCESS_TOKEN não configurado. Defina em variáveis de ambiente ou salve via /api/config.' });
     }
 
     // Cria pagamento PIX no Mercado Pago
-    const notificationUrl = PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mp${MP_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(MP_WEBHOOK_SECRET)}` : ''}` : undefined;
+    const PUBLIC_FALLBACK = COOKIES['public_url'] || PUBLIC_URL;
+    const notificationUrl = PUBLIC_FALLBACK ? `${PUBLIC_FALLBACK}/api/webhook/mp${MP_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(MP_WEBHOOK_SECRET)}` : ''}` : undefined;
     const paymentPayload = {
       transaction_amount: amount,
       description: `Assinatura ${plan}`,
@@ -118,6 +120,16 @@ async function getMpToken(supabaseUrl, serviceKey, envToken) {
   } catch {
     return null;
   }
+}
+
+function parseCookies(str){
+  const out = {};
+  str.split(';').forEach(part=>{
+    const [k,v] = part.split('=');
+    if(!k) return;
+    out[k.trim()] = decodeURIComponent((v||'').trim());
+  });
+  return out;
 }
 
 async function readBody(req) {
