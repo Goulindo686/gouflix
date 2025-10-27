@@ -288,6 +288,8 @@ function closeLoginModal(){
 
 // Botão do modal de login
 document.addEventListener('DOMContentLoaded', ()=>{
+  // Garantir que o modal de login comece oculto
+  closeLoginModal();
   const discordLoginBtn = document.getElementById('discordLoginBtn');
   if(discordLoginBtn){ discordLoginBtn.onclick = ()=>{
     const ret = location.href;

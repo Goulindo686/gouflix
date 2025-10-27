@@ -85,8 +85,15 @@ export default async function handler(req, res){
     }
 
     // Setar cookie de sessão e limpar cookies temporários
+    // Além do sid, gravar cookies auxiliares com dados do usuário para fallback quando Supabase não estiver configurado
+    const maxAge = 30 * 24 * 60 * 60; // 30 dias em segundos
     res.setHeader('Set-Cookie', [
-      `sid=${sid}; HttpOnly; Path=/; SameSite=Lax`,
+      `sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
+      `uid=${encodeURIComponent(String(user.id))}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
+      `uname=${encodeURIComponent(user.username||'')}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
+      `uavatar=${encodeURIComponent(user.avatar||'')}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
+      `uemail=${encodeURIComponent(user.email||'')}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
+      `uexp=${encodeURIComponent(expiresAt)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
       `d_state=; Max-Age=0; Path=/; SameSite=Lax`,
       `d_return=; Max-Age=0; Path=/; SameSite=Lax`
     ]);
