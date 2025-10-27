@@ -2,9 +2,6 @@
   "version": 2,
   "public": true,
   "cleanUrls": true,
-  "functions": {
-    "api/*.js": { "runtime": "nodejs18.x" }
-  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
