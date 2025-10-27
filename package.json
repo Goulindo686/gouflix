@@ -1,0 +1,13 @@
+{
+  "name": "gouflix",
+  "version": "1.0.0",
+  "description": "Plataforma de filmes e séries com sistema de planos",
+  "main": "dev_server.js",
+  "scripts": {
+    "start": "node dev_server.js"
+  },
+  "dependencies": {
+    "mercadopago": "^2.0.15",
+    "mongodb": "^6.10.0"
+  }
+}

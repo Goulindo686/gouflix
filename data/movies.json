@@ -1,0 +1,72 @@
+[
+  {
+    "id": "1",
+    "type": "filme",
+    "tmdbId": "603",
+    "title": "A Jornada do Herói",
+    "year": 2021,
+    "genres": [
+      "Ação",
+      "Aventura"
+    ],
+    "poster": "https://images.unsplash.com/photo-1508739826987-b79cd8b7da12?auto=format&fit=crop&w=500&q=60",
+    "trailer": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "description": "Um épico de ação e aventura onde um herói improvável enfrenta grandes perigos para salvar seu mundo."
+  },
+  {
+    "id": "2",
+    "type": "filme",
+    "tmdbId": "155",
+    "title": "Noites de Cidade",
+    "year": 2019,
+    "genres": [
+      "Drama",
+      "Romance"
+    ],
+    "poster": "https://images.unsplash.com/photo-1524985069026-dd778a71c7b4?auto=format&fit=crop&w=500&q=60",
+    "trailer": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "description": "Histórias entrelaçadas de pessoas que se encontram e se perdem na grande metrópole."
+  },
+  {
+    "id": "3",
+    "type": "filme",
+    "tmdbId": "855",
+    "title": "Mistério no Farol",
+    "year": 2020,
+    "genres": [
+      "Mistério",
+      "Suspense"
+    ],
+    "poster": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=60",
+    "trailer": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "description": "Um investigador viaja até um farol isolado para descobrir segredos que muitos querem enterrar."
+  },
+  {
+    "id": "4",
+    "type": "filme",
+    "tmdbId": "862",
+    "title": "Animais do Amanhã",
+    "year": 2022,
+    "genres": [
+      "Animação",
+      "Família"
+    ],
+    "poster": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=500&q=60",
+    "trailer": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "description": "Uma aventura encantadora que celebra amizade, coragem e imaginação para todas as idades."
+  },
+  {
+    "id": "5",
+    "type": "filme",
+    "tmdbId": "11",
+    "title": "Distante Horizonte",
+    "year": 2018,
+    "genres": [
+      "Ficção Científica",
+      "Aventura"
+    ],
+    "poster": "https://images.unsplash.com/photo-1499084732479-de2c02d45fc4?auto=format&fit=crop&w=500&q=60",
+    "trailer": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "description": "Exploradores partem rumo a um planeta distante em busca de um novo lar, enfrentando dilemas éticos e perigos desconhecidos."
+  }
+]

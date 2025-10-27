@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CineFlix — Explore Filmes e Séries</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="navbar">
+    <h1 class="logo">Cine<span>Flix</span></h1>
+    <nav>
+      <a href="#" id="navHome">Início</a>
+      <a href="#" id="navFilmes">Filmes</a>
+      <a href="#" id="navSeries">Séries</a>
+      <a href="#" id="navLista">Minha Lista</a>
+      <a href="#" id="navPlans" class="nav-plan">Adquirir Plano</a>
+      <a href="#" id="navAdmin">Admin</a>
+    </nav>
+    <div class="search-box">
+      <input id="search" type="text" placeholder="Buscar..." />
+    </div>
+  </header>
+
+  <section class="hero">
+    <!-- Slides dinâmicos do topo -->
+    <div class="hero-slides" id="heroSlides"></div>
+    <div class="hero-content">
+      <h2>Descubra o melhor do cinema</h2>
+      <p>Filmes e séries incríveis te esperam. Explore agora mesmo.</p>
+      <button class="btn primary">Explorar</button>
+    </div>
+  </section>
+
+  <main id="mainContent" class="content">
+    <h2 class="section-title">Populares</h2>
+    <div id="movieRow" class="row"></div>
+  </main>
+
+  <!-- Página de Planos -->
+  <section id="plansPage" class="plans hidden">
+    <div class="plans-header">
+      <h2>Escolha seu Plano</h2>
+      <p>Ative agora para acesso total a filmes e séries.</p>
+    </div>
+    <div class="plans-grid">
+      <div class="plan-card">
+        <h3>Mensal</h3>
+        <div class="price">R$ 19,90</div>
+        <ul class="benefits">
+          <li>Acesso total por 30 dias</li>
+          <li>Renove a qualquer momento</li>
+        </ul>
+        <button class="btn primary" id="btnBuyMonthly">Comprar Mensal</button>
+      </div>
+      <div class="plan-card">
+        <h3>Trimestral</h3>
+        <div class="price">R$ 49,90</div>
+        <ul class="benefits">
+          <li>Acesso total por 90 dias</li>
+          <li>Melhor custo-benefício</li>
+        </ul>
+        <button class="btn primary" id="btnBuyQuarterly">Comprar Trimestral</button>
+      </div>
+      <div class="plan-card popular">
+        <div class="badge">Popular</div>
+        <h3>Anual</h3>
+        <div class="price">R$ 147,90</div>
+        <ul class="benefits">
+          <li>Acesso total por 365 dias</li>
+          <li>Economia máxima</li>
+        </ul>
+        <button class="btn primary" id="btnBuyYearly">Comprar Anual</button>
+      </div>
+    </div>
+    <p class="plans-tip">Pagamentos processados pelo Mercado Pago. Após confirmação, seu plano é ativado automaticamente.</p>
+  </section>
+
+  <section id="adminPanel" class="admin hidden">
+    <div class="admin-header">
+      <h2>Adicionar Novo Conteúdo</h2>
+    </div>
+    <div class="admin-form panel">
+      <div class="panel-inner">
+        <div class="field-group">
+          <label>Tipo de Conteúdo</label>
+          <div class="radio-group">
+            <label><input type="radio" name="adminType" value="filme" checked /> Filme</label>
+            <label><input type="radio" name="adminType" value="serie" /> Série</label>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="adminCategory">Categoria</label>
+          <select id="adminCategory">
+            <option value="popular" selected>Popular</option>
+            <option value="minha-lista">Minha Lista</option>
+          </select>
+        </div>
+        <div class="field-group" style="flex:1;min-width:280px">
+          <label for="adminTmdbId">ID do TMDB</label>
+          <input id="adminTmdbId" type="text" placeholder="Ex.: 603 (Matrix)" />
+        </div>
+        <button id="adminSearchBtn" class="btn primary">Buscar</button>
+      </div>
+      <p class="panel-tip">Digite o ID, escolha o tipo e clique em Buscar. Você poderá adicionar ao site ou remover itens na lista abaixo.</p>
+      <div class="panel-inner" style="margin-top:12px">
+        <div class="field-group" style="flex:1;min-width:280px">
+          <label for="mpToken">Access Token Mercado Pago</label>
+          <input id="mpToken" type="text" placeholder="Insira o Access Token" />
+        </div>
+        <div class="field-group" style="flex:1;min-width:280px">
+          <label for="publicUrl">URL Pública (Webhook)</label>
+          <input id="publicUrl" type="text" placeholder="https://gouflix.discloud.app" />
+        </div>
+        <button id="saveMpTokenBtn" class="btn secondary">Salvar Configurações</button>
+      </div>
+      <div class="panel-inner" style="margin-top:12px">
+        <div class="field-group" style="flex:1;min-width:280px">
+          <label for="bootstrapMoviesUrl">Bootstrap Movies URL</label>
+          <input id="bootstrapMoviesUrl" type="text" placeholder="https://.../movies.json" />
+        </div>
+      </div>
+      <div class="panel-inner" style="margin-top:8px;align-items:center">
+        <label style="display:flex;gap:8px;align-items:center"><input id="bootstrapAuto" type="checkbox"/> Executar automaticamente ao iniciar (Discloud)</label>
+        <button id="runBootstrapBtn" class="btn primary" style="margin-left:auto">Executar bootstrap agora</button>
+      </div>
+    </div>
+
+    <div id="adminResults" class="admin-results"></div>
+
+    <div class="admin-list panel">
+      <h3 class="section-title">Conteúdos no Site</h3>
+      <div id="adminItems" class="items"></div>
+    </div>
+
+    <div class="admin-purchases panel">
+      <h3 class="section-title">Compras e Assinaturas</h3>
+      <div class="panel-inner">
+        <div class="field-group" style="flex:1;min-width:260px">
+          <label for="adminPurchaseQuery">Buscar por usuário ou pagamento</label>
+          <input id="adminPurchaseQuery" type="text" placeholder="Ex.: user-abc ou paymentId" />
+        </div>
+        <div class="field-group">
+          <label for="adminPurchaseStatus">Status</label>
+          <select id="adminPurchaseStatus">
+            <option value="">Todos</option>
+            <option value="pending">Pendente</option>
+            <option value="approved">Aprovado</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+        </div>
+        <button id="adminPurchasesRefreshBtn" class="btn secondary">Atualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="adminPurchasesTable">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Plano</th>
+              <th>Pagamento</th>
+              <th>Valor</th>
+              <th>Status</th>
+              <th>Criado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button id="adminTestPlanBtn" class="btn primary">Comprar Plano Teste (2 min / R$ 1,00)</button>
+        <span style="color:#888;font-size:12px">Este plano de teste só aparece aqui no Admin.</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-inner">
+      <button id="closeModal" class="close">&times;</button>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>© 2025 CineFlix — Site de demonstração</p>
+  </footer>
+
+  <!-- Modal de Pagamento -->
+  <div id="paymentModal" class="payment-modal" style="display: none;">
+    <div class="payment-modal-content">
+      <div class="payment-header">
+        <h3>Pagamento via PIX</h3>
+        <button class="close-payment" onclick="closePaymentModal()">&times;</button>
+      </div>
+      <div class="payment-body">
+        <div id="qrCodeContainer">
+          <img id="qrCodeImage" src="" alt="QR Code PIX" />
+        </div>
+        <p class="payment-instructions">
+          Escaneie o QR Code com seu banco ou app de pagamento PIX
+        </p>
+        <div class="payment-status">
+          <div class="loading-spinner"></div>
+          <p>Aguardando pagamento...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
