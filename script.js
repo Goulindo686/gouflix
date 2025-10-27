@@ -1,8 +1,54 @@
 // script.js - versão moderna estilo Netflix
-const TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
-const TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTJkNGMzMzUxMzcwZWI4NjNiNzljYzZkZGE3YmI4MSIsIm5iZiI6MTc2MTU0MTY5NC4zNTMsInN1YiI6IjY4ZmVmZTNlMTU2MThmMDM5OGRhMDIwMCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Raq9U3uybPj034WxjdiVEdbycZ0VBUQRokSgaN5rjlo';
-const TMDB_BASE = 'https://api.themoviedb.org/3';
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
+let TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTJkNGMzMzUxMzcwZWI4NjNiNzljYzZkZGE3YmI4MSIsIm5iZiI6MTc2MTU0MTY5NC4zNTMsInN1YiI6IjY4ZmVmZTNlMTU2MThmMDM5OGRhMDIwMCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Raq9U3uybPj034WxjdiVEdbycZ0VBUQRokSgaN5rjlo';
+let TMDB_BASE = 'https://api.themoviedb.org/3';
+let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+
+// Integração com Vercel/Supabase: obter env e iniciar cliente
+window.__ENV = {};
+window.supabaseClient = null;
+async function initEnvAndSupabase(){
+  try{
+    const res = await fetch('/api/env');
+    if(res.ok){
+      const env = await res.json();
+      window.__ENV = env || {};
+      TMDB_BASE = env.TMDB_BASE || TMDB_BASE;
+      TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
+      TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
+      const url = env.SUPABASE_URL;
+      const key = env.SUPABASE_ANON_KEY;
+      if(url && key && window.supabase){
+        window.supabaseClient = window.supabase.createClient(url, key);
+      }
+    }
+  }catch(_){/* ignore */}
+}
+
+async function supabaseGetState(){
+  const sb = window.supabaseClient;
+  if(!sb) return null;
+  try{
+    const { data, error } = await sb
+      .from('gouflix_state')
+      .select('data')
+      .eq('id', 'global')
+      .maybeSingle();
+    if(error) return null;
+    return (data && data.data) || { added: [], removed: [] };
+  }catch(_){ return null; }
+}
+
+async function supabaseSetState(next){
+  const sb = window.supabaseClient;
+  if(!sb) return false;
+  try{
+    const { error } = await sb
+      .from('gouflix_state')
+      .upsert({ id: 'global', data: next }, { onConflict: 'id' });
+    return !error;
+  }catch(_){ return false; }
+}
 
 // Usuário (demo): ID local para vincular assinatura
 const USER_ID = (()=>{
@@ -30,11 +76,21 @@ async function loadMovies(){
   // Buscar estado persistido no backend (sem fallback local)
   let added = [];
   let removed = [];
-  const stateRes = await fetch('/api/state');
-  if(stateRes.ok){
-    const state = await stateRes.json();
-    added = state.added || [];
-    removed = state.removed || [];
+  // Tenta via Supabase primeiro
+  const sbState = await supabaseGetState();
+  if(sbState){
+    added = sbState.added || [];
+    removed = sbState.removed || [];
+  } else {
+    // Fallback para backend local
+    try{
+      const stateRes = await fetch('/api/state');
+      if(stateRes.ok){
+        const state = await stateRes.json();
+        added = state.added || [];
+        removed = state.removed || [];
+      }
+    }catch(_){/* ignore */}
   }
   const all = [...movies];
   added.forEach(a=>{
@@ -232,24 +288,33 @@ function addFromTmdbData(data){
     description: data.description || '',
     category
   };
-  // Persistir no backend
+  // Persistir via Supabase (fallback para backend)
   (async ()=>{
-    try{
-      const res = await fetch('/api/state/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...item, key: getItemKey(item) })
-      });
-      if(!res.ok) throw new Error('Falha ao salvar no backend');
-      // Atualizar estado em memória e UI somente após salvar no servidor
-      window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).concat(item);
-      window.MOVIES = window.ALL_MOVIES;
-      setRoute(window.CURRENT_ROUTE||'home');
-      updateHeroSlides(window.ALL_MOVIES);
-      renderAdminList();
-    }catch(err){
-      alert('Falha ao salvar no servidor: ' + err.message);
+    const key = getItemKey(item);
+    const current = (await supabaseGetState()) || { added: [], removed: [] };
+    const savedSb = await supabaseSetState({
+      added: [...(current.added||[]), { ...item, key }],
+      removed: (current.removed||[]).filter(k=>k!==key)
+    });
+    if(!savedSb){
+      try{
+        const res = await fetch('/api/state/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...item, key })
+        });
+        if(!res.ok) throw new Error('Falha ao salvar no backend');
+      }catch(err){
+        alert('Falha ao salvar no servidor: ' + err.message);
+        return;
+      }
     }
+    // Atualizar estado em memória e UI
+    window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).concat(item);
+    window.MOVIES = window.ALL_MOVIES;
+    setRoute(window.CURRENT_ROUTE||'home');
+    updateHeroSlides(window.ALL_MOVIES);
+    renderAdminList();
   })();
 }
 
@@ -283,23 +348,31 @@ function renderAdminList(){
 
 function removeItemByKey(key){
   (async ()=>{
-    // Persistir remoção no backend
-    try{
-      const res = await fetch('/api/state/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key })
-      });
-      if(!res.ok) throw new Error('Falha ao remover no backend');
-      // Atualizar estado em memória e UI somente após remover no servidor
-      window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).filter(m => getItemKey(m) !== key);
-      window.MOVIES = window.ALL_MOVIES;
-      setRoute(window.CURRENT_ROUTE||'home');
-      renderAdminList();
-      updateHeroSlides(window.ALL_MOVIES);
-    }catch(err){
-      alert('Falha ao remover no servidor: ' + err.message);
+    // Tenta persistir via Supabase; fallback para backend
+    const current = (await supabaseGetState()) || { added: [], removed: [] };
+    const savedSb = await supabaseSetState({
+      added: (current.added||[]).filter(i => (i.key || getItemKey(i)) !== key),
+      removed: [...(current.removed||[]), key]
+    });
+    if(!savedSb){
+      try{
+        const res = await fetch('/api/state/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key })
+        });
+        if(!res.ok) throw new Error('Falha ao remover no backend');
+      }catch(err){
+        alert('Falha ao remover no servidor: ' + err.message);
+        return;
+      }
     }
+    // Atualizar estado em memória e UI
+    window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).filter(m => getItemKey(m) !== key);
+    window.MOVIES = window.ALL_MOVIES;
+    setRoute(window.CURRENT_ROUTE||'home');
+    renderAdminList();
+    updateHeroSlides(window.ALL_MOVIES);
   })();
 }
 
@@ -563,9 +636,11 @@ if(runBootstrapBtn){
   });
 }
 
-loadMovies();
-fetchSubscription().then(handlePaymentReturn);
-setInterval(fetchSubscription, 60000); // atualiza status da assinatura a cada 60s
+initEnvAndSupabase().then(()=>{
+  loadMovies();
+  fetchSubscription().then(handlePaymentReturn);
+  setInterval(fetchSubscription, 60000); // atualiza status da assinatura a cada 60s
+});
 
 // Funções do Modal de Pagamento
 function showPaymentModal(qrCodeBase64, checkoutUrl) {
