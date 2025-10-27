@@ -66,3 +66,8 @@ Importante: o `vercel.json` está configurado para não reescrever `/api/*` para
 ### Observações
 - O `data/state.json` permanece ignorado em `.gitignore`.
 - O TMDB é consumido com `TMDB_TOKEN`. Sem ele, funcionalidade de busca TMDB pode falhar.
+ 
+#### Limite de funções no Vercel (Hobby)
+- O plano Hobby da Vercel permite até 12 Serverless Functions por deploy. Referência: https://vercel.link/function-count-limit
+- Para respeitar esse limite, os endpoints de fallback de estado (`/api/state/add` e `/api/state/remove`) foram removidos do deploy. Em produção, as operações de adicionar/remover itens no Admin dependem do Supabase (`gouflix_state`).
+- Garanta que `SUPABASE_URL` e `SUPABASE_ANON_KEY` estejam configurados e que as políticas RLS permitam leitura e escrita para o cliente conforme necessário.
