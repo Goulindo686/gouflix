@@ -270,8 +270,8 @@ function updateUserArea(){
     area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
     const loginBtn = document.getElementById('loginBtn');
     if(loginBtn){ loginBtn.onclick = ()=>{
-      const ret = location.href;
-      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+      // Abrir modal de login em vez de redirecionar direto
+      showLoginModal();
     }; }
   }
 }
@@ -293,6 +293,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const ret = location.href;
     location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
   }; }
+  // Fechar modal de login pelo ESC
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){
+      closeLoginModal();
+    }
+  });
+  // Fechar modal de login clicando fora do conteúdo
+  const loginModal = document.getElementById('loginModal');
+  if(loginModal){
+    loginModal.addEventListener('click', (e)=>{
+      if(e.target === loginModal){
+        closeLoginModal();
+      }
+    });
+  }
 });
 
 function openModalFromTmdbData(data){
