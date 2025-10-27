@@ -17,8 +17,13 @@
       <a href="#" id="navPlans" class="nav-plan">Adquirir Plano</a>
       <a href="#" id="navAdmin">Admin</a>
     </nav>
-    <div class="search-box">
-      <input id="search" type="text" placeholder="Buscar..." />
+    <div class="navbar-right">
+      <div class="search-box">
+        <input id="search" type="text" placeholder="Buscar..." />
+      </div>
+      <div id="userArea" class="user-area">
+        <button id="loginBtn" class="btn secondary">Entrar com Discord</button>
+      </div>
     </div>
   </header>
 
@@ -209,5 +214,21 @@
   <!-- Supabase JS (UMD CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="script.js"></script>
+  
+  <!-- Modal de Login Discord -->
+  <div id="loginModal" class="login-modal hidden">
+    <div class="login-modal-content">
+      <div class="login-header">
+        <h3>Faça login para continuar</h3>
+        <button class="close-login" onclick="closeLoginModal()">&times;</button>
+      </div>
+      <div class="login-body">
+        <div class="login-intro">
+          <p>Para adquirir um plano ou assistir, entre com sua conta do Discord.</p>
+        </div>
+        <button id="discordLoginBtn" class="btn primary">Entrar com Discord</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

@@ -1,0 +1,29 @@
+function readCookie(req, name){
+  const cookie = req.headers.cookie || '';
+  const parts = cookie.split(';').map(s=>s.trim());
+  for(const p of parts){ if(p.startsWith(name+'=')) return decodeURIComponent(p.slice(name.length+1)); }
+  return null;
+}
+
+export default async function handler(req, res){
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  try{
+    const sid = readCookie(req, 'sid');
+    if(!sid){ return res.status(200).json({ ok:true, logged:false, user:null }); }
+    if(!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY){ return res.status(200).json({ ok:true, logged:true, user:{ id:'local', username:'Usuário', avatar:null } }); }
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sid)}&select=user_id,username,avatar,email,expires_at`, {
+      headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' }
+    });
+    if(!r.ok){ return res.status(200).json({ ok:true, logged:false, user:null }); }
+    const data = await r.json();
+    const row = Array.isArray(data) && data.length ? data[0] : null;
+    if(!row){ return res.status(200).json({ ok:true, logged:false, user:null }); }
+    const exp = row.expires_at ? (new Date(row.expires_at)).getTime() : Date.now();
+    if(exp < Date.now()){ return res.status(200).json({ ok:true, logged:false, user:null }); }
+    const user = { id: row.user_id, username: row.username, avatar: row.avatar || null, email: row.email || null };
+    return res.status(200).json({ ok:true, logged:true, user });
+  }catch(err){
+    return res.status(500).json({ ok:false, error: err?.message || 'Erro em /api/auth/me' });
+  }
+}

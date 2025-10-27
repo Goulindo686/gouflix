@@ -7,6 +7,7 @@ let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 // Integração com Vercel/Supabase: obter env e iniciar cliente
 window.__ENV = {};
 window.supabaseClient = null;
+let CURRENT_USER = null;
 async function initEnvAndSupabase(){
   try{
     const res = await fetch('/api/env');
@@ -50,7 +51,7 @@ async function supabaseSetState(next){
   }catch(_){ return false; }
 }
 
-// Usuário (demo): ID local para vincular assinatura
+// Usuário (demo): ID local para vincular assinatura (fallback)
 const USER_ID = (()=>{
   try{
     const saved = localStorage.getItem('USER_ID');
@@ -168,15 +169,21 @@ async function fetchSubscription(){
 }
 
 async function startCheckout(plan){
+  // Exigir login via Discord antes do pagamento
+  if(!CURRENT_USER){
+    showLoginModal();
+    return;
+  }
   try{
     const res = await fetch('/api/subscription/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: USER_ID, plan })
+      body: JSON.stringify({ userId: CURRENT_USER.id || USER_ID, plan })
     });
     const json = await res.json();
-    if(json.ok && json.qr_code_base64){
+    const qrBase64 = json.qr_code_base64 || json.qr || json.qrCode || null;
+    if(json.ok && qrBase64){
       // Exibir QR code no modal
-      showPaymentModal(json.qr_code_base64, null);
+      showPaymentModal(qrBase64, null);
       // Iniciar polling de status do pagamento
       if(json.paymentId){ startPaymentPolling(json.paymentId, plan); }
     } else {
@@ -195,7 +202,7 @@ async function handlePaymentReturn(){
       try{
         await fetch('/api/subscription/activate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: USER_ID, plan, status, paymentId })
+          body: JSON.stringify({ userId: (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID, plan, status, paymentId })
         });
         await fetchSubscription();
         history.replaceState({}, '', location.pathname); // limpa params
@@ -236,6 +243,57 @@ function openModal(id){
   const goBtn = document.getElementById('goPlansBtn');
   if(goBtn){ goBtn.addEventListener('click', ()=> setRoute('plans')); }
 }
+
+// --------- Login via Discord ---------
+async function fetchCurrentUser(){
+  try{
+    const res = await fetch('/api/auth/me');
+    if(!res.ok){ CURRENT_USER = null; updateUserArea(); return; }
+    const j = await res.json();
+    CURRENT_USER = (j.logged && j.user) ? j.user : null;
+    updateUserArea();
+  }catch(_){ CURRENT_USER = null; updateUserArea(); }
+}
+
+function updateUserArea(){
+  const area = document.getElementById('userArea');
+  if(!area) return;
+  if(CURRENT_USER){
+    area.innerHTML = `
+      <div class="user-avatar">${CURRENT_USER.avatar ? `<img src="https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
+      <span class="user-name">${CURRENT_USER.username}</span>
+      <button id="logoutBtn" class="btn secondary">Sair</button>
+    `;
+    const logoutBtn = document.getElementById('logoutBtn');
+    if(logoutBtn){ logoutBtn.onclick = async()=>{ try{ await fetch('/api/auth/logout'); CURRENT_USER = null; updateUserArea(); }catch(_){/* ignore */} } }
+  } else {
+    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
+    const loginBtn = document.getElementById('loginBtn');
+    if(loginBtn){ loginBtn.onclick = ()=>{
+      const ret = location.href;
+      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+    }; }
+  }
+}
+
+function showLoginModal(){
+  const m = document.getElementById('loginModal');
+  if(!m) return;
+  m.classList.remove('hidden');
+}
+function closeLoginModal(){
+  const m = document.getElementById('loginModal');
+  if(!m) return; m.classList.add('hidden');
+}
+
+// Botão do modal de login
+document.addEventListener('DOMContentLoaded', ()=>{
+  const discordLoginBtn = document.getElementById('discordLoginBtn');
+  if(discordLoginBtn){ discordLoginBtn.onclick = ()=>{
+    const ret = location.href;
+    location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+  }; }
+});
 
 function openModalFromTmdbData(data){
   const modal = document.getElementById('modal');
@@ -640,6 +698,7 @@ initEnvAndSupabase().then(()=>{
   loadMovies();
   fetchSubscription().then(handlePaymentReturn);
   setInterval(fetchSubscription, 60000); // atualiza status da assinatura a cada 60s
+  fetchCurrentUser();
 });
 
 // Funções do Modal de Pagamento
@@ -703,7 +762,7 @@ async function startPaymentPolling(paymentId, plan){
       if(j.ok && j.status === 'approved'){
         clearInterval(window.PAYMENT_POLL_TID); window.PAYMENT_POLL_TID = null;
         try{
-          await fetch('/api/subscription/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: USER_ID, plan, status:'approved', paymentId }) });
+          await fetch('/api/subscription/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID, plan, status:'approved', paymentId }) });
           await fetchSubscription();
           closePaymentModal();
           alert('Pagamento aprovado e plano ativado!');

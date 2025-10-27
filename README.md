@@ -24,6 +24,13 @@ Este projeto agora suporta hospedagem na Vercel e persistência de estado no Sup
 - `TMDB_BASE`: opcional (default `https://api.themoviedb.org/3`).
 - `TMDB_IMG`: opcional (default `https://image.tmdb.org/t/p/w500`).
 - `TMDB_TOKEN`: token Bearer do TMDB.
+ - `SUPABASE_SERVICE_ROLE_KEY`: chave de serviço do Supabase para APIs protegidas (server-side).
+ - `MP_ACCESS_TOKEN`: token de acesso do Mercado Pago.
+ - `PUBLIC_URL`: URL pública do site (ex.: `https://SEU_DOMINIO`).
+ - `MP_WEBHOOK_SECRET`: segredo do webhook (se usar validação).
+ - `DISCORD_CLIENT_ID`: <seu-client-id>.
+ - `DISCORD_CLIENT_SECRET`: <seu-client-secret>.
+ - `DISCORD_REDIRECT_URI`: `https://SEU_DOMINIO/api/auth/discord/callback` (recomendado).
 
 Uma função serverless (`/api/env`) expõe essas variáveis de forma segura ao frontend.
 
@@ -44,6 +51,17 @@ create table if not exists public.gouflix_state (
 1. Conecte seu repositório GitHub.
 2. Defina as variáveis acima em Project Settings → Environment Variables.
 3. Deploy. A função `/api/env` estará disponível e o frontend inicializa o Supabase automaticamente.
+
+### Login via Discord (OAuth)
+- No Discord Developer Portal (OAuth2 → Redirects), inclua: `https://SEU_DOMINIO/api/auth/discord/callback`.
+- Scopes: `identify` e `email`.
+- Rotas usadas no backend:
+  - `GET /api/auth/discord/start` (inicia OAuth)
+  - `GET /api/auth/discord/callback` (finaliza OAuth, cria cookie `sid`)
+  - `GET /api/auth/me` (dados do usuário logado)
+  - `POST /api/auth/logout` (encerra sessão)
+
+Importante: o `vercel.json` está configurado para não reescrever `/api/*` para `index.html`, garantindo o funcionamento das APIs.
 
 ### Observações
 - O `data/state.json` permanece ignorado em `.gitignore`.
