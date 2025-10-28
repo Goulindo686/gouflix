@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         ok: true,
         source: COOKIE_MP || COOKIE_PUBLIC ? 'cookie' : 'env',
         writable: true,
-        mpToken: (COOKIE_MP || ENV_MP_TOKEN) ? 'set' : null,
+        mpToken: COOKIE_MP || ENV_MP_TOKEN || null,
         publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
       });
     }
@@ -59,23 +59,23 @@ export default async function handler(req, res) {
       const url = `${base}?id=eq.${configId}&select=*`;
       const r = await fetch(url, { headers });
       if (!r.ok) {
-        // fallback para env
+        // fallback para env/cookie
         return res.status(200).json({
           ok: true,
-          source: 'env',
+          source: COOKIE_MP ? 'cookie' : 'env',
           writable: false,
-          mpToken: !!ENV_MP_TOKEN ? 'set' : null,
-          publicUrl: ENV_PUBLIC_URL || null,
+          mpToken: COOKIE_MP || ENV_MP_TOKEN || null,
+          publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         });
       }
       const data = await r.json();
       const row = Array.isArray(data) && data.length ? data[0] : null;
       return res.status(200).json({
         ok: true,
-        source: row ? 'db' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty'),
+        source: row ? 'db' : (COOKIE_MP ? 'cookie' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty')),
         writable: true,
-        mpToken: row?.mp_token ? 'set' : (!!ENV_MP_TOKEN ? 'set' : null),
-        publicUrl: row?.public_url || ENV_PUBLIC_URL || null,
+        mpToken: row?.mp_token || COOKIE_MP || ENV_MP_TOKEN || null,
+        publicUrl: row?.public_url || COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         bootstrapMoviesUrl: row?.bootstrap_movies_url || null,
         bootstrapAuto: !!row?.bootstrap_auto,
       });

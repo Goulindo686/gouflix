@@ -690,8 +690,8 @@ if(saveMpTokenBtn){
     if(res.ok){
       const cfg = await res.json();
       const inp = document.getElementById('mpToken');
-      // Não mostramos o token real por segurança; apenas indicamos se está definido
-      if(inp) inp.value = (cfg.mpToken === 'set') ? '[definido em ambiente]' : '';
+      // Exibir o valor real do token no Admin conforme solicitado
+      if(inp) inp.value = cfg.mpToken || '';
       const pub = document.getElementById('publicUrl');
       if(pub) pub.value = cfg.publicUrl || 'https://gouflix.discloud.app';
       const bm = document.getElementById('bootstrapMoviesUrl');

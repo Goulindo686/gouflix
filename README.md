@@ -47,6 +47,26 @@ create table if not exists public.gouflix_state (
 - O app usa o registro com `id = 'global'` para armazenar `{ added: [], removed: [] }`.
 - Caso o Supabase não esteja configurado, o app usa os endpoints locais (`/api/state/*`) como fallback.
 
+#### Configurações da Aplicação (app_config)
+Para salvar o Access Token do Mercado Pago e outras configurações via Admin, crie também a tabela `app_config`:
+
+```sql
+create table if not exists public.app_config (
+  id text primary key,
+  mp_token text,
+  public_url text,
+  bootstrap_movies_url text,
+  bootstrap_auto boolean default false,
+  updated_at timestamptz default now()
+);
+
+-- Registro padrão utilizado pela aplicação
+insert into public.app_config(id) values ('global')
+on conflict (id) do nothing;
+```
+
+Com essa tabela criada, o Admin consegue salvar e visualizar o `mp_token` diretamente do Supabase.
+
 ### Passos de deploy na Vercel
 1. Conecte seu repositório GitHub.
 2. Defina as variáveis acima em Project Settings → Environment Variables.
