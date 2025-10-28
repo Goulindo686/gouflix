@@ -182,36 +182,10 @@ function fetchJsonUrl(u) {
   });
 }
 
-// ---- KeyAuth: validar licença via Seller API ----
-async function keyauthLicenseInfo(sellerKey, licenseKey) {
-  const base = 'https://keyauth.win/api/seller/';
-  const url = `${base}?sellerkey=${encodeURIComponent(sellerKey)}&type=licenseinfo&key=${encodeURIComponent(licenseKey)}&format=json`;
-  try {
-    return await fetchJsonUrl(url);
-  } catch (err) {
-    return { success: false, message: String(err) };
-  }
-}
-
-// ---- KeyAuth Client API (ownerid/appname/secret/version) ----
-let __keyauthInitCache = { ok: false };
-async function keyauthClientInit(appName, ownerId, version, secret) {
+// ---- KeyAuth Client API (ownerid/appname/version) ----
+async function keyauthClientLicense(appName, ownerId, version, licenseKey, hwid) {
   const base = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
-  const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&secret=${encodeURIComponent(secret)}&type=init&format=json`;
-  try {
-    const j = await fetchJsonUrl(url);
-    if (j && j.success) { __keyauthInitCache = { ok: true }; }
-    else { __keyauthInitCache = { ok: false, message: j && j.message }; }
-    return j;
-  } catch (err) {
-    __keyauthInitCache = { ok: false, message: String(err) };
-    return { success: false, message: String(err) };
-  }
-}
-
-async function keyauthClientLicense(appName, ownerId, version, secret, licenseKey, hwid) {
-  const base = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
-  const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&secret=${encodeURIComponent(secret)}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
+  const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
   try {
     return await fetchJsonUrl(url);
   } catch (err) {
@@ -271,25 +245,15 @@ const server = http.createServer(async (req, res) => {
         }
         const appName = process.env.KEYAUTH_APP_NAME || '';
         const ownerId = process.env.KEYAUTH_OWNER_ID || '';
-        const appSecret = process.env.KEYAUTH_APP_SECRET || '';
         const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
-        const sellerKey = process.env.KEYAUTH_SELLER_KEY || '';
+        const ignoreHwid = String(process.env.KEYAUTH_IGNORE_HWID || '').toLowerCase() === 'true';
         try {
           let timeleft = null; // null quando não houver campo
           let serverHwid = null;
           let status = 'active';
           let banned = false;
-
-          if (appName && ownerId && appSecret) {
-            if (!__keyauthInitCache.ok) {
-              const init = await keyauthClientInit(appName, ownerId, appVersion, appSecret);
-              if (!init || init.success === false) {
-                res.statusCode = 500;
-                res.end(JSON.stringify({ ok: false, error: 'Falha ao inicializar KeyAuth (client)', details: (init && init.message) || 'init error' }));
-                return;
-              }
-            }
-            const login = await keyauthClientLicense(appName, ownerId, appVersion, appSecret, licenseKey, hwid);
+          if (appName && ownerId) {
+            const login = await keyauthClientLicense(appName, ownerId, appVersion, licenseKey, hwid);
             if (!login || login.success === false) {
               res.statusCode = 403;
               res.end(JSON.stringify({ ok: false, error: (login && login.message) || 'licença inválida' }));
@@ -302,23 +266,9 @@ const server = http.createServer(async (req, res) => {
             serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
             status = String((data && (data.status || data.state)) || 'active').toLowerCase();
             banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
-          } else if (sellerKey) {
-            const info = await keyauthLicenseInfo(sellerKey, licenseKey);
-            if (!info || info.success === false) {
-              res.statusCode = 403;
-              res.end(JSON.stringify({ ok: false, error: info && info.message ? info.message : 'licença inválida' }));
-              return;
-            }
-            // Estrutura defensiva: tentar diferentes campos comuns
-            const data = info.data || info.license || info.info || info;
-            const tl = data && (data.timeleft ?? data.time_left ?? data.timeLeft);
-            timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
-            serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
-            status = String((data && (data.status || data.state)) || '').toLowerCase();
-            banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
           } else {
             res.statusCode = 500;
-            res.end(JSON.stringify({ ok: false, error: 'Credenciais KeyAuth não configuradas (client ou seller)' }));
+            res.end(JSON.stringify({ ok: false, error: 'Credenciais KeyAuth não configuradas (name/ownerid)' }));
             return;
           }
 
@@ -350,7 +300,7 @@ const server = http.createServer(async (req, res) => {
             return;
           }
           // Se o KeyAuth já possui HWID e é diferente, bloquear
-          if (serverHwid && serverHwid !== hwid) {
+          if (serverHwid && serverHwid !== hwid && !ignoreHwid) {
             res.statusCode = 403;
             res.end(JSON.stringify({ ok: false, error: 'HWID não corresponde ao dispositivo vinculado' }));
             return;
