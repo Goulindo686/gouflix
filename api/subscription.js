@@ -110,7 +110,8 @@ export default async function handler(req, res) {
           transaction_amount: amount,
           description: `Assinatura ${plan}`,
           payment_method_id: 'pix',
-          payer: { email: `${userId}@gouflix.local`, identification: { type: 'CPF', number: '19100000000' } },
+          // Mercado Pago exige email válido; usar domínio example.com para testes
+          payer: { email: `${userId}@example.com`, identification: { type: 'CPF', number: '19100000000' } },
           ...(notificationUrl ? { notification_url: notificationUrl } : {}),
         };
 
