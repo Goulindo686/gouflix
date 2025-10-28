@@ -83,7 +83,8 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
           'Prefer': 'resolution=merge-duplicates',
         };
-        const row = { id: String(paymentId), user_id: userId, plan, amount, status: 'approved', created_at: new Date().toISOString() };
+        // Não enviar 'amount' para evitar erro quando a coluna não existir no schema
+        const row = { id: String(paymentId), user_id: userId, plan, status: 'approved', created_at: new Date().toISOString() };
         await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(row) });
         // Persistir/atualizar assinatura com expiração
         const startAt = new Date();
@@ -182,7 +183,8 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
             'Prefer': 'resolution=merge-duplicates',
           };
-          const purchaseRow = { id: String(paymentId), user_id: userId, plan, amount, status: payment?.status || 'pending', created_at: new Date().toISOString() };
+          // Não enviar 'amount' para evitar incompatibilidade com schema
+          const purchaseRow = { id: String(paymentId), user_id: userId, plan, status: payment?.status || 'pending', created_at: new Date().toISOString() };
           const saveResp = await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(purchaseRow) });
           if (!saveResp.ok) {
             const text = await saveResp.text();

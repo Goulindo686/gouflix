@@ -14,7 +14,8 @@ export default async function handler(req, res) {
     const status = req.query?.status; // ex: approved, pending, rejected
     const limit = Math.min(parseInt(req.query?.limit || '100', 10), 500);
     const url = new URL(`${SUPABASE_URL}/rest/v1/purchases`);
-    url.searchParams.set('select', 'id,user_id,plan,amount,status,created_at');
+    // Seleciona tudo para evitar erro quando a coluna 'amount' não existe no schema
+    url.searchParams.set('select', '*');
     url.searchParams.set('order', 'created_at.desc');
     url.searchParams.set('limit', String(limit));
     if (status) url.searchParams.set('status', `eq.${status}`);
@@ -31,7 +32,15 @@ export default async function handler(req, res) {
       return res.status(r.status || 500).json({ ok: false, error: 'Falha ao listar compras', details: text });
     }
     const rows = await r.json();
-    return res.status(200).json({ ok: true, purchases: rows });
+    // Normaliza campo amount para UI do Admin (usa amount, price, ou price_cents/100)
+    const normalized = (Array.isArray(rows) ? rows : []).map((p) => {
+      const amount =
+        (p.amount != null ? Number(p.amount) : null) ??
+        (p.price != null ? Number(p.price) : null) ??
+        (p.price_cents != null ? Number(p.price_cents) / 100 : null);
+      return { ...p, amount: amount != null ? amount : null };
+    });
+    return res.status(200).json({ ok: true, purchases: normalized });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err?.message || 'Erro interno em /api/purchases' });
   }
