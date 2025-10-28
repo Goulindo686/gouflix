@@ -14,9 +14,7 @@ export default async function handler(req, res) {
 
     const appName = process.env.KEYAUTH_APP_NAME || '';
     const ownerId = process.env.KEYAUTH_OWNER_ID || '';
-    const appSecret = process.env.KEYAUTH_APP_SECRET || '';
     const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
-    const sellerKey = process.env.KEYAUTH_SELLER_KEY || '';
     const baseClient = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
     const ignoreHwid = String(process.env.KEYAUTH_IGNORE_HWID || '').toLowerCase() === 'true';
 
@@ -24,51 +22,22 @@ export default async function handler(req, res) {
     let serverHwid = null;
     let status = 'active';
     let banned = false;
-    let clientValidated = false;
-
-    // Primeiro: tentar Client API se credenciais estão presentes
-    if (appName && ownerId && appSecret) {
-      const initUrl = `${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&secret=${encodeURIComponent(appSecret)}&type=init&format=json`;
-      const init = await fetchJson(initUrl);
-      if (!init?.success) {
-        // Falha no init; se houver sellerKey, tentar fallback
-        if (!sellerKey) {
-          return res.status(500).json({ ok: false, error: 'Falha ao inicializar KeyAuth (client)', reason: 'client_init_failed', details: init?.message || 'init error' });
-        }
-      } else {
-        const loginUrl = `${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&secret=${encodeURIComponent(appSecret)}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
-        const login = await fetchJson(loginUrl);
-        if (login?.success) {
-          const data = login.data || login.info || login;
-          const tl = (data?.timeleft ?? data?.time_left ?? data?.timeLeft);
-          timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
-          serverHwid = data?.hwid || data?.device || data?.bound_hwid || null;
-          status = String(data?.status || data?.state || 'active').toLowerCase();
-          banned = String(data?.banned || data?.is_banned || '').toLowerCase() === 'true';
-          clientValidated = true;
-        } else if (!sellerKey) {
-          return res.status(403).json({ ok: false, error: login?.message || 'licença inválida', reason: 'client_license_failed' });
-        }
-      }
-    }
-
-    // Fallback Seller API (sem HWID) caso client falhe ou não esteja configurado
-    // Fallback Seller API somente se Client API não validou ou não há credenciais
-    if ((!appName || !ownerId || !appSecret) || (!clientValidated && sellerKey)) {
-      if (sellerKey) {
-        const sellerBase = 'https://keyauth.win/api/seller/';
-        const infoUrl = `${sellerBase}?sellerkey=${encodeURIComponent(sellerKey)}&type=licenseinfo&key=${encodeURIComponent(licenseKey)}&format=json`;
-        const info = await fetchJson(infoUrl);
-        if (!info?.success) {
-          return res.status(403).json({ ok: false, error: info?.message || 'licença inválida', reason: 'seller_license_failed' });
-        }
-        const data = info.data || info.license || info.info || info;
+    // Tentar diretamente a Client API sem secret, conforme solicitação
+    if (appName && ownerId) {
+      const loginUrl = `${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
+      const login = await fetchJson(loginUrl);
+      if (login?.success) {
+        const data = login.data || login.info || login;
         const tl = (data?.timeleft ?? data?.time_left ?? data?.timeLeft);
         timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
         serverHwid = data?.hwid || data?.device || data?.bound_hwid || null;
         status = String(data?.status || data?.state || 'active').toLowerCase();
         banned = String(data?.banned || data?.is_banned || '').toLowerCase() === 'true';
+      } else {
+        return res.status(403).json({ ok: false, error: login?.message || 'licença inválida', reason: 'client_license_failed' });
       }
+    } else {
+      return res.status(500).json({ ok: false, error: 'Credenciais do KeyAuth ausentes (name/ownerid)', reason: 'client_missing_credentials' });
     }
 
     // Checagens finais
@@ -81,7 +50,7 @@ export default async function handler(req, res) {
     // Importante: em Vercel não persistimos HWID localmente.
     // Se a Client API retornar um HWID diferente, podemos ainda aceitar se o Seller API indicou tempo restante.
     // Isso evita bloqueio indevido quando a licença foi vinculada via outro app.
-    if (serverHwid && serverHwid !== hwid && appName && ownerId && appSecret && !sellerKey && !ignoreHwid) {
+    if (serverHwid && serverHwid !== hwid && appName && ownerId && !ignoreHwid) {
       return res.status(403).json({ ok: false, error: 'HWID não corresponde ao dispositivo vinculado', reason: 'hwid_mismatch' });
     }
 

@@ -42,35 +42,21 @@ export default async function handler(req, res){
     const license = Array.isArray(rows) && rows.length ? rows[0] : null;
     if(!license){ return res.status(200).json({ ok:true, license:null }); }
 
-    // Revalidar status rapidamente via Seller API quando possível
+    // Revalidar status rapidamente via Client API (sem secret), conforme solicitado
     let active = false; let timeleft = license.timeleft ?? null; let status = license.status || 'active';
-    const sellerKey = process.env.KEYAUTH_SELLER_KEY || '';
     const baseClient = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
     const appName = process.env.KEYAUTH_APP_NAME || '';
     const ownerId = process.env.KEYAUTH_OWNER_ID || '';
-    const appSecret = process.env.KEYAUTH_APP_SECRET || '';
     const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
     try{
-      if(sellerKey){
-        const info = await fetchJson(`https://keyauth.win/api/seller/?sellerkey=${encodeURIComponent(sellerKey)}&type=licenseinfo&key=${encodeURIComponent(license.license_key)}&format=json`);
-        if(info?.success){
-          const data = info.data || info.license || info.info || info;
+      if(appName && ownerId){
+        const login = await fetchJson(`${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&type=license&key=${encodeURIComponent(license.license_key)}&hwid=${encodeURIComponent(license.hwid||'')}&format=json`);
+        if(login?.success){
+          const data = login.data || login.info || login;
           const tl = (data?.timeleft ?? data?.time_left ?? data?.timeLeft);
           timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
           status = String(data?.status || data?.state || 'active').toLowerCase();
           active = (status === 'active') && (typeof timeleft !== 'number' || timeleft > 0);
-        }
-      } else if(appName && ownerId && appSecret){
-        const init = await fetchJson(`${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&secret=${encodeURIComponent(appSecret)}&type=init&format=json`);
-        if(init?.success){
-          const login = await fetchJson(`${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&secret=${encodeURIComponent(appSecret)}&type=license&key=${encodeURIComponent(license.license_key)}&hwid=${encodeURIComponent(license.hwid||'')}&format=json`);
-          if(login?.success){
-            const data = login.data || login.info || login;
-            const tl = (data?.timeleft ?? data?.time_left ?? data?.timeLeft);
-            timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
-            status = String(data?.status || data?.state || 'active').toLowerCase();
-            active = (status === 'active') && (typeof timeleft !== 'number' || timeleft > 0);
-          }
         }
       }
     }catch{}
