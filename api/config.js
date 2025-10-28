@@ -59,11 +59,11 @@ export default async function handler(req, res) {
       const url = `${base}?id=eq.${configId}&select=*`;
       const r = await fetch(url, { headers });
       if (!r.ok) {
-        // fallback para env/cookie
+        // fallback para env/cookie, mas manter writable=true para permitir salvar em cookies
         return res.status(200).json({
           ok: true,
-          source: COOKIE_MP ? 'cookie' : 'env',
-          writable: false,
+          source: COOKIE_MP || COOKIE_PUBLIC ? 'cookie' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty'),
+          writable: true,
           mpToken: COOKIE_MP || ENV_MP_TOKEN || null,
           publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         });
@@ -99,8 +99,24 @@ export default async function handler(req, res) {
         body: JSON.stringify(payload),
       });
       if (!r.ok) {
-        const text = await r.text();
-        return res.status(r.status || 500).json({ ok: false, error: 'Falha ao salvar configuração', details: text });
+        // Fallback: salvar em cookies quando DB não estiver acessível
+        const cookieBase = `Path=/; HttpOnly; SameSite=Lax; Secure`;
+        const mp = body?.mpToken || '';
+        const pub = body?.publicUrl || '';
+        const bm = body?.bootstrapMoviesUrl || '';
+        const ba = !!body?.bootstrapAuto;
+        if (mp) res.setHeader('Set-Cookie', [
+          `mp_token=${encodeURIComponent(mp)}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+          `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+          `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+          `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        ]);
+        else res.setHeader('Set-Cookie', [
+          `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+          `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+          `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        ]);
+        return res.status(200).json({ ok: true, source: 'cookie' });
       }
       const saved = await r.json();
       return res.status(200).json({ ok: true, saved });

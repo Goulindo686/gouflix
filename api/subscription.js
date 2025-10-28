@@ -138,7 +138,7 @@ export default async function handler(req, res) {
         const amount = PLAN_PRICES[plan];
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
         if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido' });
-        const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token']);
+        const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token'], process.env.SUPABASE_ANON_KEY);
         if (!mpToken) return res.status(400).json({ ok: false, error: 'MP_ACCESS_TOKEN não configurado. Defina em variáveis de ambiente ou salve via /api/config.' });
 
         const PUBLIC_FALLBACK = COOKIES['public_url'] || PUBLIC_URL;
@@ -206,20 +206,33 @@ async function readBody(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return {}; }
 }
 
-async function getMpToken(supabaseUrl, serviceKey, envToken) {
+async function getMpToken(supabaseUrl, serviceKey, envToken, anonKey) {
   if (envToken) return envToken;
-  if (!supabaseUrl || !serviceKey) return null;
-  try {
-    const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
-      headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' },
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    const row = Array.isArray(data) && data.length ? data[0] : null;
-    return row?.mp_token || null;
-  } catch {
-    return null;
+  if (supabaseUrl && serviceKey) {
+    try {
+      const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
+        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' },
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const row = Array.isArray(data) && data.length ? data[0] : null;
+        if (row?.mp_token) return row.mp_token;
+      }
+    } catch {}
   }
+  if (supabaseUrl && anonKey) {
+    try {
+      const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
+        headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Accept': 'application/json' },
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const row = Array.isArray(data) && data.length ? data[0] : null;
+        if (row?.mp_token) return row.mp_token;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 function parseCookies(str){

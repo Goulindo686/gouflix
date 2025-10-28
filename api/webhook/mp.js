@@ -6,6 +6,7 @@ export default async function handler(req, res) {
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY; // fallback para leitura pública
   const ENV_MP_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN;
   const WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || null;
 
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, received: true, message: 'Webhook recebido sem payment id', body });
     }
 
-    const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN);
+    const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN, SUPABASE_ANON_KEY);
     if (!mpToken) {
       // Sem token, apenas reconhece recebimento para evitar reenvios infinitos
       return res.status(200).json({ ok: true, received: true, message: 'MP token ausente; não foi possível consultar status.' });
@@ -110,28 +111,52 @@ export default async function handler(req, res) {
   }
 }
 
-async function getMpToken(supabaseUrl, serviceKey, envToken) {
+async function getMpToken(supabaseUrl, serviceKey, envToken, anonKey) {
   if (envToken) return envToken;
-  if (!supabaseUrl || !serviceKey) return null;
-  try {
-    const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
-      headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' },
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    const row = Array.isArray(data) && data.length ? data[0] : null;
-    return row?.mp_token || null;
-  } catch {
-    return null;
+  // Primeiro tenta com Service Role
+  if (supabaseUrl && serviceKey) {
+    try {
+      const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
+        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' },
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const row = Array.isArray(data) && data.length ? data[0] : null;
+        if (row?.mp_token) return row.mp_token;
+      }
+    } catch {}
   }
+  // Fallback com ANON KEY (caso a tabela seja legível publicamente)
+  if (supabaseUrl && anonKey) {
+    try {
+      const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
+        headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Accept': 'application/json' },
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const row = Array.isArray(data) && data.length ? data[0] : null;
+        if (row?.mp_token) return row.mp_token;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 async function readBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
+  const raw = Buffer.concat(chunks).toString('utf8');
+  // Tenta JSON primeiro
+  try { return JSON.parse(raw); } catch {}
+  // Tenta URL-encoded (alguns provedores enviam assim)
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } catch {
-    return {};
-  }
+    const params = new URLSearchParams(raw);
+    const obj = {};
+    for (const [k, v] of params.entries()) obj[k] = v;
+    // Normaliza estruturas comuns (data.id)
+    if (obj['data.id'] && !obj.data) obj.data = { id: obj['data.id'] };
+    if (obj['id'] && !obj.data) obj.id = obj['id'];
+    return obj;
+  } catch {}
+  return {};
 }
