@@ -203,13 +203,12 @@ async function handlePaymentReturn(){
   const status = qs.get('status') || qs.get('collection_status');
   const plan = qs.get('plan');
   const paymentId = qs.get('payment_id') || null;
-  if(status && plan){
+  if(status){
     if(status === 'approved'){
       try{
-        await fetch('/api/subscription/activate', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID, plan, status, paymentId })
-        });
+        const payload = { userId: (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID, status, paymentId };
+        if (plan) payload.plan = plan;
+        await fetch('/api/subscription/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         await fetchSubscription();
         history.replaceState({}, '', location.pathname); // limpa params
         alert('Plano ativado com sucesso!');

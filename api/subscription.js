@@ -96,13 +96,41 @@ export default async function handler(req, res) {
       const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || null;
       if (action === 'activate') {
         const userId = body?.userId;
-        const plan = body?.plan || 'mensal';
+        let plan = body?.plan || null;
         const paymentId = body?.paymentId || String(Date.now());
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
         if (!SUPABASE_READY) {
           // Sem Supabase, apenas confirma ativação (cliente tratará como ativo)
           return res.status(200).json({ ok: true, activated: true, paymentId });
         }
+        // Se plano não foi informado, tentar deduzir das compras
+        if (!plan) {
+          try {
+            // Tenta pela compra específica
+            if (paymentId) {
+              const rp = await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(String(paymentId))}&select=plan`, {
+                headers: { 'apikey': SUPABASE_WRITE_KEY, 'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`, 'Accept': 'application/json' },
+              });
+              if (rp.ok) {
+                const rows = await rp.json();
+                const p = Array.isArray(rows) && rows.length ? rows[0] : null;
+                if (p?.plan) plan = String(p.plan);
+              }
+            }
+            // Fallback: última compra aprovada do usuário
+            if (!plan) {
+              const ru = await fetch(`${SUPABASE_URL}/rest/v1/purchases?user_id=eq.${encodeURIComponent(userId)}&status=eq.approved&select=plan,created_at&order=created_at.desc`, {
+                headers: { 'apikey': SUPABASE_WRITE_KEY, 'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`, 'Accept': 'application/json' },
+              });
+              if (ru.ok) {
+                const rows = await ru.json();
+                const last = Array.isArray(rows) && rows.length ? rows[0] : null;
+                if (last?.plan) plan = String(last.plan);
+              }
+            }
+          } catch {}
+        }
+        if (!plan) plan = 'mensal';
         // Persiste compra aprovada
         const upsertUrl = `${SUPABASE_URL}/rest/v1/purchases?on_conflict=id`;
         const headers = {
