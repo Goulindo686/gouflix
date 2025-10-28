@@ -170,11 +170,15 @@ function clearSections(){
 
 function renderHomeSections(base){
   clearSections();
-  // Home exibe somente Filmes e Séries
-  const filmes = base.filter(m=> (m.type||'filme') === 'filme').slice(0, 18);
-  const series = base.filter(m=> (m.type||'filme') === 'serie').slice(0, 18);
+  // Home exibe fileiras controladas por "row": Filmes, Séries e 2 coleções
+  const filmes = base.filter(m=> (m.row ? m.row==='filmes' : (m.type||'filme')==='filme')).slice(0, 18);
+  const series = base.filter(m=> (m.row ? m.row==='series' : (m.type||'filme')==='serie')).slice(0, 18);
+  const colecao1 = base.filter(m=> m.row==='colecao-1').slice(0, 18);
+  const colecao2 = base.filter(m=> m.row==='colecao-2').slice(0, 18);
   if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes');
   if(series.length) createRowSection('Séries', series, 'rowSeries');
+  if(colecao1.length) createRowSection('Coleção 1', colecao1, 'rowColecao1');
+  if(colecao2.length) createRowSection('Coleção 2', colecao2, 'rowColecao2');
 }
 
 function renderSingleSection(title, items){
@@ -319,6 +323,8 @@ function addFromTmdbData(data){
   const id = `tmdb-${data.type}-${data.tmdbId}`;
   const categorySel = document.getElementById('adminCategory');
   const category = categorySel ? categorySel.value : 'popular';
+  const rowSel = document.getElementById('adminRow');
+  const row = rowSel ? rowSel.value : (data.type === 'serie' ? 'series' : 'filmes');
   const exists = (window.MOVIES||[]).some(m=> (m.tmdbId===data.tmdbId && (m.type||'filme')===data.type));
   if(exists){ return; }
   const item = {
@@ -331,7 +337,8 @@ function addFromTmdbData(data){
     poster: data.poster,
     trailer: '',
     description: data.description || '',
-    category
+    category,
+    row
   };
   // Persistir via Supabase (fallback para backend)
   (async ()=>{
@@ -378,7 +385,7 @@ function renderAdminList(){
     const key = getItemKey(m);
     div.innerHTML = `
       <h4>${m.title}</h4>
-      <div class="meta">${(m.type||'filme').toUpperCase()} • ${m.year||''}</div>
+      <div class="meta">${(m.type||'filme').toUpperCase()} • ${m.year||''} • Fileira: ${(m.row || (m.type==='serie'?'series':'filmes'))}</div>
       <button class="btn remove" data-key="${key}">Remover</button>
     `;
     container.appendChild(div);
