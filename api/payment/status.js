@@ -77,10 +77,21 @@ export default async function handler(req, res) {
               const plan = String(p.plan);
               const startAt = new Date();
               let endAt;
-              if (plan === 'test2min') endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
-              else {
-                const map = { mensal: 30, trimestral: 90, anual: 365 };
-                const days = map[plan] ?? 30;
+              if (plan === 'test2min') {
+                endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
+              } else {
+                // Tenta buscar duração do plano no Supabase (compatível com 'days' ou 'duration_days')
+                let days = 30;
+                try {
+                  const planUrl = `${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=days,duration_days`;
+                  const pr = await fetch(planUrl, { headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' } });
+                  if (pr.ok) {
+                    const arr = await pr.json();
+                    const row = Array.isArray(arr) && arr.length ? arr[0] : null;
+                    const d = (row?.days ?? row?.duration_days);
+                    if (typeof d === 'number' && d > 0) days = d;
+                  }
+                } catch {}
                 endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
               }
               await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
