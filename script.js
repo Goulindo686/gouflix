@@ -511,7 +511,7 @@ function showSection(section){
 }
 
 function updateActiveNav(route){
-  const ids = ['navHome','navPopulares','navFilmes','navSeries','navLista','navPlans','navAdmin'];
+  const ids = ['navHome','navFilmes','navSeries','navLista','navPlans','navAdmin'];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -519,7 +519,6 @@ function updateActiveNav(route){
   });
   const map = {
     home: 'navHome',
-    populares: 'navPopulares',
     filmes: 'navFilmes',
     series: 'navSeries',
     'minha-lista': 'navLista',
@@ -536,7 +535,6 @@ function getRouteList(route){
   if(route === 'filmes') return base.filter(m=> (m.type||'filme') === 'filme');
   if(route === 'series') return base.filter(m=> (m.type||'filme') === 'serie');
   if(route === 'minha-lista') return base.filter(m=> (m.category||'') === 'minha-lista');
-  if(route === 'populares') return base.filter(m=> (m.category||'') === 'popular');
   // Home: retorna base completa; renderização decide as fileiras (Filmes e Séries)
   return base;
 }
@@ -716,8 +714,7 @@ const navAdmin = document.getElementById('navAdmin');
 if(navAdmin){ navAdmin.addEventListener('click', ()=> setRoute('admin')); }
 const navHome = document.getElementById('navHome');
 if(navHome){ navHome.addEventListener('click', ()=> setRoute('home')); }
-const navPopulares = document.getElementById('navPopulares');
-if(navPopulares){ navPopulares.addEventListener('click', ()=> setRoute('populares')); }
+// Removido: Populares
 const navFilmes = document.getElementById('navFilmes');
 if(navFilmes){ navFilmes.addEventListener('click', ()=> setRoute('filmes')); }
 const navSeries = document.getElementById('navSeries');
