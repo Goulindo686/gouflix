@@ -267,12 +267,13 @@ function openModal(id){
         const key = (input && input.value || '').trim();
         if (!key) { statusEl.textContent = 'Informe a key.'; return; }
         statusEl.textContent = 'Validando key...';
-        const ok = await validateKeyAuth(key);
-        if (ok) {
+        const r = await validateKeyAuth(key);
+        if (r.ok) {
           sessionStorage.setItem('KEYAUTH_KEY', key);
           openModal(id);
         } else {
-          statusEl.textContent = 'Key inválida, expirada ou vinculada a outro dispositivo.';
+          const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
+          statusEl.textContent = String(msg);
         }
       });
     }
@@ -373,12 +374,13 @@ function openModalFromTmdbData(data){
         const key = (input && input.value || '').trim();
         if (!key) { statusEl.textContent = 'Informe a key.'; return; }
         statusEl.textContent = 'Validando key...';
-        const ok = await validateKeyAuth(key);
-        if (ok) {
+        const r = await validateKeyAuth(key);
+        if (r.ok) {
           sessionStorage.setItem('KEYAUTH_KEY', key);
           openModalFromTmdbData(data);
         } else {
-          statusEl.textContent = 'Key inválida, expirada ou vinculada a outro dispositivo.';
+          const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
+          statusEl.textContent = String(msg);
         }
       });
     }
@@ -515,8 +517,8 @@ async function validateKeyAuth(key){
       body: JSON.stringify({ licenseKey: key, hwid })
     });
     const j = await res.json();
-    return !!(j && j.ok);
-  }catch(_){ return false; }
+    return { ok: !!(j && j.ok), reason: j && j.reason, error: j && j.error, timeleft: j && j.timeleft };
+  }catch(err){ return { ok: false, reason: 'network_error', error: String(err) }; }
 }
 
 function startKeyAuthRevalidationLoop(){
@@ -524,11 +526,11 @@ function startKeyAuthRevalidationLoop(){
   if(!key) return;
   if(window.__keyauthIntervalId){ clearInterval(window.__keyauthIntervalId); }
   const poll = async ()=>{
-    const ok = await validateKeyAuth(key);
-    if(!ok){
+    const r = await validateKeyAuth(key);
+    if(!r.ok){
       sessionStorage.removeItem('KEYAUTH_KEY');
       stopKeyAuthRevalidationLoop();
-      alert('Acesso revogado: key inválida/expirada/desativada.');
+      alert('Acesso revogado: ' + (r.error || r.reason || 'key inválida/expirada/desativada.'));
       const body = document.getElementById('modalBody');
       if(body){
         body.querySelector('#superflixPlayer')?.remove();
@@ -552,9 +554,9 @@ function startKeyAuthRevalidationLoop(){
             const k = (input && input.value || '').trim();
             if(!k){ statusEl.textContent = 'Informe a key.'; return; }
             statusEl.textContent = 'Validando key...';
-            const ok2 = await validateKeyAuth(k);
-            if(ok2){ sessionStorage.setItem('KEYAUTH_KEY', k); location.reload(); }
-            else { statusEl.textContent = 'Key inválida, expirada ou vinculada a outro dispositivo.'; }
+            const r2 = await validateKeyAuth(k);
+            if(r2.ok){ sessionStorage.setItem('KEYAUTH_KEY', k); location.reload(); }
+            else { statusEl.textContent = String(r2.error || r2.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.'); }
           });
         }
       }
