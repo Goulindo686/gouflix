@@ -160,6 +160,43 @@ function fetchJsonUrl(u) {
   });
 }
 
+// ---- KeyAuth: validar licença via Seller API ----
+async function keyauthLicenseInfo(sellerKey, licenseKey) {
+  const base = 'https://keyauth.win/api/seller/';
+  const url = `${base}?sellerkey=${encodeURIComponent(sellerKey)}&type=licenseinfo&key=${encodeURIComponent(licenseKey)}&format=json`;
+  try {
+    return await fetchJsonUrl(url);
+  } catch (err) {
+    return { success: false, message: String(err) };
+  }
+}
+
+// ---- KeyAuth Client API (ownerid/appname/secret/version) ----
+let __keyauthInitCache = { ok: false };
+async function keyauthClientInit(appName, ownerId, version, secret) {
+  const base = 'https://keyauth.win/api/1.0/';
+  const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&secret=${encodeURIComponent(secret)}&type=init&format=json`;
+  try {
+    const j = await fetchJsonUrl(url);
+    if (j && j.success) { __keyauthInitCache = { ok: true }; }
+    else { __keyauthInitCache = { ok: false, message: j && j.message }; }
+    return j;
+  } catch (err) {
+    __keyauthInitCache = { ok: false, message: String(err) };
+    return { success: false, message: String(err) };
+  }
+}
+
+async function keyauthClientLicense(appName, ownerId, version, secret, licenseKey, hwid) {
+  const base = 'https://keyauth.win/api/1.0/';
+  const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&secret=${encodeURIComponent(secret)}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
+  try {
+    return await fetchJsonUrl(url);
+  } catch (err) {
+    return { success: false, message: String(err) };
+  }
+}
+
 // ---- Bootstrap automático ao iniciar ----
 async function bootstrapFromConfig(force = false) {
   try {
@@ -199,6 +236,117 @@ const server = http.createServer(async (req, res) => {
     if (urlPath.startsWith('/api/')) {
       res.setHeader('Content-Type', 'application/json');
       const params = new URLSearchParams(queryStr || '');
+      // ----- KEYAUTH VALIDATE LICENSE -----
+      if (urlPath === '/api/keyauth/validate' && req.method === 'POST') {
+        const body = await parseBody(req);
+        const licenseKey = (body && body.key) || '';
+        const hwid = (body && body.hwid) || '';
+        if (!licenseKey || !hwid) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ ok: false, error: 'key e hwid são obrigatórios' }));
+          return;
+        }
+        const appName = process.env.KEYAUTH_APP_NAME || '';
+        const ownerId = process.env.KEYAUTH_OWNER_ID || '';
+        const appSecret = process.env.KEYAUTH_APP_SECRET || '';
+        const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
+        const sellerKey = process.env.KEYAUTH_SELLER_KEY || '';
+        try {
+          let timeleft = 0;
+          let serverHwid = null;
+          let status = 'active';
+          let banned = false;
+
+          if (appName && ownerId && appSecret) {
+            if (!__keyauthInitCache.ok) {
+              const init = await keyauthClientInit(appName, ownerId, appVersion, appSecret);
+              if (!init || init.success === false) {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ ok: false, error: 'Falha ao inicializar KeyAuth (client)', details: (init && init.message) || 'init error' }));
+                return;
+              }
+            }
+            const login = await keyauthClientLicense(appName, ownerId, appVersion, appSecret, licenseKey, hwid);
+            if (!login || login.success === false) {
+              res.statusCode = 403;
+              res.end(JSON.stringify({ ok: false, error: (login && login.message) || 'licença inválida' }));
+              return;
+            }
+            // Tentar extrair tempo restante
+            const data = login.data || login.info || login;
+            timeleft = parseInt((data && (data.timeleft || data.time_left || data.timeLeft)) || '0', 10) || 0;
+            serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
+            status = String((data && (data.status || data.state)) || 'active').toLowerCase();
+            banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
+          } else if (sellerKey) {
+            const info = await keyauthLicenseInfo(sellerKey, licenseKey);
+            if (!info || info.success === false) {
+              res.statusCode = 403;
+              res.end(JSON.stringify({ ok: false, error: info && info.message ? info.message : 'licença inválida' }));
+              return;
+            }
+            // Estrutura defensiva: tentar diferentes campos comuns
+            const data = info.data || info.license || info.info || info;
+            timeleft = parseInt((data && (data.timeleft || data.time_left || data.timeLeft)) || '0', 10) || 0;
+            serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
+            status = String((data && (data.status || data.state)) || '').toLowerCase();
+            banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
+          } else {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ ok: false, error: 'Credenciais KeyAuth não configuradas (client ou seller)' }));
+            return;
+          }
+
+          // Checar expiração/banimento/estado
+          if (banned) {
+            res.statusCode = 403;
+            res.end(JSON.stringify({ ok: false, error: 'licença banida' }));
+            return;
+          }
+          if (Number.isFinite(timeleft) && timeleft <= 0) {
+            res.statusCode = 403;
+            res.end(JSON.stringify({ ok: false, error: 'licença expirada' }));
+            return;
+          }
+          if (status && ['disabled', 'inactive', 'invalid'].includes(status)) {
+            res.statusCode = 403;
+            res.end(JSON.stringify({ ok: false, error: 'licença inativa' }));
+            return;
+          }
+
+          // Enforce single device: key -> hwid mapping in local state
+          const state = await readState();
+          state.keyauth = state.keyauth || { keys: {} };
+          const existing = state.keyauth.keys[licenseKey];
+          const now = Date.now();
+          if (existing && existing.hwid && existing.hwid !== hwid) {
+            res.statusCode = 403;
+            res.end(JSON.stringify({ ok: false, error: 'licença já vinculada a outro dispositivo' }));
+            return;
+          }
+          // Se o KeyAuth já possui HWID e é diferente, bloquear
+          if (serverHwid && serverHwid !== hwid) {
+            res.statusCode = 403;
+            res.end(JSON.stringify({ ok: false, error: 'HWID não corresponde ao dispositivo vinculado' }));
+            return;
+          }
+          // Vincular localmente se ainda não houver registro
+          state.keyauth.keys[licenseKey] = {
+            hwid,
+            lastValidatedAt: now,
+            timeleft: timeleft,
+            status: status || 'active'
+          };
+          await writeState(state);
+
+          res.end(JSON.stringify({ ok: true, timeleft, bound: true }));
+          return;
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ ok: false, error: 'falha ao validar no KeyAuth', details: String(err) }));
+          return;
+        }
+      }
       // ----- CONFIG -----
       if (urlPath === '/api/config' && req.method === 'GET') {
         const state = await readState();

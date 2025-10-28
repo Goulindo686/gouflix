@@ -11,12 +11,13 @@ let CURRENT_USER = null;
 async function initEnvAndSupabase(){
   try{
     const res = await fetch('/api/env');
-    if(res.ok){
+  if(res.ok){
       const env = await res.json();
       window.__ENV = env || {};
       TMDB_BASE = env.TMDB_BASE || TMDB_BASE;
       TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
       TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
+      window.__ENV.KEYAUTH_BUY_URL = env.KEYAUTH_BUY_URL || null;
       const url = env.SUPABASE_URL;
       const key = env.SUPABASE_ANON_KEY;
       if(url && key && window.supabase){
@@ -227,26 +228,57 @@ function openModal(id){
   const kind = (movie.type === 'serie') ? 'serie' : 'filme';
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
-  const sub = window.SUBSCRIPTION || null;
-  const canWatch = !!(sub && sub.active);
+  const validatedKey = sessionStorage.getItem('KEYAUTH_KEY') || '';
+  const canWatch = !!validatedKey && !!superflixUrl;
   body.innerHTML = `
     <img src="${movie.poster}" alt="${movie.title} poster">
-    <div class="modal-info">
+    <div class="modal-info" style="width:100%">
       <h2>${movie.title} <span style="color:#666;font-size:14px;">(${movie.year})</span></h2>
       <p>${movie.description}</p>
       <div class="genres">
         ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
       </div>
       <div class="player" style="margin-top:20px;width:100%">
-        ${canWatch && superflixUrl ? 
-          `<iframe id="superflixPlayer" src="${superflixUrl}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>` : 
-          `<div class="missing-id">É necessário ter um plano ativo para assistir.<br/><br/><button class='btn primary' id='goPlansBtn'>Adquirir Plano</button></div>`}
+        ${canWatch ?
+          `<iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>` :
+          `
+          <div id=\"keyAuthGate\" class=\"panel\" style=\"background:#161618;border:1px solid #2a2a2c;margin-top:8px\">
+            <div style=\"display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap\">
+              <div class=\"field-group\" style=\"flex:1;min-width:240px\">
+                <label for=\"keyauthInput\">Insira sua key do KeyAuth</label>
+                <input id=\"keyauthInput\" type=\"text\" placeholder=\"XXXX-XXXX-XXXX-...\" />
+              </div>
+              <button id=\"validateKeyButton\" class=\"btn primary\">Validar</button>
+              ${window.__ENV.KEYAUTH_BUY_URL ? `<a class=\"btn secondary\" href=\"${window.__ENV.KEYAUTH_BUY_URL}\" target=\"_blank\" rel=\"noopener\">Comprar key</a>` : ''}
+            </div>
+            <p id=\"keyauthStatus\" class=\"panel-tip\" style=\"margin-top:8px;color:#bbb\">Para assistir, valide uma key ativa e não expirada.</p>
+          </div>
+          `}
       </div>
     </div>
   `;
   modal.classList.remove('hidden');
-  const goBtn = document.getElementById('goPlansBtn');
-  if(goBtn){ goBtn.addEventListener('click', ()=> setRoute('plans')); }
+  if (!canWatch) {
+    const btn = document.getElementById('validateKeyButton');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        const input = document.getElementById('keyauthInput');
+        const statusEl = document.getElementById('keyauthStatus');
+        const key = (input && input.value || '').trim();
+        if (!key) { statusEl.textContent = 'Informe a key.'; return; }
+        statusEl.textContent = 'Validando key...';
+        const ok = await validateKeyAuth(key);
+        if (ok) {
+          sessionStorage.setItem('KEYAUTH_KEY', key);
+          openModal(id);
+        } else {
+          statusEl.textContent = 'Key inválida, expirada ou vinculada a outro dispositivo.';
+        }
+      });
+    }
+  } else {
+    startKeyAuthRevalidationLoop();
+  }
 }
 
 // --------- Login via Discord ---------
@@ -292,6 +324,8 @@ function openModalFromTmdbData(data){
   const modal = document.getElementById('modal');
   const body = document.getElementById('modalBody');
   const superflixUrl = buildSuperflixUrl(data.type, data.tmdbId);
+  const validatedKey = sessionStorage.getItem('KEYAUTH_KEY') || '';
+  const canWatch = !!validatedKey;
   body.innerHTML = `
     <img src="${data.poster}" alt="${data.title} poster">
     <div class="modal-info">
@@ -302,7 +336,18 @@ function openModalFromTmdbData(data){
       </div>
       <div style="margin-top:10px;color:#999;font-size:13px">SuperFlix: ${superflixUrl}</div>
       <div class="player" style="margin-top:12px;width:100%">
-        <iframe id="superflixPlayer" src="${superflixUrl}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
+        ${canWatch ? `<iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>` : `
+          <div id=\"keyAuthGate\" class=\"panel\" style=\"background:#161618;border:1px solid #2a2a2c;margin-top:8px\">
+            <div style=\"display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap\">
+              <div class=\"field-group\" style=\"flex:1;min-width:240px\">
+                <label for=\"keyauthInput\">Insira sua key do KeyAuth</label>
+                <input id=\"keyauthInput\" type=\"text\" placeholder=\"XXXX-XXXX-XXXX-...\" />
+              </div>
+              <button id=\"validateKeyButton\" class=\"btn primary\">Validar</button>
+              ${window.__ENV.KEYAUTH_BUY_URL ? `<a class=\"btn secondary\" href=\"${window.__ENV.KEYAUTH_BUY_URL}\" target=\"_blank\" rel=\"noopener\">Comprar key</a>` : ''}
+            </div>
+            <p id=\"keyauthStatus\" class=\"panel-tip\" style=\"margin-top:8px;color:#bbb\">Para assistir, valide uma key ativa e não expirada.</p>
+          </div>`}
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
         <button id="addToSiteBtn" class="btn secondary">Adicionar ao site</button>
@@ -318,6 +363,27 @@ function openModalFromTmdbData(data){
       alert('Conteúdo adicionado ao site com sucesso.');
       renderAdminList();
     });
+  }
+  if (!canWatch) {
+    const btn = document.getElementById('validateKeyButton');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        const input = document.getElementById('keyauthInput');
+        const statusEl = document.getElementById('keyauthStatus');
+        const key = (input && input.value || '').trim();
+        if (!key) { statusEl.textContent = 'Informe a key.'; return; }
+        statusEl.textContent = 'Validando key...';
+        const ok = await validateKeyAuth(key);
+        if (ok) {
+          sessionStorage.setItem('KEYAUTH_KEY', key);
+          openModalFromTmdbData(data);
+        } else {
+          statusEl.textContent = 'Key inválida, expirada ou vinculada a outro dispositivo.';
+        }
+      });
+    }
+  } else {
+    startKeyAuthRevalidationLoop();
   }
 }
 
@@ -425,6 +491,80 @@ function removeItemByKey(key){
     renderAdminList();
     updateHeroSlides(window.ALL_MOVIES);
   })();
+}
+
+// ----- KeyAuth Helpers -----
+async function computeHWID(){
+  const ua = navigator.userAgent || '';
+  const plat = navigator.platform || '';
+  const lang = navigator.language || '';
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const dims = `${screen.width}x${screen.height}`;
+  const data = `${ua}|${plat}|${lang}|${tz}|${dims}`;
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', enc.encode(data));
+  const arr = Array.from(new Uint8Array(buf));
+  return arr.map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function validateKeyAuth(key){
+  try{
+    const hwid = await computeHWID();
+    const res = await fetch('/api/keyauth/validate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenseKey: key, hwid })
+    });
+    const j = await res.json();
+    return !!(j && j.ok);
+  }catch(_){ return false; }
+}
+
+function startKeyAuthRevalidationLoop(){
+  const key = sessionStorage.getItem('KEYAUTH_KEY');
+  if(!key) return;
+  if(window.__keyauthIntervalId){ clearInterval(window.__keyauthIntervalId); }
+  const poll = async ()=>{
+    const ok = await validateKeyAuth(key);
+    if(!ok){
+      sessionStorage.removeItem('KEYAUTH_KEY');
+      stopKeyAuthRevalidationLoop();
+      alert('Acesso revogado: key inválida/expirada/desativada.');
+      const body = document.getElementById('modalBody');
+      if(body){
+        body.querySelector('#superflixPlayer')?.remove();
+        body.innerHTML += `
+          <div id=\"keyAuthGate\" class=\"panel\" style=\"background:#161618;border:1px solid #2a2a2c;margin-top:8px\">
+            <div style=\"display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap\">
+              <div class=\"field-group\" style=\"flex:1;min-width:240px\">
+                <label for=\"keyauthInput\">Insira sua key do KeyAuth</label>
+                <input id=\"keyauthInput\" type=\"text\" placeholder=\"XXXX-XXXX-XXXX-...\" />
+              </div>
+              <button id=\"validateKeyButton\" class=\"btn primary\">Validar</button>
+              ${window.__ENV.KEYAUTH_BUY_URL ? `<a class=\"btn secondary\" href=\"${window.__ENV.KEYAUTH_BUY_URL}\" target=\"_blank\" rel=\"noopener\">Comprar key</a>` : ''}
+            </div>
+            <p id=\"keyauthStatus\" class=\"panel-tip\" style=\"margin-top:8px;color:#bbb\">Para assistir, valide uma key ativa e não expirada.</p>
+          </div>`;
+        const btn = document.getElementById('validateKeyButton');
+        if(btn){
+          btn.addEventListener('click', async()=>{
+            const input = document.getElementById('keyauthInput');
+            const statusEl = document.getElementById('keyauthStatus');
+            const k = (input && input.value || '').trim();
+            if(!k){ statusEl.textContent = 'Informe a key.'; return; }
+            statusEl.textContent = 'Validando key...';
+            const ok2 = await validateKeyAuth(k);
+            if(ok2){ sessionStorage.setItem('KEYAUTH_KEY', k); location.reload(); }
+            else { statusEl.textContent = 'Key inválida, expirada ou vinculada a outro dispositivo.'; }
+          });
+        }
+      }
+    }
+  };
+  window.__keyauthIntervalId = setInterval(poll, 30000);
+}
+
+function stopKeyAuthRevalidationLoop(){
+  if(window.__keyauthIntervalId){ clearInterval(window.__keyauthIntervalId); window.__keyauthIntervalId = null; }
 }
 
 function showSection(section){
@@ -592,12 +732,16 @@ async function handleTmdbFetch(){
 }
 
 document.getElementById('closeModal').addEventListener('click', ()=>{
+  stopKeyAuthRevalidationLoop();
   document.getElementById('modal').classList.add('hidden');
 });
 
 window.addEventListener('click', e=>{
   const modal = document.getElementById('modal');
-  if(e.target === modal){ modal.classList.add('hidden'); }
+  if(e.target === modal){
+    stopKeyAuthRevalidationLoop();
+    modal.classList.add('hidden');
+  }
 });
 
 document.getElementById('search').addEventListener('input', handleSearchInput);
