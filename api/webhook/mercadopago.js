@@ -52,8 +52,16 @@ export default async function handler(req, res){
         }catch(err){ console.error('Supabase activation error', err); }
       }
       if(!activated){
+        // Resolver PUBLIC_URL para fallback
+        let BASE_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || '';
+        if(!BASE_URL && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
+          try{
+            const rCfg = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=public_url`,{ headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' } });
+            if(rCfg.ok){ const j = await rCfg.json(); const row = Array.isArray(j)&&j.length?j[0]:null; BASE_URL = row?.public_url || ''; }
+          }catch(_){ /* ignore */ }
+        }
         try{
-          const act = await fetch(`${process.env.PUBLIC_URL || ''}/api/subscription`,{
+          const act = await fetch(`${BASE_URL || ''}/api/subscription`,{
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
             body: JSON.stringify({ userId, plan, action:'activate' })
