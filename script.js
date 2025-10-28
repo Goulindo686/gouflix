@@ -229,7 +229,8 @@ function openModal(id){
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
   const validatedKey = sessionStorage.getItem('KEYAUTH_KEY') || '';
-  const canWatch = !!validatedKey && !!superflixUrl;
+  const isLogged = !!CURRENT_USER;
+  const canWatch = isLogged && !!validatedKey && !!superflixUrl;
   body.innerHTML = `
     <img src="${movie.poster}" alt="${movie.title} poster">
     <div class="modal-info" style="width:100%">
@@ -259,23 +260,43 @@ function openModal(id){
   `;
   modal.classList.remove('hidden');
   if (!canWatch) {
-    const btn = document.getElementById('validateKeyButton');
-    if (btn) {
-      btn.addEventListener('click', async () => {
-        const input = document.getElementById('keyauthInput');
-        const statusEl = document.getElementById('keyauthStatus');
-        const key = (input && input.value || '').trim();
-        if (!key) { statusEl.textContent = 'Informe a key.'; return; }
-        statusEl.textContent = 'Validando key...';
-        const r = await validateKeyAuth(key);
-        if (r.ok) {
-          sessionStorage.setItem('KEYAUTH_KEY', key);
-          openModal(id);
-        } else {
-          const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
-          statusEl.textContent = String(msg);
-        }
-      });
+    if (!isLogged) {
+      const gate = document.getElementById('keyAuthGate');
+      if (gate) {
+        gate.innerHTML = `
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <p style="flex:1;min-width:240px;margin:0;color:#bbb">Faça login com Discord para usar sua key.</p>
+            <button id="loginToUseKey" class="btn secondary">Entrar com Discord</button>
+          </div>
+          <p class="panel-tip" style="margin-top:8px;color:#bbb">Após login, valide sua key para assistir.</p>
+        `;
+      }
+      const loginBtn = document.getElementById('loginToUseKey');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+          const ret = location.href;
+          location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+        });
+      }
+    } else {
+      const btn = document.getElementById('validateKeyButton');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          const input = document.getElementById('keyauthInput');
+          const statusEl = document.getElementById('keyauthStatus');
+          const key = (input && input.value || '').trim();
+          if (!key) { statusEl.textContent = 'Informe a key.'; return; }
+          statusEl.textContent = 'Validando e vinculando key...';
+          const r = await linkKeyAuth(key);
+          if (r.ok) {
+            sessionStorage.setItem('KEYAUTH_KEY', key);
+            openModal(id);
+          } else {
+            const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
+            statusEl.textContent = String(msg);
+          }
+        });
+      }
     }
   } else {
     startKeyAuthRevalidationLoop();
@@ -292,6 +313,8 @@ async function fetchCurrentUser(){
     updateUserArea();
     // Após conhecer o usuário real (Discord), atualiza a assinatura para o ID correto
     await fetchSubscription();
+    // Carregar automaticamente a key do KeyAuth vinculada ao usuário, se existir
+    try{ await fetchLinkedKeyAuth(); }catch(_){}
   }catch(_){ CURRENT_USER = null; updateUserArea(); }
 }
 
@@ -326,7 +349,8 @@ function openModalFromTmdbData(data){
   const body = document.getElementById('modalBody');
   const superflixUrl = buildSuperflixUrl(data.type, data.tmdbId);
   const validatedKey = sessionStorage.getItem('KEYAUTH_KEY') || '';
-  const canWatch = !!validatedKey;
+  const isLogged = !!CURRENT_USER;
+  const canWatch = isLogged && !!validatedKey;
   body.innerHTML = `
     <img src="${data.poster}" alt="${data.title} poster">
     <div class="modal-info">
@@ -366,23 +390,43 @@ function openModalFromTmdbData(data){
     });
   }
   if (!canWatch) {
-    const btn = document.getElementById('validateKeyButton');
-    if (btn) {
-      btn.addEventListener('click', async () => {
-        const input = document.getElementById('keyauthInput');
-        const statusEl = document.getElementById('keyauthStatus');
-        const key = (input && input.value || '').trim();
-        if (!key) { statusEl.textContent = 'Informe a key.'; return; }
-        statusEl.textContent = 'Validando key...';
-        const r = await validateKeyAuth(key);
-        if (r.ok) {
-          sessionStorage.setItem('KEYAUTH_KEY', key);
-          openModalFromTmdbData(data);
-        } else {
-          const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
-          statusEl.textContent = String(msg);
-        }
-      });
+    if (!isLogged) {
+      const gate = document.getElementById('keyAuthGate');
+      if (gate) {
+        gate.innerHTML = `
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <p style="flex:1;min-width:240px;margin:0;color:#bbb">Faça login com Discord para usar sua key.</p>
+            <button id="loginToUseKey" class="btn secondary">Entrar com Discord</button>
+          </div>
+          <p class="panel-tip" style="margin-top:8px;color:#bbb">Após login, valide sua key para assistir.</p>
+        `;
+      }
+      const loginBtn = document.getElementById('loginToUseKey');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+          const ret = location.href;
+          location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+        });
+      }
+    } else {
+      const btn = document.getElementById('validateKeyButton');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          const input = document.getElementById('keyauthInput');
+          const statusEl = document.getElementById('keyauthStatus');
+          const key = (input && input.value || '').trim();
+          if (!key) { statusEl.textContent = 'Informe a key.'; return; }
+          statusEl.textContent = 'Validando e vinculando key...';
+          const r = await linkKeyAuth(key);
+          if (r.ok) {
+            sessionStorage.setItem('KEYAUTH_KEY', key);
+            openModalFromTmdbData(data);
+          } else {
+            const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
+            statusEl.textContent = String(msg);
+          }
+        });
+      }
     }
   } else {
     startKeyAuthRevalidationLoop();
@@ -519,6 +563,34 @@ async function validateKeyAuth(key){
     const j = await res.json();
     return { ok: !!(j && j.ok), reason: j && j.reason, error: j && j.error, timeleft: j && j.timeleft };
   }catch(err){ return { ok: false, reason: 'network_error', error: String(err) }; }
+}
+
+// Vincular a key ao usuário logado no backend
+async function linkKeyAuth(key){
+  try{
+    const hwid = await computeHWID();
+    const res = await fetch('/api/keyauth/link', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenseKey: key, hwid })
+    });
+    const j = await res.json();
+    return { ok: !!(j && j.ok), reason: j && j.reason, error: j && j.error, timeleft: j && j.timeleft, licenseKey: j && j.licenseKey };
+  }catch(err){ return { ok: false, reason: 'network_error', error: String(err) }; }
+}
+
+// Buscar a key vinculada ao usuário e carregar automaticamente
+async function fetchLinkedKeyAuth(){
+  try{
+    const res = await fetch('/api/keyauth/mine');
+    if(!res.ok){ return { ok:false, error: 'not_logged_or_not_found' }; }
+    const j = await res.json();
+    if(j && j.ok && j.licenseKey){
+      sessionStorage.setItem('KEYAUTH_KEY', j.licenseKey);
+      startKeyAuthRevalidationLoop();
+      return { ok:true, licenseKey: j.licenseKey };
+    }
+    return { ok:false, error: j && (j.error || j.reason || 'no_key') };
+  }catch(err){ return { ok:false, error: String(err) }; }
 }
 
 function startKeyAuthRevalidationLoop(){
