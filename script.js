@@ -106,9 +106,9 @@ async function loadMovies(){
   updateHeroSlides(filtered);
 }
 
-function renderMovies(movies){
-  const row = document.getElementById('movieRow');
-  row.innerHTML = '';
+function renderCardsIntoRow(movies, rowEl){
+  if(!rowEl) return;
+  rowEl.innerHTML = '';
   movies.forEach(m => {
     const div = document.createElement('div');
     div.className = 'card';
@@ -116,12 +116,71 @@ function renderMovies(movies){
       <img src="${m.poster}" alt="${m.title}">
       <div class="info">
         <h3>${m.title}</h3>
-        <p>${m.year}</p>
+        <p>${m.year||''}</p>
       </div>
     `;
     div.onclick = () => openModal(m.id);
-    row.appendChild(div);
+    rowEl.appendChild(div);
   });
+}
+
+function createRowSection(title, items, id){
+  const container = document.getElementById('sections');
+  if(!container) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'row-wrap';
+
+  const h2 = document.createElement('h2');
+  h2.className = 'row-title section-title';
+  h2.textContent = title;
+  wrap.appendChild(h2);
+
+  const row = document.createElement('div');
+  row.className = 'row';
+  if(id) row.id = id;
+  wrap.appendChild(row);
+
+  // Setas
+  const prev = document.createElement('button');
+  prev.className = 'row-arrow prev';
+  prev.setAttribute('aria-label','Anterior');
+  prev.textContent = '‹';
+  prev.addEventListener('click', () => {
+    row.scrollBy({ left: -Math.max(row.clientWidth*0.9, 300), behavior: 'smooth' });
+  });
+  wrap.appendChild(prev);
+
+  const next = document.createElement('button');
+  next.className = 'row-arrow next';
+  next.setAttribute('aria-label','Próximo');
+  next.textContent = '›';
+  next.addEventListener('click', () => {
+    row.scrollBy({ left: Math.max(row.clientWidth*0.9, 300), behavior: 'smooth' });
+  });
+  wrap.appendChild(next);
+
+  container.appendChild(wrap);
+  renderCardsIntoRow(items, row);
+}
+
+function clearSections(){
+  const container = document.getElementById('sections');
+  if(container) container.innerHTML = '';
+}
+
+function renderHomeSections(base){
+  clearSections();
+  const populares = base.slice(0, 18);
+  const filmes = base.filter(m=> (m.type||'filme') === 'filme').slice(0, 18);
+  const series = base.filter(m=> (m.type||'filme') === 'serie').slice(0, 18);
+  if(populares.length) createRowSection('Populares', populares, 'rowPopulares');
+  if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes');
+  if(series.length) createRowSection('Séries', series, 'rowSeries');
+}
+
+function renderSingleSection(title, items){
+  clearSections();
+  createRowSection(title, items, 'rowSingle');
 }
 
 // Slideshow do topo (Hero)
@@ -429,21 +488,30 @@ function setRoute(route){
   }
   showSection('home');
   updateActiveNav(route);
-  const titleEl = document.querySelector('#mainContent .section-title');
-  if(titleEl){
-    const titles = { home:'Populares', filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
-    titleEl.textContent = titles[route] || 'Populares';
+  const base = getRouteList(route);
+  window.MOVIES = base;
+  if(route === 'home'){
+    renderHomeSections(base);
+  } else {
+    const titles = { filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
+    renderSingleSection(titles[route] || 'Itens', base);
   }
-  const list = getRouteList(route);
-  window.MOVIES = list;
-  renderMovies(list);
 }
 
 function handleSearchInput(e){
   const query = (e.target.value||'').toLowerCase();
   const base = getRouteList(window.CURRENT_ROUTE||'home');
   const filtered = base.filter(m=> (m.title||'').toLowerCase().includes(query));
-  renderMovies(filtered);
+  if(query){
+    renderSingleSection('Resultados', filtered);
+  } else {
+    if((window.CURRENT_ROUTE||'home') === 'home'){
+      renderHomeSections(base);
+    } else {
+      const titles = { filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
+      renderSingleSection(titles[window.CURRENT_ROUTE] || 'Itens', base);
+    }
+  }
 }
 
 function renderAdminPreview(data){
