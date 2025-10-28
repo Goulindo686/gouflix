@@ -173,6 +173,37 @@
         </table>
       </div>
     </div>
+
+    <div class="admin-subscriptions panel">
+      <h3 class="section-title">Assinaturas Ativas</h3>
+      <div class="panel-inner">
+        <div class="field-group">
+          <label for="adminSubscriptionStatus">Status</label>
+          <select id="adminSubscriptionStatus">
+            <option value="">Todos</option>
+            <option value="active">Ativa</option>
+            <option value="inactive">Inativa</option>
+          </select>
+        </div>
+        <button id="adminSubscriptionsRefreshBtn" class="btn secondary">Atualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="adminSubscriptionsTable">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Plano</th>
+              <th>Início</th>
+              <th>Fim</th>
+              <th>Status</th>
+              <th>Pagamento</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
   <div id="modal" class="modal hidden">

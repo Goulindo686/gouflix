@@ -25,7 +25,23 @@ export default async function handler(req, res) {
           const subs = await rSub.json();
           const sub = Array.isArray(subs) && subs.length ? subs[0] : null;
           if (sub) {
-            const active = (sub.status === 'active') && (new Date(sub.end_at).getTime() > Date.now());
+            const expired = new Date(sub.end_at).getTime() <= Date.now();
+            const active = (sub.status === 'active') && !expired;
+            // Se expirou mas está marcado como active, corrigir status no banco
+            if (expired && sub.status === 'active') {
+              try {
+                await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_WRITE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
+                    'Prefer': 'return=minimal',
+                  },
+                  body: JSON.stringify({ status: 'inactive' }),
+                });
+              } catch {}
+            }
             return res.status(200).json({ ok: true, subscription: { active, plan: sub.plan, until: sub.end_at } });
           }
         }

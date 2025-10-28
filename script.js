@@ -438,6 +438,7 @@ function showSection(section){
     if(plans) plans.classList.add('hidden');
     renderAdminList();
     fetchAdminPurchases();
+    fetchAdminSubscriptions();
   } else {
     admin.classList.add('hidden');
     if(section === 'plans'){
@@ -843,6 +844,73 @@ function renderPurchasesTable(list){
           const r = await fetch('/api/subscription/deactivate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId }) });
           if(!r.ok) throw new Error('Falha ao desativar assinatura');
           alert('Assinatura desativada para '+userId);
+        }catch(err){ alert('Erro: '+err.message); }
+      }
+    });
+  });
+}
+
+// -------- Admin: Assinaturas ---------
+const adminSubscriptionStatus = document.getElementById('adminSubscriptionStatus');
+const adminSubscriptionsRefreshBtn = document.getElementById('adminSubscriptionsRefreshBtn');
+if(adminSubscriptionStatus){ adminSubscriptionStatus.addEventListener('change', ()=> fetchAdminSubscriptions()); }
+if(adminSubscriptionsRefreshBtn){ adminSubscriptionsRefreshBtn.addEventListener('click', ()=> fetchAdminSubscriptions()); }
+
+async function fetchAdminSubscriptions(){
+  try{
+    const status = adminSubscriptionStatus ? (adminSubscriptionStatus.value||'') : '';
+    const url = status ? `/api/subscriptions?status=${encodeURIComponent(status)}` : '/api/subscriptions';
+    const res = await fetch(url);
+    const json = await res.json();
+    const list = (json && json.subscriptions) ? json.subscriptions : [];
+    renderSubscriptionsTable(list);
+  }catch(err){ console.error('Falha ao buscar assinaturas', err); }
+}
+
+function renderSubscriptionsTable(list){
+  const tbody = document.querySelector('#adminSubscriptionsTable tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  (list||[]).forEach(s=>{
+    const tr = document.createElement('tr');
+    const start = s.start_at ? new Date(s.start_at) : null;
+    const end = s.end_at ? new Date(s.end_at) : null;
+    const startFmt = start ? start.toLocaleString('pt-BR') : '-';
+    const endFmt = end ? end.toLocaleString('pt-BR') : '-';
+    const isActive = s.status === 'active' && end && end.getTime() > Date.now();
+    tr.innerHTML = `
+      <td>${s.user_id}</td>
+      <td>${s.plan||'-'}</td>
+      <td>${startFmt}</td>
+      <td>${endFmt}</td>
+      <td><span class="badge-status ${isActive?'approved':'cancelled'}">${isActive?'active':'inactive'}</span></td>
+      <td><code>${s.payment_id||'-'}</code></td>
+      <td class="actions">
+        <button class="btn secondary" data-action="activate" data-user="${s.user_id}" data-plan="${s.plan||'mensal'}">Ativar</button>
+        <button class="btn remove" data-action="deactivate" data-user="${s.user_id}">Desativar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const action = btn.getAttribute('data-action');
+      if(action === 'activate'){
+        const userId = btn.getAttribute('data-user');
+        const plan = btn.getAttribute('data-plan');
+        try{
+          const r = await fetch('/api/subscription/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId, plan, status:'approved', paymentId: String(Date.now()) }) });
+          if(!r.ok) throw new Error('Falha ao ativar assinatura');
+          alert('Assinatura ativada para '+userId);
+          fetchAdminSubscriptions();
+        }catch(err){ alert('Erro: '+err.message); }
+      } else if(action === 'deactivate'){
+        const userId = btn.getAttribute('data-user');
+        try{
+          const r = await fetch('/api/subscription/deactivate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId }) });
+          if(!r.ok) throw new Error('Falha ao desativar assinatura');
+          alert('Assinatura desativada para '+userId);
+          fetchAdminSubscriptions();
         }catch(err){ alert('Erro: '+err.message); }
       }
     });
