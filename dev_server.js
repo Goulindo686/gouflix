@@ -1,3 +1,27 @@
+try { require('dotenv').config(); } catch (_e) {
+  // Fallback simples para carregar .env sem dependência
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const root = process.cwd();
+    const envPath = path.join(root, '.env');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      content.split(/\r?\n/).forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return;
+        const idx = trimmed.indexOf('=');
+        if (idx === -1) return;
+        const key = trimmed.slice(0, idx).trim();
+        let val = trimmed.slice(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!(key in process.env)) process.env[key] = val;
+      });
+    }
+  } catch (_) { /* ignore */ }
+}
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
