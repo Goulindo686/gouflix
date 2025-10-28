@@ -161,7 +161,8 @@ function updateHeroSlides(items){
 // --------- Assinaturas / Mercado Pago ---------
 async function fetchSubscription(){
   try{
-    const res = await fetch(`/api/subscription?userId=${encodeURIComponent(USER_ID)}`);
+    const uid = (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID;
+    const res = await fetch(`/api/subscription?userId=${encodeURIComponent(uid)}`);
     if(!res.ok) throw new Error('status not ok');
     const json = await res.json();
     window.SUBSCRIPTION = json.subscription || null; updateUserArea();
@@ -253,6 +254,8 @@ async function fetchCurrentUser(){
     const j = await res.json();
     CURRENT_USER = (j.logged && j.user) ? j.user : null;
     updateUserArea();
+    // Após conhecer o usuário real (Discord), atualiza a assinatura para o ID correto
+    await fetchSubscription();
   }catch(_){ CURRENT_USER = null; updateUserArea(); }
 }
 
@@ -693,9 +696,11 @@ if(runBootstrapBtn){
 
 initEnvAndSupabase().then(()=>{
   loadMovies();
-  fetchSubscription().then(handlePaymentReturn);
+  // Primeiro tenta identificar usuário; em seguida busca assinatura
+  fetchCurrentUser().then(()=>{
+    fetchSubscription().then(handlePaymentReturn);
+  });
   setInterval(fetchSubscription, 60000); // atualiza status da assinatura a cada 60s
-  fetchCurrentUser();
 });
 
 // Funções do Modal de Pagamento

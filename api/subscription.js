@@ -153,6 +153,8 @@ export default async function handler(req, res) {
           payment_method_id: 'pix',
           // Mercado Pago exige email válido; usar domínio example.com para testes
           payer: { email: `${userId}@example.com`, identification: { type: 'CPF', number: '19100000000' } },
+          // Referência externa para fallback no webhook se o purchase não existir
+          external_reference: `${userId}:${plan}:${Date.now()}`,
           ...(notificationUrl ? { notification_url: notificationUrl } : {}),
         };
 
