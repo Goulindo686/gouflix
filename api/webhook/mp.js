@@ -81,20 +81,23 @@ export default async function handler(req, res) {
             }
             if (p && p.user_id && p.plan) {
               const plan = String(p.plan);
-              const startAt = new Date();
-              const map = { mensal: 30, trimestral: 90, anual: 365 };
-              const days = map[plan] ?? 30;
-              const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
-              await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                  'Prefer': 'resolution=merge-duplicates',
-                },
-                body: JSON.stringify({ user_id: String(p.user_id), plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) }),
-              });
+              // Bloqueia planos fora do catálogo oficial
+              if (['mensal','trimestral','anual'].includes(plan)) {
+                const startAt = new Date();
+                const map = { mensal: 30, trimestral: 90, anual: 365 };
+                const days = map[plan] ?? 30;
+                const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
+                await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_SERVICE_ROLE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                    'Prefer': 'resolution=merge-duplicates',
+                  },
+                  body: JSON.stringify({ user_id: String(p.user_id), plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) }),
+                });
+              }
             }
           }
         }
