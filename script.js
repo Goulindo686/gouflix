@@ -164,7 +164,7 @@ async function fetchSubscription(){
     const res = await fetch(`/api/subscription?userId=${encodeURIComponent(USER_ID)}`);
     if(!res.ok) throw new Error('status not ok');
     const json = await res.json();
-    window.SUBSCRIPTION = json.subscription || null;
+    window.SUBSCRIPTION = json.subscription || null; updateUserArea();
   }catch(_){ window.SUBSCRIPTION = null; }
 }
 
@@ -260,9 +260,12 @@ function updateUserArea(){
   const area = document.getElementById('userArea');
   if(!area) return;
   if(CURRENT_USER){
+    const sub = window.SUBSCRIPTION || null;
+    const badge = (sub && sub.active) ? `<span class="user-badge" title="${sub.plan ? `Plano ${sub.plan}` : 'Plano ativo'}${sub.until ? ` até ${new Date(sub.until).toLocaleDateString('pt-BR')}` : ''}">Plano ativo</span>` : '';
     area.innerHTML = `
       <div class="user-avatar">${CURRENT_USER.avatar ? `<img src="https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
       <span class="user-name">${CURRENT_USER.username}</span>
+      ${badge}
       <button id="logoutBtn" class="btn secondary">Sair</button>
     `;
     const logoutBtn = document.getElementById('logoutBtn');
@@ -778,7 +781,7 @@ async function fetchAdminPurchases(){
     const json = await res.json();
     let list = (json && json.purchases) ? json.purchases : [];
     const q = adminPurchaseQuery ? (adminPurchaseQuery.value||'').trim().toLowerCase() : '';
-    if(q){ list = list.filter(p=> String(p.userId).toLowerCase().includes(q) || String(p.id).toLowerCase().includes(q)); }
+    if(q){ list = list.filter(p=> String(p.user_id).toLowerCase().includes(q) || String(p.id).toLowerCase().includes(q)); }
     renderPurchasesTable(list);
   }catch(err){ console.error('Falha ao buscar compras', err); }
 }
@@ -789,10 +792,10 @@ function renderPurchasesTable(list){
   tbody.innerHTML = '';
   (list||[]).forEach(p=>{
     const tr = document.createElement('tr');
-    const created = p.createdAt ? new Date(p.createdAt) : null;
+    const created = p.created_at ? new Date(p.created_at) : null;
     const createdFmt = created ? created.toLocaleString('pt-BR') : '-';
     tr.innerHTML = `
-      <td>${p.userId}</td>
+      <td>${p.user_id}</td>
       <td>${p.plan}</td>
       <td><code>${p.id||'-'}</code></td>
       <td>R$ ${Number(p.amount||0).toFixed(2)}</td>
@@ -801,8 +804,8 @@ function renderPurchasesTable(list){
       <td class="actions">
         <button class="btn secondary" data-action="approve" data-id="${p.id}">Aprovar</button>
         <button class="btn secondary" data-action="cancel" data-id="${p.id}">Cancelar</button>
-        <button class="btn secondary" data-action="activate" data-user="${p.userId}" data-plan="${p.plan}" data-id="${p.id}">Ativar Assinatura</button>
-        <button class="btn remove" data-action="deactivate" data-user="${p.userId}">Desativar Assinatura</button>
+        <button class="btn secondary" data-action="activate" data-user="${p.user_id}" data-plan="${p.plan}" data-id="${p.id}">Ativar Assinatura</button>
+        <button class="btn remove" data-action="deactivate" data-user="${p.user_id}">Desativar Assinatura</button>
       </td>
     `;
     tbody.appendChild(tr);

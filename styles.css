@@ -234,6 +234,8 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 .user-area { display:flex; align-items:center; gap:10px }
 .user-avatar { width:28px; height:28px; border-radius:50%; overflow:hidden; border:1px solid #333 }
 .user-name { font-size:13px; color:#ddd }
+/* Emblema de assinatura ativa no topo */
+.user-badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; background:var(--accent); color:#fff; }
 
 .loading-spinner {
   width: 20px;
