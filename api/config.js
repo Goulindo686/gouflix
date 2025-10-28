@@ -55,21 +55,18 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Tenta buscar do Supabase; se não houver, retorna env
-      const url = `${base}?id=eq.${configId}&select=*`;
-      const r = await fetch(url, { headers });
-      if (!r.ok) {
-        // fallback para env/cookie, mas manter writable=true para permitir salvar em cookies
-        return res.status(200).json({
-          ok: true,
-          source: COOKIE_MP || COOKIE_PUBLIC ? 'cookie' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty'),
-          writable: true,
-          mpToken: COOKIE_MP || ENV_MP_TOKEN || null,
-          publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
-        });
+      // Tenta buscar do Supabase; se falhar, retorna env/cookies
+      let row = null;
+      try {
+        const url = `${base}?id=eq.${configId}&select=*`;
+        const r = await fetch(url, { headers });
+        if (r.ok) {
+          const data = await r.json();
+          row = Array.isArray(data) && data.length ? data[0] : null;
+        }
+      } catch (_) {
+        // ignorar e cair para env/cookies
       }
-      const data = await r.json();
-      const row = Array.isArray(data) && data.length ? data[0] : null;
       return res.status(200).json({
         ok: true,
         source: row ? 'db' : (COOKIE_MP ? 'cookie' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty')),
@@ -83,43 +80,46 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await readBody(req);
-      const payload = {
-        id: configId,
-        mp_token: body?.mpToken || null,
-        public_url: body?.publicUrl || null,
-        bootstrap_movies_url: body?.bootstrapMoviesUrl || null,
-        bootstrap_auto: !!body?.bootstrapAuto,
-        updated_at: new Date().toISOString(),
-      };
-
-      const upsertUrl = `${base}?on_conflict=id`;
-      const r = await fetch(upsertUrl, {
-        method: 'POST',
-        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) {
-        // Fallback: salvar em cookies quando DB não estiver acessível
-        const cookieBase = `Path=/; HttpOnly; SameSite=Lax; Secure`;
-        const mp = body?.mpToken || '';
-        const pub = body?.publicUrl || '';
-        const bm = body?.bootstrapMoviesUrl || '';
-        const ba = !!body?.bootstrapAuto;
-        if (mp) res.setHeader('Set-Cookie', [
-          `mp_token=${encodeURIComponent(mp)}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-          `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-          `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-          `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        ]);
-        else res.setHeader('Set-Cookie', [
-          `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-          `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-          `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        ]);
-        return res.status(200).json({ ok: true, source: 'cookie' });
+      try {
+        const payload = {
+          id: configId,
+          mp_token: body?.mpToken || null,
+          public_url: body?.publicUrl || null,
+          bootstrap_movies_url: body?.bootstrapMoviesUrl || null,
+          bootstrap_auto: !!body?.bootstrapAuto,
+          updated_at: new Date().toISOString(),
+        };
+        const upsertUrl = `${base}?on_conflict=id`;
+        const r = await fetch(upsertUrl, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify(payload),
+        });
+        if (r.ok) {
+          const saved = await r.json();
+          return res.status(200).json({ ok: true, saved });
+        }
+      } catch (_) {
+        // Ignorar erro e cair no fallback de cookies
       }
-      const saved = await r.json();
-      return res.status(200).json({ ok: true, saved });
+      // Fallback: salvar em cookies quando DB não estiver acessível ou falhar
+      const cookieBase = `Path=/; HttpOnly; SameSite=Lax; Secure`;
+      const mp = body?.mpToken || '';
+      const pub = body?.publicUrl || '';
+      const bm = body?.bootstrapMoviesUrl || '';
+      const ba = !!body?.bootstrapAuto;
+      if (mp) res.setHeader('Set-Cookie', [
+        `mp_token=${encodeURIComponent(mp)}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+      ]);
+      else res.setHeader('Set-Cookie', [
+        `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+      ]);
+      return res.status(200).json({ ok: true, source: 'cookie' });
     }
 
     res.setHeader('Allow', 'GET, POST');
