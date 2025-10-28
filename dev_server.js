@@ -308,7 +308,7 @@ const server = http.createServer(async (req, res) => {
           };
           const r = await fetch('https://api.mercadopago.com/v1/payments',{
             method:'POST',
-            headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json' },
+            headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json', 'X-Idempotency-Key': preference.external_reference },
             body: JSON.stringify(preference)
           });
           const json = await r.json();

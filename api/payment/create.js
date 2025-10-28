@@ -41,7 +41,8 @@ export default async function handler(req, res){
       method:'POST',
       headers:{
         'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
-        'Content-Type':'application/json'
+        'Content-Type':'application/json',
+        'X-Idempotency-Key': preference.external_reference
       },
       body: JSON.stringify(preference)
     });
