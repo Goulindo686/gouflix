@@ -6,8 +6,6 @@
     { "source": "/api/env", "destination": "/api/config?env=1" },
     { "source": "/api/state/add", "destination": "/api/state?action=add" },
     { "source": "/api/state/remove", "destination": "/api/state?action=remove" },
-    { "source": "/api/subscription/activate", "destination": "/api/subscription?action=activate" },
-    { "source": "/api/subscription/deactivate", "destination": "/api/subscription?action=deactivate" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

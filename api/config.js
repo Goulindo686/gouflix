@@ -1,7 +1,6 @@
 export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const ENV_MP_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN;
   const ENV_PUBLIC_URL = process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
   const ENV_EXTRA = {
     SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
@@ -10,10 +9,8 @@ export default async function handler(req, res) {
     TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
     TMDB_TOKEN: process.env.TMDB_TOKEN || null,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
-    KEYAUTH_BUY_URL: process.env.KEYAUTH_BUY_URL || null,
   };
   const COOKIES = parseCookies(req.headers?.cookie || '');
-  const COOKIE_MP = COOKIES['mp_token'] || null;
   const COOKIE_PUBLIC = COOKIES['public_url'] || null;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -26,27 +23,18 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({
         ok: true,
-        source: COOKIE_MP || COOKIE_PUBLIC ? 'cookie' : 'env',
         writable: true,
-        mpToken: COOKIE_MP || ENV_MP_TOKEN || null,
         publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         ...ENV_EXTRA,
       });
     }
     if (req.method === 'POST') {
       const body = await readBody(req);
-      const mp = body?.mpToken || '';
       const pub = body?.publicUrl || '';
       const bm = body?.bootstrapMoviesUrl || '';
       const ba = !!body?.bootstrapAuto;
       const cookieBase = `Path=/; HttpOnly; SameSite=Lax; Secure`;
-      if (mp) res.setHeader('Set-Cookie', [
-        `mp_token=${encodeURIComponent(mp)}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-      ]);
-      else res.setHeader('Set-Cookie', [
+      res.setHeader('Set-Cookie', [
         `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
@@ -84,9 +72,7 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({
         ok: true,
-        source: row ? 'db' : (COOKIE_MP ? 'cookie' : (ENV_MP_TOKEN || ENV_PUBLIC_URL ? 'env' : 'empty')),
         writable: true,
-        mpToken: row?.mp_token || COOKIE_MP || ENV_MP_TOKEN || null,
         publicUrl: row?.public_url || COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         bootstrapMoviesUrl: row?.bootstrap_movies_url || null,
         bootstrapAuto: !!row?.bootstrap_auto,
@@ -98,7 +84,6 @@ export default async function handler(req, res) {
       try {
         const payload = {
           id: configId,
-          mp_token: body?.mpToken || null,
           public_url: body?.publicUrl || null,
           bootstrap_movies_url: body?.bootstrapMoviesUrl || null,
           bootstrap_auto: !!body?.bootstrapAuto,
@@ -119,17 +104,10 @@ export default async function handler(req, res) {
       }
       // Fallback: salvar em cookies quando DB não estiver acessível ou falhar
       const cookieBase = `Path=/; HttpOnly; SameSite=Lax; Secure`;
-      const mp = body?.mpToken || '';
       const pub = body?.publicUrl || '';
       const bm = body?.bootstrapMoviesUrl || '';
       const ba = !!body?.bootstrapAuto;
-      if (mp) res.setHeader('Set-Cookie', [
-        `mp_token=${encodeURIComponent(mp)}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-        `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
-      ]);
-      else res.setHeader('Set-Cookie', [
+      res.setHeader('Set-Cookie', [
         `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,

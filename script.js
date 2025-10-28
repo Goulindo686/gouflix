@@ -17,7 +17,6 @@ async function initEnvAndSupabase(){
       TMDB_BASE = env.TMDB_BASE || TMDB_BASE;
       TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
       TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
-      window.__ENV.KEYAUTH_BUY_URL = env.KEYAUTH_BUY_URL || null;
       const url = env.SUPABASE_URL;
       const key = env.SUPABASE_ANON_KEY;
       if(url && key && window.supabase){
@@ -159,67 +158,7 @@ function updateHeroSlides(items){
   startHeroSlideshow();
 }
 
-// --------- Assinaturas / Mercado Pago ---------
-async function fetchSubscription(){
-  try{
-    const uid = (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID;
-    const res = await fetch(`/api/subscription?userId=${encodeURIComponent(uid)}`);
-    if(!res.ok) throw new Error('status not ok');
-    const json = await res.json();
-    window.SUBSCRIPTION = json.subscription || null; updateUserArea();
-  }catch(_){ window.SUBSCRIPTION = null; }
-}
-
-async function startCheckout(plan){
-  // Exigir login via Discord antes do pagamento
-  if(!CURRENT_USER){
-    // Não abrir modal; apenas instruir login pelo topo
-    alert('Para comprar, faça login pelo botão "Entrar com Discord" no topo.');
-    return;
-  }
-  try{
-    const res = await fetch('/api/subscription/create', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: CURRENT_USER.id || USER_ID, plan })
-    });
-    const json = await res.json();
-    const qrBase64 = json.qr_code_base64 || json.qr || json.qrCode || null;
-    if(json.ok && qrBase64){
-      // Exibir QR code no modal
-      showPaymentModal(qrBase64, null);
-      // Se for plano de teste, assinatura é ativada imediatamente no backend
-      if(plan === 'test2min'){
-        try{ await fetchSubscription(); }catch(_){}
-      }
-      // Iniciar polling de status do pagamento
-      if(json.paymentId){ startPaymentPolling(json.paymentId, plan); }
-    } else {
-      alert('Falha ao iniciar checkout: ' + (json.error||json.details||''));
-    }
-  }catch(err){ alert('Erro ao iniciar checkout: ' + err.message); }
-}
-
-async function handlePaymentReturn(){
-  const qs = new URLSearchParams(location.search||'');
-  const status = qs.get('status') || qs.get('collection_status');
-  const plan = qs.get('plan');
-  const paymentId = qs.get('payment_id') || null;
-  if(status){
-    if(status === 'approved'){
-      try{
-        const payload = { userId: (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID, status, paymentId };
-        if (plan) payload.plan = plan;
-        await fetch('/api/subscription/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        await fetchSubscription();
-        history.replaceState({}, '', location.pathname); // limpa params
-        alert('Plano ativado com sucesso!');
-      }catch(err){ alert('Falha ao ativar plano: ' + err.message); }
-    } else {
-      history.replaceState({}, '', location.pathname);
-      alert('Pagamento não aprovado. Tente novamente.');
-    }
-  }
-}
+// Assinaturas/Mercado Pago removidos
 
 function openModal(id){
   const movie = window.MOVIES.find(m=>m.id===id);
@@ -228,9 +167,7 @@ function openModal(id){
   const kind = (movie.type === 'serie') ? 'serie' : 'filme';
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
-  const validatedKey = sessionStorage.getItem('KEYAUTH_KEY') || '';
-  const isLogged = !!CURRENT_USER;
-  const canWatch = isLogged && !!validatedKey && !!superflixUrl;
+  const canWatch = !!superflixUrl;
   body.innerHTML = `
     <img src="${movie.poster}" alt="${movie.title} poster">
     <div class="modal-info" style="width:100%">
@@ -240,67 +177,12 @@ function openModal(id){
         ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
       </div>
       <div class="player" style="margin-top:20px;width:100%">
-        ${canWatch ?
-          `<iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>` :
-          `
-          <div id=\"keyAuthGate\" class=\"panel\" style=\"background:#161618;border:1px solid #2a2a2c;margin-top:8px\">
-            <div style=\"display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap\">
-              <div class=\"field-group\" style=\"flex:1;min-width:240px\">
-                <label for=\"keyauthInput\">Insira sua key do KeyAuth</label>
-                <input id=\"keyauthInput\" type=\"text\" placeholder=\"XXXX-XXXX-XXXX-...\" />
-              </div>
-              <button id=\"validateKeyButton\" class=\"btn primary\">Validar</button>
-              ${window.__ENV.KEYAUTH_BUY_URL ? `<a class=\"btn secondary\" href=\"${window.__ENV.KEYAUTH_BUY_URL}\" target=\"_blank\" rel=\"noopener\">Comprar key</a>` : ''}
-            </div>
-            <p id=\"keyauthStatus\" class=\"panel-tip\" style=\"margin-top:8px;color:#bbb\">Para assistir, valide uma key ativa e não expirada.</p>
-          </div>
-          `}
+        <iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>
       </div>
     </div>
   `;
   modal.classList.remove('hidden');
-  if (!canWatch) {
-    if (!isLogged) {
-      const gate = document.getElementById('keyAuthGate');
-      if (gate) {
-        gate.innerHTML = `
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <p style="flex:1;min-width:240px;margin:0;color:#bbb">Faça login com Discord para usar sua key.</p>
-            <button id="loginToUseKey" class="btn secondary">Entrar com Discord</button>
-          </div>
-          <p class="panel-tip" style="margin-top:8px;color:#bbb">Após login, valide sua key para assistir.</p>
-        `;
-      }
-      const loginBtn = document.getElementById('loginToUseKey');
-      if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-          const ret = location.href;
-          location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
-        });
-      }
-    } else {
-      const btn = document.getElementById('validateKeyButton');
-      if (btn) {
-        btn.addEventListener('click', async () => {
-          const input = document.getElementById('keyauthInput');
-          const statusEl = document.getElementById('keyauthStatus');
-          const key = (input && input.value || '').trim();
-          if (!key) { statusEl.textContent = 'Informe a key.'; return; }
-          statusEl.textContent = 'Validando e vinculando key...';
-          const r = await linkKeyAuth(key);
-          if (r.ok) {
-            sessionStorage.setItem('KEYAUTH_KEY', key);
-            openModal(id);
-          } else {
-            const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
-            statusEl.textContent = String(msg);
-          }
-        });
-      }
-    }
-  } else {
-    startKeyAuthRevalidationLoop();
-  }
+  
 }
 
 // --------- Login via Discord ---------
@@ -311,10 +193,6 @@ async function fetchCurrentUser(){
     const j = await res.json();
     CURRENT_USER = (j.logged && j.user) ? j.user : null;
     updateUserArea();
-    // Após conhecer o usuário real (Discord), atualiza a assinatura para o ID correto
-    await fetchSubscription();
-    // Carregar automaticamente a key do KeyAuth vinculada ao usuário, se existir
-    try{ await fetchLinkedKeyAuth(); }catch(_){}
   }catch(_){ CURRENT_USER = null; updateUserArea(); }
 }
 
@@ -348,9 +226,7 @@ function openModalFromTmdbData(data){
   const modal = document.getElementById('modal');
   const body = document.getElementById('modalBody');
   const superflixUrl = buildSuperflixUrl(data.type, data.tmdbId);
-  const validatedKey = sessionStorage.getItem('KEYAUTH_KEY') || '';
-  const isLogged = !!CURRENT_USER;
-  const canWatch = isLogged && !!validatedKey;
+  const canWatch = !!superflixUrl;
   body.innerHTML = `
     <img src="${data.poster}" alt="${data.title} poster">
     <div class="modal-info">
@@ -361,18 +237,7 @@ function openModalFromTmdbData(data){
       </div>
       <div style="margin-top:10px;color:#999;font-size:13px">SuperFlix: ${superflixUrl}</div>
       <div class="player" style="margin-top:12px;width:100%">
-        ${canWatch ? `<iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>` : `
-          <div id=\"keyAuthGate\" class=\"panel\" style=\"background:#161618;border:1px solid #2a2a2c;margin-top:8px\">
-            <div style=\"display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap\">
-              <div class=\"field-group\" style=\"flex:1;min-width:240px\">
-                <label for=\"keyauthInput\">Insira sua key do KeyAuth</label>
-                <input id=\"keyauthInput\" type=\"text\" placeholder=\"XXXX-XXXX-XXXX-...\" />
-              </div>
-              <button id=\"validateKeyButton\" class=\"btn primary\">Validar</button>
-              ${window.__ENV.KEYAUTH_BUY_URL ? `<a class=\"btn secondary\" href=\"${window.__ENV.KEYAUTH_BUY_URL}\" target=\"_blank\" rel=\"noopener\">Comprar key</a>` : ''}
-            </div>
-            <p id=\"keyauthStatus\" class=\"panel-tip\" style=\"margin-top:8px;color:#bbb\">Para assistir, valide uma key ativa e não expirada.</p>
-          </div>`}
+        <iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
         <button id="addToSiteBtn" class="btn secondary">Adicionar ao site</button>
@@ -389,48 +254,7 @@ function openModalFromTmdbData(data){
       renderAdminList();
     });
   }
-  if (!canWatch) {
-    if (!isLogged) {
-      const gate = document.getElementById('keyAuthGate');
-      if (gate) {
-        gate.innerHTML = `
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <p style="flex:1;min-width:240px;margin:0;color:#bbb">Faça login com Discord para usar sua key.</p>
-            <button id="loginToUseKey" class="btn secondary">Entrar com Discord</button>
-          </div>
-          <p class="panel-tip" style="margin-top:8px;color:#bbb">Após login, valide sua key para assistir.</p>
-        `;
-      }
-      const loginBtn = document.getElementById('loginToUseKey');
-      if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-          const ret = location.href;
-          location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
-        });
-      }
-    } else {
-      const btn = document.getElementById('validateKeyButton');
-      if (btn) {
-        btn.addEventListener('click', async () => {
-          const input = document.getElementById('keyauthInput');
-          const statusEl = document.getElementById('keyauthStatus');
-          const key = (input && input.value || '').trim();
-          if (!key) { statusEl.textContent = 'Informe a key.'; return; }
-          statusEl.textContent = 'Validando e vinculando key...';
-          const r = await linkKeyAuth(key);
-          if (r.ok) {
-            sessionStorage.setItem('KEYAUTH_KEY', key);
-            openModalFromTmdbData(data);
-          } else {
-            const msg = (r.error || r.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.');
-            statusEl.textContent = String(msg);
-          }
-        });
-      }
-    }
-  } else {
-    startKeyAuthRevalidationLoop();
-  }
+  
 }
 
 function addFromTmdbData(data){
@@ -539,107 +363,7 @@ function removeItemByKey(key){
   })();
 }
 
-// ----- KeyAuth Helpers -----
-async function computeHWID(){
-  const ua = navigator.userAgent || '';
-  const plat = navigator.platform || '';
-  const lang = navigator.language || '';
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-  const dims = `${screen.width}x${screen.height}`;
-  const data = `${ua}|${plat}|${lang}|${tz}|${dims}`;
-  const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest('SHA-256', enc.encode(data));
-  const arr = Array.from(new Uint8Array(buf));
-  return arr.map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-async function validateKeyAuth(key){
-  try{
-    const hwid = await computeHWID();
-    const res = await fetch('/api/keyauth/validate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ licenseKey: key, hwid })
-    });
-    const j = await res.json();
-    return { ok: !!(j && j.ok), reason: j && j.reason, error: j && j.error, timeleft: j && j.timeleft };
-  }catch(err){ return { ok: false, reason: 'network_error', error: String(err) }; }
-}
-
-// Vincular a key ao usuário logado no backend
-async function linkKeyAuth(key){
-  try{
-    const hwid = await computeHWID();
-    const res = await fetch('/api/keyauth/link', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ licenseKey: key, hwid })
-    });
-    const j = await res.json();
-    return { ok: !!(j && j.ok), reason: j && j.reason, error: j && j.error, timeleft: j && j.timeleft, licenseKey: j && j.licenseKey };
-  }catch(err){ return { ok: false, reason: 'network_error', error: String(err) }; }
-}
-
-// Buscar a key vinculada ao usuário e carregar automaticamente
-async function fetchLinkedKeyAuth(){
-  try{
-    const res = await fetch('/api/keyauth/mine');
-    if(!res.ok){ return { ok:false, error: 'not_logged_or_not_found' }; }
-    const j = await res.json();
-    if(j && j.ok && j.licenseKey){
-      sessionStorage.setItem('KEYAUTH_KEY', j.licenseKey);
-      startKeyAuthRevalidationLoop();
-      return { ok:true, licenseKey: j.licenseKey };
-    }
-    return { ok:false, error: j && (j.error || j.reason || 'no_key') };
-  }catch(err){ return { ok:false, error: String(err) }; }
-}
-
-function startKeyAuthRevalidationLoop(){
-  const key = sessionStorage.getItem('KEYAUTH_KEY');
-  if(!key) return;
-  if(window.__keyauthIntervalId){ clearInterval(window.__keyauthIntervalId); }
-  const poll = async ()=>{
-    const r = await validateKeyAuth(key);
-    if(!r.ok){
-      sessionStorage.removeItem('KEYAUTH_KEY');
-      stopKeyAuthRevalidationLoop();
-      alert('Acesso revogado: ' + (r.error || r.reason || 'key inválida/expirada/desativada.'));
-      const body = document.getElementById('modalBody');
-      if(body){
-        body.querySelector('#superflixPlayer')?.remove();
-        body.innerHTML += `
-          <div id=\"keyAuthGate\" class=\"panel\" style=\"background:#161618;border:1px solid #2a2a2c;margin-top:8px\">
-            <div style=\"display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap\">
-              <div class=\"field-group\" style=\"flex:1;min-width:240px\">
-                <label for=\"keyauthInput\">Insira sua key do KeyAuth</label>
-                <input id=\"keyauthInput\" type=\"text\" placeholder=\"XXXX-XXXX-XXXX-...\" />
-              </div>
-              <button id=\"validateKeyButton\" class=\"btn primary\">Validar</button>
-              ${window.__ENV.KEYAUTH_BUY_URL ? `<a class=\"btn secondary\" href=\"${window.__ENV.KEYAUTH_BUY_URL}\" target=\"_blank\" rel=\"noopener\">Comprar key</a>` : ''}
-            </div>
-            <p id=\"keyauthStatus\" class=\"panel-tip\" style=\"margin-top:8px;color:#bbb\">Para assistir, valide uma key ativa e não expirada.</p>
-          </div>`;
-        const btn = document.getElementById('validateKeyButton');
-        if(btn){
-          btn.addEventListener('click', async()=>{
-            const input = document.getElementById('keyauthInput');
-            const statusEl = document.getElementById('keyauthStatus');
-            const k = (input && input.value || '').trim();
-            if(!k){ statusEl.textContent = 'Informe a key.'; return; }
-            statusEl.textContent = 'Validando key...';
-            const r2 = await validateKeyAuth(k);
-            if(r2.ok){ sessionStorage.setItem('KEYAUTH_KEY', k); location.reload(); }
-            else { statusEl.textContent = String(r2.error || r2.reason || 'Key inválida, expirada ou vinculada a outro dispositivo.'); }
-          });
-        }
-      }
-    }
-  };
-  window.__keyauthIntervalId = setInterval(poll, 30000);
-}
-
-function stopKeyAuthRevalidationLoop(){
-  if(window.__keyauthIntervalId){ clearInterval(window.__keyauthIntervalId); window.__keyauthIntervalId = null; }
-}
+// KeyAuth removido: helpers e validações não são mais necessários
 
 function showSection(section){
   const admin = document.getElementById('adminPanel');
@@ -650,8 +374,7 @@ function showSection(section){
     main.classList.add('hidden');
     if(plans) plans.classList.add('hidden');
     renderAdminList();
-    fetchAdminPurchases();
-    fetchAdminSubscriptions();
+    
   } else {
     admin.classList.add('hidden');
     if(section === 'plans'){
@@ -806,14 +529,12 @@ async function handleTmdbFetch(){
 }
 
 document.getElementById('closeModal').addEventListener('click', ()=>{
-  stopKeyAuthRevalidationLoop();
   document.getElementById('modal').classList.add('hidden');
 });
 
 window.addEventListener('click', e=>{
   const modal = document.getElementById('modal');
   if(e.target === modal){
-    stopKeyAuthRevalidationLoop();
     modal.classList.add('hidden');
   }
 });
@@ -837,38 +558,26 @@ if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
 const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
 // Admin Compras: filtros e atualizar
-const adminPurchaseQuery = document.getElementById('adminPurchaseQuery');
-const adminPurchaseStatus = document.getElementById('adminPurchaseStatus');
-const adminPurchasesRefreshBtn = document.getElementById('adminPurchasesRefreshBtn');
-if(adminPurchaseQuery){ adminPurchaseQuery.addEventListener('input', ()=> fetchAdminPurchases()); }
-if(adminPurchaseStatus){ adminPurchaseStatus.addEventListener('change', ()=> fetchAdminPurchases()); }
-if(adminPurchasesRefreshBtn){ adminPurchasesRefreshBtn.addEventListener('click', ()=> fetchAdminPurchases()); }
+// Admin compras removido
 
 // Botões de compra
-const btnBuyMonthly = document.getElementById('btnBuyMonthly');
-if(btnBuyMonthly){ btnBuyMonthly.addEventListener('click', ()=> startCheckout('mensal')); }
-const btnBuyQuarterly = document.getElementById('btnBuyQuarterly');
-if(btnBuyQuarterly){ btnBuyQuarterly.addEventListener('click', ()=> startCheckout('trimestral')); }
-const btnBuyYearly = document.getElementById('btnBuyYearly');
-if(btnBuyYearly){ btnBuyYearly.addEventListener('click', ()=> startCheckout('anual')); }
+// Botões de compra removidos
 
 // Admin: salvar token Mercado Pago
 const saveMpTokenBtn = document.getElementById('saveMpTokenBtn');
 if(saveMpTokenBtn){
   saveMpTokenBtn.addEventListener('click', async ()=>{
-    const token = (document.getElementById('mpToken').value||'').trim();
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
     const bootstrapMoviesUrl = (document.getElementById('bootstrapMoviesUrl').value||'').trim();
     const bootstrapAuto = !!(document.getElementById('bootstrapAuto')?.checked);
     try{
-      // Verifica se configuração é gravável antes de tentar salvar
       const probe = await fetch('/api/config');
       const cfgProbe = probe.ok ? await probe.json() : { writable:false, source:'env' };
       if (!cfgProbe.writable) {
         alert('Configurações gerenciadas por ambiente. Edite no Vercel/variáveis de ambiente.');
         return;
       }
-      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mpToken: token, publicUrl, bootstrapMoviesUrl, bootstrapAuto }) });
+      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
@@ -881,16 +590,12 @@ if(saveMpTokenBtn){
     const res = await fetch('/api/config');
     if(res.ok){
       const cfg = await res.json();
-      const inp = document.getElementById('mpToken');
-      // Exibir o valor real do token no Admin conforme solicitado
-      if(inp) inp.value = cfg.mpToken || '';
       const pub = document.getElementById('publicUrl');
       if(pub) pub.value = cfg.publicUrl || 'https://gouflix.discloud.app';
       const bm = document.getElementById('bootstrapMoviesUrl');
       if(bm) bm.value = cfg.bootstrapMoviesUrl || '';
       const ba = document.getElementById('bootstrapAuto');
       if(ba) ba.checked = !!cfg.bootstrapAuto;
-      // Se não for gravável, desabilitar botão salvar para evitar erro 500
       if(!cfg.writable && saveMpTokenBtn){ saveMpTokenBtn.disabled = true; saveMpTokenBtn.title = 'Somente leitura. Gerenciado por variáveis de ambiente.'; }
     }
   }catch(_){/* ignore */}
@@ -908,234 +613,15 @@ if(runBootstrapBtn){
       alert('Bootstrap executado. Atualizando conteúdo...');
       await loadMovies();
       renderAdminList();
-      await fetchAdminPurchases();
     }catch(err){ alert(err.message); }
   });
 }
 
 initEnvAndSupabase().then(()=>{
   loadMovies();
-  // Primeiro tenta identificar usuário; em seguida busca assinatura
-  fetchCurrentUser().then(()=>{
-    fetchSubscription().then(handlePaymentReturn);
-  });
-  setInterval(fetchSubscription, 60000); // atualiza status da assinatura a cada 60s
+  fetchCurrentUser();
 });
 
-// Funções do Modal de Pagamento
-function showPaymentModal(qrCodeBase64, checkoutUrl) {
-  const modal = document.getElementById('paymentModal');
-  const qrImage = document.getElementById('qrCodeImage');
-  
-  // Definir a imagem do QR code
-  qrImage.src = `data:image/png;base64,${qrCodeBase64}`;
-  
-  // Exibir o modal
-  modal.style.display = 'flex';
-  
-  // Adicionar listener para fechar com ESC
-  document.addEventListener('keydown', handleEscapeKey);
-  
-  // Opcional: abrir também em nova aba como backup
-  if (checkoutUrl) {
-    setTimeout(() => {
-      if (confirm('Deseja abrir o pagamento em uma nova aba também?')) {
-        window.open(checkoutUrl, '_blank');
-      }
-    }, 2000);
-  }
-}
+// Pagamentos removidos
 
-function closePaymentModal() {
-  const modal = document.getElementById('paymentModal');
-  modal.style.display = 'none';
-  
-  // Remover listener do ESC
-  document.removeEventListener('keydown', handleEscapeKey);
-  // Parar polling se ativo
-  if(window.PAYMENT_POLL_TID){
-    clearInterval(window.PAYMENT_POLL_TID);
-    window.PAYMENT_POLL_TID = null;
-  }
-}
-
-function handleEscapeKey(event) {
-  if (event.key === 'Escape') {
-    closePaymentModal();
-  }
-}
-
-// Fechar modal clicando fora dele
-document.addEventListener('click', function(event) {
-  const modal = document.getElementById('paymentModal');
-  if (event.target === modal) {
-    closePaymentModal();
-  }
-});
-
-async function startPaymentPolling(paymentId, plan){
-  // evita múltiplos timers
-  if(window.PAYMENT_POLL_TID){ clearInterval(window.PAYMENT_POLL_TID); }
-  const poll = async ()=>{
-    try{
-      const r = await fetch(`/api/payment/status?id=${encodeURIComponent(paymentId)}`, { credentials: 'include' });
-      const j = await r.json();
-      if(j.ok && j.status === 'approved'){
-        clearInterval(window.PAYMENT_POLL_TID); window.PAYMENT_POLL_TID = null;
-        try{
-          await fetch('/api/subscription/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: (CURRENT_USER && CURRENT_USER.id) ? CURRENT_USER.id : USER_ID, plan, status:'approved', paymentId }) });
-          await fetchSubscription();
-          closePaymentModal();
-          alert('Pagamento aprovado e plano ativado!');
-        }catch(err){ alert('Falha ao ativar plano: ' + err.message); }
-      } else if (!j.ok) {
-        // Feedback claro para configuração ausente
-        if (j.error && String(j.error).toLowerCase().includes('mp_access_token')) {
-          clearInterval(window.PAYMENT_POLL_TID); window.PAYMENT_POLL_TID = null;
-          alert('Token do Mercado Pago não está configurado. Vá ao Admin > Configurações e salve o Access Token.');
-        }
-      }
-    }catch(_){ /* ignore */ }
-  };
-  // roda imediatamente e a cada 5s
-  await poll();
-  window.PAYMENT_POLL_TID = setInterval(poll, 5000);
-}
-
-// -------- Admin: Compras ---------
-async function fetchAdminPurchases(){
-  try{
-    const status = adminPurchaseStatus ? (adminPurchaseStatus.value||'') : '';
-    const url = status ? `/api/purchases?status=${encodeURIComponent(status)}` : '/api/purchases';
-    const res = await fetch(url);
-    const json = await res.json();
-    let list = (json && json.purchases) ? json.purchases : [];
-    const q = adminPurchaseQuery ? (adminPurchaseQuery.value||'').trim().toLowerCase() : '';
-    if(q){ list = list.filter(p=> String(p.user_id).toLowerCase().includes(q) || String(p.id).toLowerCase().includes(q)); }
-    renderPurchasesTable(list);
-  }catch(err){ console.error('Falha ao buscar compras', err); }
-}
-
-function renderPurchasesTable(list){
-  const tbody = document.querySelector('#adminPurchasesTable tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-  (list||[]).forEach(p=>{
-    const tr = document.createElement('tr');
-    const created = p.created_at ? new Date(p.created_at) : null;
-    const createdFmt = created ? created.toLocaleString('pt-BR') : '-';
-    tr.innerHTML = `
-      <td>${p.user_id}</td>
-      <td>${p.plan}</td>
-      <td><code>${p.id||'-'}</code></td>
-      <td>R$ ${Number(p.amount||0).toFixed(2)}</td>
-      <td><span class="badge-status ${p.status||'pending'}">${p.status||'pending'}</span></td>
-      <td>${createdFmt}</td>
-      <td class="actions">
-        <button class="btn secondary" data-action="approve" data-id="${p.id}">Aprovar</button>
-        <button class="btn secondary" data-action="cancel" data-id="${p.id}">Cancelar</button>
-        <button class="btn secondary" data-action="activate" data-user="${p.user_id}" data-plan="${p.plan}" data-id="${p.id}">Ativar Assinatura</button>
-        <button class="btn remove" data-action="deactivate" data-user="${p.user_id}">Desativar Assinatura</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-  // Delegação de eventos para ações
-  tbody.querySelectorAll('button').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const action = btn.getAttribute('data-action');
-      if(action === 'approve' || action === 'cancel'){
-        const id = btn.getAttribute('data-id');
-        const status = action === 'approve' ? 'approved' : 'cancelled';
-        try{
-          const res = await fetch('/api/purchases/update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, status }) });
-          if(!res.ok) throw new Error('Falha ao atualizar compra');
-          await fetchAdminPurchases();
-        }catch(err){ alert('Erro: '+err.message); }
-      } else if(action === 'activate'){
-        const userId = btn.getAttribute('data-user');
-        const plan = btn.getAttribute('data-plan');
-        const paymentId = btn.getAttribute('data-id');
-        try{
-          const r = await fetch('/api/subscription/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId, plan, status:'approved', paymentId }) });
-          if(!r.ok) throw new Error('Falha ao ativar assinatura');
-          alert('Assinatura ativada para '+userId);
-        }catch(err){ alert('Erro: '+err.message); }
-      } else if(action === 'deactivate'){
-        const userId = btn.getAttribute('data-user');
-        try{
-          const r = await fetch('/api/subscription/deactivate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId }) });
-          if(!r.ok) throw new Error('Falha ao desativar assinatura');
-          alert('Assinatura desativada para '+userId);
-        }catch(err){ alert('Erro: '+err.message); }
-      }
-    });
-  });
-}
-
-// -------- Admin: Assinaturas ---------
-const adminSubscriptionStatus = document.getElementById('adminSubscriptionStatus');
-const adminSubscriptionsRefreshBtn = document.getElementById('adminSubscriptionsRefreshBtn');
-if(adminSubscriptionStatus){ adminSubscriptionStatus.addEventListener('change', ()=> fetchAdminSubscriptions()); }
-if(adminSubscriptionsRefreshBtn){ adminSubscriptionsRefreshBtn.addEventListener('click', ()=> fetchAdminSubscriptions()); }
-
-async function fetchAdminSubscriptions(){
-  try{
-    const status = adminSubscriptionStatus ? (adminSubscriptionStatus.value||'') : '';
-    const url = status ? `/api/subscription?list=1&status=${encodeURIComponent(status)}` : '/api/subscription?list=1';
-    const res = await fetch(url);
-    const json = await res.json();
-    const list = (json && json.subscriptions) ? json.subscriptions : [];
-    renderSubscriptionsTable(list);
-  }catch(err){ console.error('Falha ao buscar assinaturas', err); }
-}
-
-function renderSubscriptionsTable(list){
-  const tbody = document.querySelector('#adminSubscriptionsTable tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-  (list||[]).forEach(s=>{
-    const tr = document.createElement('tr');
-    const start = s.start_at ? new Date(s.start_at) : null;
-    const end = s.end_at ? new Date(s.end_at) : null;
-    const startFmt = start ? start.toLocaleString('pt-BR') : '-';
-    const endFmt = end ? end.toLocaleString('pt-BR') : '-';
-    const isActive = s.status === 'active' && end && end.getTime() > Date.now();
-    tr.innerHTML = `
-      <td>${s.user_id}</td>
-      <td>${s.plan||'-'}</td>
-      <td>${startFmt}</td>
-      <td>${endFmt}</td>
-      <td><span class="badge-status ${isActive?'approved':'cancelled'}">${isActive?'active':'inactive'}</span></td>
-      <td><code>${s.payment_id||'-'}</code></td>
-      <td class="actions">
-        <button class="btn secondary" data-action="activate" data-user="${s.user_id}" data-plan="${s.plan||'mensal'}">Ativar</button>
-        <button class="btn remove" data-action="deactivate" data-user="${s.user_id}">Desativar</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll('button').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const action = btn.getAttribute('data-action');
-      if(action === 'activate'){
-        const userId = btn.getAttribute('data-user');
-        const plan = btn.getAttribute('data-plan');
-        try{
-          const r = await fetch('/api/subscription/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId, plan, status:'approved', paymentId: String(Date.now()) }) });
-          if(!r.ok) throw new Error('Falha ao ativar assinatura');
-          alert('Assinatura ativada para '+userId);
-          fetchAdminSubscriptions();
-        }catch(err){ alert('Erro: '+err.message); }
-      } else if(action === 'deactivate'){
-        const userId = btn.getAttribute('data-user');
-        try{
-          const r = await fetch('/api/subscription/deactivate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId }) });
-          if(!r.ok) throw new Error('Falha ao desativar assinatura');
-          alert('Assinatura desativada para '+userId);
-          fetchAdminSubscriptions();
-        }catch(err){ alert('Erro: '+err.message); }
-      }
-    });
-  });
-}
+// Admin compras/assinaturas removido

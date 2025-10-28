@@ -182,16 +182,6 @@ function fetchJsonUrl(u) {
   });
 }
 
-// ---- KeyAuth Client API (ownerid/appname/version) ----
-async function keyauthClientLicense(appName, ownerId, version, licenseKey, hwid) {
-  const base = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
-  const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
-  try {
-    return await fetchJsonUrl(url);
-  } catch (err) {
-    return { success: false, message: String(err) };
-  }
-}
 
 // ---- Bootstrap automático ao iniciar ----
 async function bootstrapFromConfig(force = false) {
@@ -232,96 +222,6 @@ const server = http.createServer(async (req, res) => {
     if (urlPath.startsWith('/api/')) {
       res.setHeader('Content-Type', 'application/json');
       const params = new URLSearchParams(queryStr || '');
-      // ----- KEYAUTH VALIDATE LICENSE -----
-      if (urlPath === '/api/keyauth/validate' && req.method === 'POST') {
-        const body = await parseBody(req);
-        // Aceitar tanto 'key' quanto 'licenseKey' enviados pelo frontend
-        const licenseKey = (body && (body.key || body.licenseKey)) || '';
-        const hwid = (body && body.hwid) || '';
-        if (!licenseKey || !hwid) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ ok: false, error: 'key e hwid são obrigatórios' }));
-          return;
-        }
-        const appName = process.env.KEYAUTH_APP_NAME || '';
-        const ownerId = process.env.KEYAUTH_OWNER_ID || '';
-        const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
-        const ignoreHwid = String(process.env.KEYAUTH_IGNORE_HWID || '').toLowerCase() === 'true';
-        try {
-          let timeleft = null; // null quando não houver campo
-          let serverHwid = null;
-          let status = 'active';
-          let banned = false;
-          if (appName && ownerId) {
-            const login = await keyauthClientLicense(appName, ownerId, appVersion, licenseKey, hwid);
-            if (!login || login.success === false) {
-              res.statusCode = 403;
-              res.end(JSON.stringify({ ok: false, error: (login && login.message) || 'licença inválida' }));
-              return;
-            }
-            // Tentar extrair tempo restante
-            const data = login.data || login.info || login;
-            const tl = data && (data.timeleft ?? data.time_left ?? data.timeLeft);
-            timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
-            serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
-            status = String((data && (data.status || data.state)) || 'active').toLowerCase();
-            banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
-          } else {
-            res.statusCode = 500;
-            res.end(JSON.stringify({ ok: false, error: 'Credenciais KeyAuth não configuradas (name/ownerid)' }));
-            return;
-          }
-
-          // Checar expiração/banimento/estado
-          if (banned) {
-            res.statusCode = 403;
-            res.end(JSON.stringify({ ok: false, error: 'licença banida' }));
-            return;
-          }
-          if (typeof timeleft === 'number' && Number.isFinite(timeleft) && timeleft <= 0) {
-            res.statusCode = 403;
-            res.end(JSON.stringify({ ok: false, error: 'licença expirada' }));
-            return;
-          }
-          if (status && ['disabled', 'inactive', 'invalid'].includes(status)) {
-            res.statusCode = 403;
-            res.end(JSON.stringify({ ok: false, error: 'licença inativa' }));
-            return;
-          }
-
-          // Enforce single device: key -> hwid mapping in local state
-          const state = await readState();
-          state.keyauth = state.keyauth || { keys: {} };
-          const existing = state.keyauth.keys[licenseKey];
-          const now = Date.now();
-          if (existing && existing.hwid && existing.hwid !== hwid) {
-            res.statusCode = 403;
-            res.end(JSON.stringify({ ok: false, error: 'licença já vinculada a outro dispositivo' }));
-            return;
-          }
-          // Se o KeyAuth já possui HWID e é diferente, bloquear
-          if (serverHwid && serverHwid !== hwid && !ignoreHwid) {
-            res.statusCode = 403;
-            res.end(JSON.stringify({ ok: false, error: 'HWID não corresponde ao dispositivo vinculado' }));
-            return;
-          }
-          // Vincular localmente se ainda não houver registro
-          state.keyauth.keys[licenseKey] = {
-            hwid,
-            lastValidatedAt: now,
-            timeleft: timeleft,
-            status: status || 'active'
-          };
-          await writeState(state);
-
-          res.end(JSON.stringify({ ok: true, timeleft, bound: true }));
-          return;
-        } catch (err) {
-          res.statusCode = 500;
-          res.end(JSON.stringify({ ok: false, error: 'falha ao validar no KeyAuth', details: String(err) }));
-          return;
-        }
-      }
       // ----- CONFIG -----
       if (urlPath === '/api/config' && req.method === 'GET') {
         const state = await readState();
@@ -345,81 +245,6 @@ const server = http.createServer(async (req, res) => {
       if (urlPath === '/api/bootstrap/run' && req.method === 'POST') {
         await bootstrapFromConfig(true);
         res.end(JSON.stringify({ ok: true }));
-        return;
-      }
-      // ----- SUBSCRIPTION STATUS -----
-      if (urlPath === '/api/subscription' && req.method === 'GET') {
-        const state = await readState();
-        const list = params.get('list');
-        if (list) {
-          const statusFilter = params.get('status');
-          const rows = Object.values(state.subscriptions||{}).map(s=>{
-            const endAt = s.expiry ? new Date(s.expiry) : null;
-            const startAt = s.start ? new Date(s.start) : null;
-            const expired = endAt ? (endAt.getTime() <= Date.now()) : false;
-            const status = expired ? 'inactive' : (s.status||'active');
-            return {
-              user_id: s.userId,
-              plan: s.plan,
-              start_at: startAt ? startAt.toISOString() : null,
-              end_at: endAt ? endAt.toISOString() : null,
-              status,
-              payment_id: s.paymentId||null,
-            };
-          });
-          const filtered = statusFilter ? rows.filter(r=> String(r.status) === String(statusFilter)) : rows;
-          res.end(JSON.stringify({ ok:true, subscriptions: filtered }));
-          return;
-        }
-        const userId = params.get('userId');
-        if (!userId) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'userId required' })); return; }
-        const sub = state.subscriptions[userId] || null;
-        if (sub) {
-          const now = Date.now();
-          const active = (sub.expiry || 0) > now;
-          sub.active = active;
-          if (!active) sub.status = 'inactive'; else sub.status = 'active';
-          await writeState(state);
-        }
-        res.end(JSON.stringify({ ok: true, subscription: sub }));
-        return;
-      }
-      // ----- DEACTIVATE SUBSCRIPTION -----
-      if (urlPath === '/api/subscription/deactivate' && req.method === 'POST') {
-        const body = await parseBody(req);
-        const { userId } = body;
-        if(!userId){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'userId required' })); return; }
-        const state = await readState();
-        const sub = state.subscriptions[userId];
-        if(sub){
-          sub.active = false; sub.status = 'inactive'; sub.expiry = Date.now();
-          await writeState(state);
-        }
-        res.end(JSON.stringify({ ok:true }));
-        return;
-      }
-      // ----- ACTIVATE AFTER RETURN -----
-      if (urlPath === '/api/subscription/activate' && req.method === 'POST') {
-        const body = await parseBody(req);
-        const { userId, plan, status, paymentId } = body;
-        if (!userId || !plan || !status) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'userId, plan, status required' })); return; }
-        if (status !== 'approved') { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'status not approved' })); return; }
-        const daysMap = { mensal: 30, trimestral: 90, anual: 365 };
-        const days = daysMap[plan];
-        if (!days) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'invalid plan' })); return; }
-        const now = Date.now();
-        const state = await readState();
-        state.subscriptions[userId] = {
-          userId,
-          plan,
-          start: now,
-          expiry: now + days * 24 * 60 * 60 * 1000,
-          status: 'active',
-          active: true,
-          paymentId: paymentId || null
-        };
-        await writeState(state);
-        res.end(JSON.stringify({ ok:true }));
         return;
       }
       // CORS não é necessário pois é mesma origem
