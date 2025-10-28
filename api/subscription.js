@@ -91,9 +91,6 @@ export default async function handler(req, res) {
       const body = await readBody(req);
       const action = (body?.action || req.query?.action || '').toLowerCase();
       const COOKIES = parseCookies(req.headers?.cookie || '');
-      const ENV_MP_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN;
-      const PUBLIC_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
-      const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || null;
       if (action === 'activate') {
         const userId = body?.userId;
         let plan = body?.plan || null;
@@ -203,101 +200,7 @@ export default async function handler(req, res) {
         } catch {}
         return res.status(200).json({ ok: true, deactivated: true });
       }
-      if (action === 'create') {
-        const userId = body?.userId;
-        const plan = body?.plan || 'mensal';
-        // Buscar preço do plano no Supabase quando possível, com fallback para mapa
-        let amount = null;
-        try {
-          if (SUPABASE_READ_KEY) {
-            // Suporta colunas price (reais) e price_cents (centavos)
-            const pr = await fetch(`${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=price,price_cents`, { headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' } });
-            if (pr.ok) {
-              const arr = await pr.json();
-              const row = Array.isArray(arr) && arr.length ? arr[0] : null;
-              const price = row?.price;
-              const cents = row?.price_cents;
-              if (typeof price === 'number' && price > 0) amount = price;
-              else if (typeof cents === 'number' && cents > 0) amount = Math.round(cents) / 100;
-            }
-          }
-        } catch {}
-        if (amount == null) {
-          const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9 };
-          amount = PLAN_PRICES[plan];
-        }
-        if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
-        if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido (preço não encontrado)' });
-        const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token'], process.env.SUPABASE_ANON_KEY);
-        if (!mpToken) return res.status(400).json({ ok: false, error: 'MP_ACCESS_TOKEN não configurado. Defina em variáveis de ambiente ou salve via /api/config.' });
-        // notification_url: usar cookie/env e, se vazio, buscar de app_config
-        let PUBLIC_FALLBACK = COOKIES['public_url'] || PUBLIC_URL;
-        if (!PUBLIC_FALLBACK && SUPABASE_URL && SUPABASE_READ_KEY) {
-          try {
-            const cr = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=public_url`, {
-              headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' },
-            });
-            if (cr.ok) {
-              const data = await cr.json();
-              const row = Array.isArray(data) && data.length ? data[0] : null;
-              if (row?.public_url) PUBLIC_FALLBACK = row.public_url;
-            }
-          } catch {}
-        }
-        // Fallback final: derivar da requisição atual (host) para garantir webhook
-        if (!PUBLIC_FALLBACK && req?.headers?.host) {
-          const scheme = (req.headers['x-forwarded-proto'] || '').includes('http') ? req.headers['x-forwarded-proto'] : 'https';
-          const host = req.headers.host;
-          PUBLIC_FALLBACK = `${scheme}://${host}`;
-        }
-        const notificationUrl = PUBLIC_FALLBACK ? `${PUBLIC_FALLBACK}/api/webhook/mp${MP_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(MP_WEBHOOK_SECRET)}` : ''}` : undefined;
-        const idempotencyKey = `${userId}:${plan}:${Date.now()}`;
-        const paymentPayload = {
-          transaction_amount: amount,
-          description: `Assinatura ${plan}`,
-          payment_method_id: 'pix',
-          // Mercado Pago exige email válido; usar domínio example.com para testes
-          payer: { email: `${userId}@example.com`, identification: { type: 'CPF', number: '19100000000' } },
-          // Referência externa para fallback no webhook se o purchase não existir
-          external_reference: `${userId}:${plan}:${Date.now()}`,
-          ...(notificationUrl ? { notification_url: notificationUrl } : {}),
-        };
-
-        const mpResp = await fetch('https://api.mercadopago.com/v1/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mpToken}`, 'X-Idempotency-Key': idempotencyKey },
-          body: JSON.stringify(paymentPayload),
-        });
-        if (!mpResp.ok) {
-          const text = await mpResp.text();
-          return res.status(mpResp.status || 500).json({ ok: false, error: 'Falha ao criar pagamento PIX', details: text });
-        }
-
-        const payment = await mpResp.json();
-        const paymentId = payment?.id;
-        const qr = payment?.point_of_interaction?.transaction_data?.qr_code_base64 || null;
-        const qrCode = payment?.point_of_interaction?.transaction_data?.qr_code || null;
-
-        if (SUPABASE_READY) {
-          const upsertUrl = `${SUPABASE_URL}/rest/v1/purchases?on_conflict=id`;
-          const headers = {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            'Prefer': 'resolution=merge-duplicates',
-          };
-          // Não enviar 'amount' para evitar incompatibilidade com schema
-          const initialStatus = payment?.status || 'pending';
-          const purchaseRow = { id: String(paymentId), user_id: userId, plan, status: initialStatus, created_at: new Date().toISOString() };
-          const saveResp = await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(purchaseRow) });
-          if (!saveResp.ok) {
-            const text = await saveResp.text();
-            return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Compra criada, mas não persistida no Supabase', details: text });
-          }
-          return res.status(200).json({ ok: true, paymentId, qr, qrCode });
-        }
-        return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Supabase não configurado; pagamento não foi persistido no banco.' });
-      }
+      // Removido: ação 'create' via Mercado Pago
       return res.status(400).json({ ok: false, error: 'Ação inválida' });
     }
 
@@ -314,34 +217,6 @@ async function readBody(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return {}; }
 }
 
-async function getMpToken(supabaseUrl, serviceKey, envToken, anonKey) {
-  if (envToken) return envToken;
-  if (supabaseUrl && serviceKey) {
-    try {
-      const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
-        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}`, 'Accept': 'application/json' },
-      });
-      if (r.ok) {
-        const data = await r.json();
-        const row = Array.isArray(data) && data.length ? data[0] : null;
-        if (row?.mp_token) return row.mp_token;
-      }
-    } catch {}
-  }
-  if (supabaseUrl && anonKey) {
-    try {
-      const r = await fetch(`${supabaseUrl}/rest/v1/app_config?id=eq.global&select=mp_token`, {
-        headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Accept': 'application/json' },
-      });
-      if (r.ok) {
-        const data = await r.json();
-        const row = Array.isArray(data) && data.length ? data[0] : null;
-        if (row?.mp_token) return row.mp_token;
-      }
-    } catch {}
-  }
-  return null;
-}
 
 function parseCookies(str){
   const out = {};

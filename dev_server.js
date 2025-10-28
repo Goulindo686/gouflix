@@ -26,7 +26,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+// Removido: integração Mercado Pago
 
 const root = process.cwd();
 const port = process.env.PORT || 8000;
@@ -47,22 +47,20 @@ const statePath = path.join(root, 'data', 'state.json');
 function ensureState() {
   try {
     if (!fs.existsSync(statePath)) {
-      const initial = { added: [], removed: [], subscriptions: {}, purchases: [], config: { mercadoPagoAccessToken: process.env.MP_ACCESS_TOKEN || '', publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app' } };
+      const initial = { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app' } };
       fs.writeFileSync(statePath, JSON.stringify(initial, null, 2));
     }
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, purchases: [], config: { mercadoPagoAccessToken: process.env.MP_ACCESS_TOKEN || '', publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0 } };
+  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0 } };
 }
 function normalizeState(s) {
   const state = s || {};
   state.added = Array.isArray(state.added) ? state.added : [];
   state.removed = Array.isArray(state.removed) ? state.removed : [];
   state.subscriptions = state.subscriptions || {};
-  state.purchases = Array.isArray(state.purchases) ? state.purchases : [];
   state.config = state.config || {};
-  if (!state.config.mercadoPagoAccessToken) state.config.mercadoPagoAccessToken = process.env.MP_ACCESS_TOKEN || '';
   if (!state.config.publicUrl) state.config.publicUrl = process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
   if (!state.config.bootstrapMoviesUrl) state.config.bootstrapMoviesUrl = process.env.BOOTSTRAP_MOVIES_URL || '';
   if (typeof state.config.bootstrapAuto === 'undefined') state.config.bootstrapAuto = !!(process.env.BOOTSTRAP_AUTO || false);
@@ -378,15 +376,13 @@ const server = http.createServer(async (req, res) => {
       if (urlPath === '/api/config' && req.method === 'GET') {
         const state = await readState();
         const cfg = state.config || {};
-        const token = cfg.mercadoPagoAccessToken || process.env.MP_ACCESS_TOKEN || '';
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
-        res.end(JSON.stringify({ mercadoPagoAccessToken: token, publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0 }));
+        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0 }));
         return;
       }
       if (urlPath === '/api/config' && req.method === 'POST') {
         const body = await parseBody(req);
         const state = await readState();
-        state.config.mercadoPagoAccessToken = body.token || state.config.mercadoPagoAccessToken || '';
         state.config.publicUrl = body.publicUrl || state.config.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         // salvar config de bootstrap (sem state)
         if (body.bootstrapMoviesUrl !== undefined) state.config.bootstrapMoviesUrl = body.bootstrapMoviesUrl || '';
@@ -438,106 +434,6 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: true, subscription: sub }));
         return;
       }
-      // ----- CREATE CHECKOUT VIA MERCADO PAGO -----
-      if (urlPath === '/api/subscription/create' && req.method === 'POST') {
-        const body = await parseBody(req);
-        const { userId, plan } = body;
-        if (!userId || !plan) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'userId and plan required' })); return; }
-        const state = await readState();
-        const token = state.config.mercadoPagoAccessToken;
-        if (!token) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Mercado Pago token not configured' })); return; }
-
-        const priceMap = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
-        const titleMap = { mensal:'Plano Mensal', trimestral:'Plano Trimestral', anual:'Plano Anual' };
-        const amount = priceMap[plan];
-        const title = titleMap[plan];
-        if (!amount) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'invalid plan' })); return; }
-
-        try {
-          // Configurar cliente do Mercado Pago
-          const client = new MercadoPagoConfig({ 
-            accessToken: token,
-            options: { timeout: 5000 }
-          });
-
-          // Criar pagamento PIX para gerar QR Code
-          const payment = new Payment(client);
-          const paymentData = {
-            transaction_amount: Number(amount.toFixed(2)),
-            description: title,
-            payment_method_id: 'pix',
-            payer: {
-              email: `${userId}@example.com` // placeholder local; substitua por email real se houver
-            },
-            external_reference: `${userId}:${plan}:${Date.now()}`
-          };
-          // incluir webhook em produção/discloud
-          try{
-            const publicUrl = (state.config && state.config.publicUrl) ? state.config.publicUrl : (process.env.PUBLIC_URL || '');
-            const base = String(publicUrl||'').replace(/\/$/, '');
-            const webhookUrl = base ? `${base}/api/webhook` : '';
-            if (webhookUrl && /^https:\/\//.test(webhookUrl)) {
-              paymentData.notification_url = webhookUrl;
-            }
-          }catch(_){/* ignore */}
-
-          const result = await payment.create({ body: paymentData });
-          const qrBase64 = result?.point_of_interaction?.transaction_data?.qr_code_base64 || null;
-          const paymentId = result?.id || null;
-          // Registrar compra
-          const now = Date.now();
-          const state = await readState();
-          state.purchases.push({
-            id: paymentId,
-            userId,
-            plan,
-            amount,
-            status: result?.status || 'pending',
-            createdAt: now,
-            updatedAt: now
-          });
-          await writeState(state);
-
-          res.end(JSON.stringify({
-            ok: true,
-            paymentId,
-            qr_code_base64: qrBase64,
-            status: result?.status || 'pending'
-          }));
-        } catch (err) {
-          console.error('Erro ao criar pagamento PIX:', err);
-          res.statusCode = 500;
-          res.end(JSON.stringify({ ok:false, error: 'failed to create payment', details: String(err) }));
-        }
-        return;
-      }
-      // ----- LIST PURCHASES -----
-      if (urlPath === '/api/purchases' && req.method === 'GET') {
-        const state = await readState();
-        const params = new URLSearchParams(queryStr || '');
-        const userId = params.get('userId');
-        const status = params.get('status');
-        let list = state.purchases || [];
-        if (userId) list = list.filter(p => String(p.userId) === String(userId));
-        if (status) list = list.filter(p => String(p.status) === String(status));
-        res.end(JSON.stringify({ ok:true, purchases: list }));
-        return;
-      }
-      // ----- UPDATE PURCHASE -----
-      if (urlPath === '/api/purchases/update' && req.method === 'POST') {
-        const body = await parseBody(req);
-        const { id, status, note } = body;
-        if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'id required' })); return; }
-        const state = await readState();
-        const p = (state.purchases || []).find(x => String(x.id) === String(id));
-        if(!p){ res.statusCode = 404; res.end(JSON.stringify({ ok:false, error:'purchase not found' })); return; }
-        if(status) p.status = status;
-        if(note) p.note = note;
-        p.updatedAt = Date.now();
-        await writeState(state);
-        res.end(JSON.stringify({ ok:true, purchase: p }));
-        return;
-      }
       // ----- DEACTIVATE SUBSCRIPTION -----
       if (urlPath === '/api/subscription/deactivate' && req.method === 'POST') {
         const body = await parseBody(req);
@@ -572,68 +468,8 @@ const server = http.createServer(async (req, res) => {
           active: true,
           paymentId: paymentId || null
         };
-        // Atualizar status da compra vinculada
-        if (paymentId) {
-          const p = (state.purchases || []).find(x => String(x.id) === String(paymentId));
-          if (p) { p.status = 'approved'; p.updatedAt = Date.now(); }
-        }
         await writeState(state);
         res.end(JSON.stringify({ ok:true }));
-        return;
-      }
-      // ----- PAYMENT STATUS -----
-      if (urlPath === '/api/payment/status' && req.method === 'GET') {
-        const params = new URLSearchParams(queryStr || '');
-        const id = params.get('id');
-        if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'payment id required' })); return; }
-        try{
-          const state = await readState();
-          const token = state.config.mercadoPagoAccessToken;
-          const client = new MercadoPagoConfig({ accessToken: token });
-          const paymentApi = new Payment(client);
-          const pay = await paymentApi.get({ id });
-          const status = pay?.status || pay?.response?.status || 'unknown';
-          res.end(JSON.stringify({ ok:true, status }));
-        }catch(err){
-          console.error('Erro ao consultar pagamento:', err);
-          res.statusCode = 500;
-          res.end(JSON.stringify({ ok:false, error:'failed to check payment', details:String(err) }));
-        }
-        return;
-      }
-      // ----- WEBHOOK HANDLER -----
-      if (urlPath === '/api/webhook' && req.method === 'POST') {
-        const body = await parseBody(req);
-        console.log('Webhook recebido:', body);
-        try{
-          const state = readState();
-          const token = state.config.mercadoPagoAccessToken;
-          const client = new MercadoPagoConfig({ accessToken: token });
-          const paymentApi = new Payment(client);
-          const paymentId = body?.data?.id || body?.id || body?.resource?.id || null;
-          if(paymentId){
-            const pay = await paymentApi.get({ id: paymentId });
-            const status = pay?.status || pay?.response?.status;
-            const ext = pay?.external_reference || pay?.response?.external_reference || '';
-            // external_reference format: userId:plan:timestamp
-            if(status === 'approved' && ext){
-              const [userId, plan] = String(ext).split(':');
-              const daysMap = { mensal: 30, trimestral: 90, anual: 365 };
-              const days = daysMap[plan];
-              if(userId && days){
-                const now = Date.now();
-                state.subscriptions[userId] = {
-                  userId, plan, start: now, expiry: now + days*24*60*60*1000,
-                  status: 'active', active: true, paymentId
-                };
-                await writeState(state);
-              }
-            }
-          }
-        }catch(err){
-          console.error('Erro ao processar webhook:', err);
-        }
-        res.end(JSON.stringify({ ok: true }));
         return;
       }
       // CORS não é necessário pois é mesma origem
@@ -663,7 +499,6 @@ const server = http.createServer(async (req, res) => {
             added: Array.isArray(incoming.added) ? incoming.added : [],
             removed: Array.isArray(incoming.removed) ? incoming.removed : [],
             subscriptions: incoming.subscriptions || {},
-            purchases: Array.isArray(incoming.purchases) ? incoming.purchases : [],
             config: current.config // não sobrescreve config do servidor
           });
         } else {
@@ -672,7 +507,6 @@ const server = http.createServer(async (req, res) => {
             added: [...(current.added||[]), ...((incoming.added||[]).filter(i=> !(current.added||[]).some(j=> (j.key||'') === (i.key||''))))],
             removed: Array.from(new Set([...(current.removed||[]), ...((incoming.removed||[]))])),
             subscriptions: { ...(current.subscriptions||{}), ...(incoming.subscriptions||{}) },
-            purchases: [...(current.purchases||[]), ...((incoming.purchases||[]))],
             config: current.config
           };
           await writeState(merged);

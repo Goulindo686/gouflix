@@ -6,10 +6,8 @@
     { "source": "/api/env", "destination": "/api/config?env=1" },
     { "source": "/api/state/add", "destination": "/api/state?action=add" },
     { "source": "/api/state/remove", "destination": "/api/state?action=remove" },
-    { "source": "/api/subscription/create", "destination": "/api/subscription?action=create" },
     { "source": "/api/subscription/activate", "destination": "/api/subscription?action=activate" },
     { "source": "/api/subscription/deactivate", "destination": "/api/subscription?action=deactivate" },
-    { "source": "/api/purchases/update", "destination": "/api/purchases?action=update" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

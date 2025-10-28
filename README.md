@@ -21,16 +21,15 @@ Este projeto agora suporta hospedagem na Vercel e persistência de estado no Sup
 ### Variáveis de ambiente (Vercel)
 - `SUPABASE_URL`: URL do seu projeto Supabase.
 - `SUPABASE_ANON_KEY`: chave pública (anon) do Supabase.
+- `SUPABASE_SERVICE_ROLE_KEY`: chave de serviço do Supabase para APIs protegidas (server-side).
+- `PUBLIC_URL`: URL pública do site (ex.: `https://SEU_DOMINIO`).
 - `TMDB_BASE`: opcional (default `https://api.themoviedb.org/3`).
 - `TMDB_IMG`: opcional (default `https://image.tmdb.org/t/p/w500`).
 - `TMDB_TOKEN`: token Bearer do TMDB.
- - `SUPABASE_SERVICE_ROLE_KEY`: chave de serviço do Supabase para APIs protegidas (server-side).
- - `MP_ACCESS_TOKEN`: token de acesso do Mercado Pago.
- - `PUBLIC_URL`: URL pública do site (ex.: `https://SEU_DOMINIO`).
- - `MP_WEBHOOK_SECRET`: segredo do webhook (se usar validação).
- - `DISCORD_CLIENT_ID`: <seu-client-id>.
- - `DISCORD_CLIENT_SECRET`: <seu-client-secret>.
- - `DISCORD_REDIRECT_URI`: `https://SEU_DOMINIO/api/auth/discord/callback` (recomendado).
+- `DISCORD_CLIENT_ID`: <seu-client-id>.
+- `DISCORD_CLIENT_SECRET`: <seu-client-secret>.
+- `DISCORD_REDIRECT_URI`: `https://SEU_DOMINIO/api/auth/discord/callback` (recomendado).
+- `KEYAUTH_OWNER_ID`, `KEYAUTH_APP_NAME`, `KEYAUTH_APP_VERSION` (client-only KeyAuth).
 
 Uma função serverless (`/api/env`) expõe essas variáveis de forma segura ao frontend.
 
@@ -48,73 +47,38 @@ create table if not exists public.gouflix_state (
 - Caso o Supabase não esteja configurado, o app usa os endpoints locais (`/api/state/*`) como fallback.
 
 #### Configurações da Aplicação (app_config)
-Para salvar o Access Token do Mercado Pago e outras configurações via Admin, crie também a tabela `app_config`:
+Para salvar configurações do app (sem pagamentos), crie a tabela `app_config`:
 
 ```sql
 create table if not exists public.app_config (
   id text primary key,
-  mp_token text,
   public_url text,
   bootstrap_movies_url text,
   bootstrap_auto boolean default false,
   updated_at timestamptz default now()
 );
 
--- Registro padrão utilizado pela aplicação
 insert into public.app_config(id) values ('global')
 on conflict (id) do nothing;
 ```
 
-Com essa tabela criada, o Admin consegue salvar e visualizar o `mp_token` diretamente do Supabase.
-
-#### Planos, Compras e Assinaturas
-Para o sistema de pagamentos e controle de acesso, crie as tabelas abaixo:
+#### Assinaturas (sem pagamento integrado)
+Caso deseje controlar assinaturas manualmente, utilize uma tabela `subscriptions` simples:
 
 ```sql
--- Catálogo de planos
-create table if not exists public.plans (
-  id text primary key,         -- ex: 'mensal', 'trimestral', 'anual'
-  name text not null,
-  days integer not null,       -- duração em dias
-  price numeric not null,
-  active boolean default true,
-  updated_at timestamptz default now()
-);
-
--- Compras (pagamentos)
-create table if not exists public.purchases (
-  id text primary key,         -- id do pagamento (Mercado Pago)
-  user_id text not null,
-  plan text not null,
-  amount numeric,
-  status text not null default 'pending', -- pending/approved/cancelled
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
--- Assinatura atual do usuário (um registro por usuário)
 create table if not exists public.subscriptions (
   user_id text primary key,
   plan text not null,
   start_at timestamptz not null,
   end_at timestamptz not null,
-  status text not null default 'active', -- active/inactive
-  payment_id text
+  status text not null default 'active'
 );
-
--- Planos padrão
-insert into public.plans(id, name, days, price) values
-  ('mensal','Mensal',30,19.90),
-  ('trimestral','Trimestral',90,49.90),
-  ('anual','Anual',365,147.90)
-on conflict (id) do nothing;
 ```
 
-Fluxo:
-- A compra é criada via `POST /api/subscription?action=create` e registrada em `purchases`.
-- Quando o pagamento é aprovado (webhook Mercado Pago ou polling), o backend grava/atualiza a assinatura em `subscriptions` com `start_at`/`end_at` e `status = 'active'`.
-- `GET /api/subscription?userId=...` consulta `subscriptions` e valida se `end_at > now` para liberar o acesso.
-- `POST /api/subscription?action=deactivate` marca assinatura como `inactive` e expira imediatamente.
+Fluxo sugerido:
+- `GET /api/subscription?userId=...` consulta a assinatura e valida se `end_at > now`.
+- `POST /api/subscription?action=activate` ativa uma assinatura por período definido.
+- `POST /api/subscription?action=deactivate` marca assinatura como `inactive` e expira.
 
 Importante: defina `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no Vercel. O `SERVICE_ROLE_KEY` é usado somente no backend.
 
