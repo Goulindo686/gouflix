@@ -3,6 +3,15 @@ export default async function handler(req, res) {
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const ENV_MP_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN;
   const ENV_PUBLIC_URL = process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
+  const ENV_EXTRA = {
+    SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null,
+    TMDB_BASE: process.env.TMDB_BASE || 'https://api.themoviedb.org/3',
+    TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
+    TMDB_TOKEN: process.env.TMDB_TOKEN || null,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
+    KEYAUTH_BUY_URL: process.env.KEYAUTH_BUY_URL || null,
+  };
   const COOKIES = parseCookies(req.headers?.cookie || '');
   const COOKIE_MP = COOKIES['mp_token'] || null;
   const COOKIE_PUBLIC = COOKIES['public_url'] || null;
@@ -10,12 +19,18 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     // Sem Supabase: permitir leitura de env/cookies e escrita em cookies
     if (req.method === 'GET') {
+      // Se solicitado como /api/env via rewrite, retornar apenas os envs esperados
+      if (String(req.query?.env || '').length) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(ENV_EXTRA);
+      }
       return res.status(200).json({
         ok: true,
         source: COOKIE_MP || COOKIE_PUBLIC ? 'cookie' : 'env',
         writable: true,
         mpToken: COOKIE_MP || ENV_MP_TOKEN || null,
         publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
+        ...ENV_EXTRA,
       });
     }
     if (req.method === 'POST') {
