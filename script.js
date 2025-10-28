@@ -170,10 +170,9 @@ function clearSections(){
 
 function renderHomeSections(base){
   clearSections();
-  const populares = base.slice(0, 18);
+  // Home exibe somente Filmes e Séries
   const filmes = base.filter(m=> (m.type||'filme') === 'filme').slice(0, 18);
   const series = base.filter(m=> (m.type||'filme') === 'serie').slice(0, 18);
-  if(populares.length) createRowSection('Populares', populares, 'rowPopulares');
   if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes');
   if(series.length) createRowSection('Séries', series, 'rowSeries');
 }
@@ -447,7 +446,7 @@ function showSection(section){
 }
 
 function updateActiveNav(route){
-  const ids = ['navHome','navFilmes','navSeries','navLista','navPlans','navAdmin'];
+  const ids = ['navHome','navPopulares','navFilmes','navSeries','navLista','navPlans','navAdmin'];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -455,6 +454,7 @@ function updateActiveNav(route){
   });
   const map = {
     home: 'navHome',
+    populares: 'navPopulares',
     filmes: 'navFilmes',
     series: 'navSeries',
     'minha-lista': 'navLista',
@@ -471,8 +471,8 @@ function getRouteList(route){
   if(route === 'filmes') return base.filter(m=> (m.type||'filme') === 'filme');
   if(route === 'series') return base.filter(m=> (m.type||'filme') === 'serie');
   if(route === 'minha-lista') return base.filter(m=> (m.category||'') === 'minha-lista');
-  // Home = Populares: considera "popular" ou sem categoria (seed)
-  if(route === 'home') return base.filter(m=> (m.category||'popular') === 'popular');
+  if(route === 'populares') return base.filter(m=> (m.category||'') === 'popular');
+  // Home: retorna base completa; renderização decide as fileiras (Filmes e Séries)
   return base;
 }
 
@@ -493,11 +493,15 @@ function setRoute(route){
   const base = getRouteList(route);
   window.MOVIES = base;
   if(route === 'home'){
-    // Mostra somente Populares
-    renderSingleSection('Populares', base);
+    // Home = apenas fileiras Filmes e Séries
+    renderHomeSections(base);
   } else {
     const titles = { filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
-    renderSingleSection(titles[route] || 'Itens', base);
+    if(route === 'populares'){
+      renderSingleSection('Populares', base);
+    } else {
+      renderSingleSection(titles[route] || 'Itens', base);
+    }
   }
 }
 
@@ -509,10 +513,14 @@ function handleSearchInput(e){
     renderSingleSection('Resultados', filtered);
   } else {
     if((window.CURRENT_ROUTE||'home') === 'home'){
-      renderSingleSection('Populares', base);
+      renderHomeSections(base);
     } else {
       const titles = { filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
-      renderSingleSection(titles[window.CURRENT_ROUTE] || 'Itens', base);
+      if((window.CURRENT_ROUTE||'home') === 'populares'){
+        renderSingleSection('Populares', base);
+      } else {
+        renderSingleSection(titles[window.CURRENT_ROUTE] || 'Itens', base);
+      }
     }
   }
 }
@@ -643,6 +651,8 @@ const navAdmin = document.getElementById('navAdmin');
 if(navAdmin){ navAdmin.addEventListener('click', ()=> showSection('admin')); }
 const navHome = document.getElementById('navHome');
 if(navHome){ navHome.addEventListener('click', ()=> setRoute('home')); }
+const navPopulares = document.getElementById('navPopulares');
+if(navPopulares){ navPopulares.addEventListener('click', ()=> setRoute('populares')); }
 const navFilmes = document.getElementById('navFilmes');
 if(navFilmes){ navFilmes.addEventListener('click', ()=> setRoute('filmes')); }
 const navSeries = document.getElementById('navSeries');
