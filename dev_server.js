@@ -174,7 +174,7 @@ async function keyauthLicenseInfo(sellerKey, licenseKey) {
 // ---- KeyAuth Client API (ownerid/appname/secret/version) ----
 let __keyauthInitCache = { ok: false };
 async function keyauthClientInit(appName, ownerId, version, secret) {
-  const base = 'https://keyauth.win/api/1.0/';
+  const base = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
   const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&secret=${encodeURIComponent(secret)}&type=init&format=json`;
   try {
     const j = await fetchJsonUrl(url);
@@ -188,7 +188,7 @@ async function keyauthClientInit(appName, ownerId, version, secret) {
 }
 
 async function keyauthClientLicense(appName, ownerId, version, secret, licenseKey, hwid) {
-  const base = 'https://keyauth.win/api/1.0/';
+  const base = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
   const url = `${base}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(version || '1.0.0')}&secret=${encodeURIComponent(secret)}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
   try {
     return await fetchJsonUrl(url);
@@ -239,7 +239,8 @@ const server = http.createServer(async (req, res) => {
       // ----- KEYAUTH VALIDATE LICENSE -----
       if (urlPath === '/api/keyauth/validate' && req.method === 'POST') {
         const body = await parseBody(req);
-        const licenseKey = (body && body.key) || '';
+        // Aceitar tanto 'key' quanto 'licenseKey' enviados pelo frontend
+        const licenseKey = (body && (body.key || body.licenseKey)) || '';
         const hwid = (body && body.hwid) || '';
         if (!licenseKey || !hwid) {
           res.statusCode = 400;
