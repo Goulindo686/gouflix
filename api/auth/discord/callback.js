@@ -36,7 +36,10 @@ export default async function handler(req, res){
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
   const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
-  const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || (process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/api/auth/discord/callback` : `https://${req.headers.host}/api/auth/discord/callback`);
+  // Usar sempre o domínio atual para evitar cookies em domínio diferente
+  const currentHost = req.headers.host;
+  const defaultRedirect = `https://${currentHost}/api/auth/discord/callback`;
+  const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || defaultRedirect;
 
   if(!CLIENT_ID || !CLIENT_SECRET){
     return res.status(500).json({ ok:false, error:'DISCORD_CLIENT_ID/DISCORD_CLIENT_SECRET não configurados' });
@@ -87,15 +90,17 @@ export default async function handler(req, res){
     // Setar cookie de sessão e limpar cookies temporários
     // Além do sid, gravar cookies auxiliares com dados do usuário para fallback quando Supabase não estiver configurado
     const maxAge = 30 * 24 * 60 * 60; // 30 dias em segundos
+    const isHttps = String(req.headers['x-forwarded-proto']||'').includes('https') || String(currentHost||'').startsWith('localhost') === false;
+    const cookieFlags = `HttpOnly; Path=/; SameSite=Lax${isHttps ? '; Secure' : ''}`;
     res.setHeader('Set-Cookie', [
-      `sid=${sid}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
-      `uid=${encodeURIComponent(String(user.id))}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
-      `uname=${encodeURIComponent(user.username||'')}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
-      `uavatar=${encodeURIComponent(user.avatar||'')}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
-      `uemail=${encodeURIComponent(user.email||'')}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
-      `uexp=${encodeURIComponent(expiresAt)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`,
-      `d_state=; Max-Age=0; Path=/; SameSite=Lax`,
-      `d_return=; Max-Age=0; Path=/; SameSite=Lax`
+      `sid=${sid}; ${cookieFlags}; Max-Age=${maxAge}`,
+      `uid=${encodeURIComponent(String(user.id))}; ${cookieFlags}; Max-Age=${maxAge}`,
+      `uname=${encodeURIComponent(user.username||'')}; ${cookieFlags}; Max-Age=${maxAge}`,
+      `uavatar=${encodeURIComponent(user.avatar||'')}; ${cookieFlags}; Max-Age=${maxAge}`,
+      `uemail=${encodeURIComponent(user.email||'')}; ${cookieFlags}; Max-Age=${maxAge}`,
+      `uexp=${encodeURIComponent(expiresAt)}; ${cookieFlags}; Max-Age=${maxAge}`,
+      `d_state=; Max-Age=0; Path=/; SameSite=Lax${isHttps ? '; Secure' : ''}`,
+      `d_return=; Max-Age=0; Path=/; SameSite=Lax${isHttps ? '; Secure' : ''}`
     ]);
 
     res.statusCode = 302;

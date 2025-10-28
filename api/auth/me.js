@@ -27,10 +27,36 @@ export default async function handler(req, res){
     const r = await fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sid)}&select=user_id,username,avatar,email,expires_at`, {
       headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' }
     });
-    if(!r.ok){ return res.status(200).json({ ok:true, logged:false, user:null }); }
+    if(!r.ok){
+      // Falha no Supabase: tentar fallback por cookies
+      const uid = readCookie(req, 'uid');
+      const uname = readCookie(req, 'uname');
+      const uavatar = readCookie(req, 'uavatar') || null;
+      const uemail = readCookie(req, 'uemail') || null;
+      const uexp = readCookie(req, 'uexp');
+      const expMs = uexp ? (new Date(uexp)).getTime() : 0;
+      if(uid && uname && expMs > Date.now()){
+        const user = { id: uid, username: uname, avatar: uavatar, email: uemail };
+        return res.status(200).json({ ok:true, logged:true, user });
+      }
+      return res.status(200).json({ ok:true, logged:false, user:null });
+    }
     const data = await r.json();
     const row = Array.isArray(data) && data.length ? data[0] : null;
-    if(!row){ return res.status(200).json({ ok:true, logged:false, user:null }); }
+    if(!row){
+      // Sessão não encontrada: tentar fallback por cookies
+      const uid = readCookie(req, 'uid');
+      const uname = readCookie(req, 'uname');
+      const uavatar = readCookie(req, 'uavatar') || null;
+      const uemail = readCookie(req, 'uemail') || null;
+      const uexp = readCookie(req, 'uexp');
+      const expMs = uexp ? (new Date(uexp)).getTime() : 0;
+      if(uid && uname && expMs > Date.now()){
+        const user = { id: uid, username: uname, avatar: uavatar, email: uemail };
+        return res.status(200).json({ ok:true, logged:true, user });
+      }
+      return res.status(200).json({ ok:true, logged:false, user:null });
+    }
     const exp = row.expires_at ? (new Date(row.expires_at)).getTime() : Date.now();
     if(exp < Date.now()){
       // Se sessão expirada ou não encontrada no Supabase, tentar fallback via cookies

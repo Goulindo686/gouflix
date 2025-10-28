@@ -5,7 +5,10 @@ function randomState(){
 export default async function handler(req, res){
   try{
     const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
-    const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || (process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL}/api/auth/discord/callback` : `https://${req.headers.host}/api/auth/discord/callback`);
+    // Usar sempre o domínio atual para evitar cookies em domínio diferente
+    const currentHost = req.headers.host;
+    const defaultRedirect = `https://${currentHost}/api/auth/discord/callback`;
+    const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || defaultRedirect;
     const scope = encodeURIComponent('identify email');
     const returnTo = (new URL(req.url, `http://${req.headers.host}`)).searchParams.get('returnTo') || '/';
 
@@ -14,9 +17,11 @@ export default async function handler(req, res){
     }
 
     const state = randomState();
+    const isHttps = String(req.headers['x-forwarded-proto']||'').includes('https') || String(currentHost||'').startsWith('localhost') === false;
+    const cookieFlags = `HttpOnly; Path=/; SameSite=Lax${isHttps ? '; Secure' : ''}`;
     res.setHeader('Set-Cookie', [
-      `d_state=${state}; HttpOnly; Path=/; SameSite=Lax` ,
-      `d_return=${encodeURIComponent(returnTo)}; HttpOnly; Path=/; SameSite=Lax`
+      `d_state=${state}; ${cookieFlags}` ,
+      `d_return=${encodeURIComponent(returnTo)}; ${cookieFlags}`
     ]);
 
     const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
