@@ -174,11 +174,12 @@ function clearSections(){
 
 function renderHomeSections(base){
   clearSections();
-  // Home exibe fileiras controladas por "row": Filmes, Séries e 2 coleções
-  const filmes = base.filter(m=> (m.row ? m.row==='filmes' : (m.type||'filme')==='filme')).slice(0, 18);
-  const series = base.filter(m=> (m.row ? m.row==='series' : (m.type||'filme')==='serie')).slice(0, 18);
-  const colecao1 = base.filter(m=> m.row==='colecao-1').slice(0, 18);
-  const colecao2 = base.filter(m=> m.row==='colecao-2').slice(0, 18);
+  // Home exibe fileiras: sem rolagem horizontal, quebrando linha e mostrando todos
+  const sortByTitle = (arr)=> arr.slice().sort((a,b)=> (a.title||'').localeCompare(b.title||''));
+  const filmes = sortByTitle(base.filter(m=> (m.row ? m.row==='filmes' : (m.type||'filme')==='filme')));
+  const series = sortByTitle(base.filter(m=> (m.row ? m.row==='series' : (m.type||'filme')==='serie')));
+  const colecao1 = sortByTitle(base.filter(m=> m.row==='colecao-1'));
+  const colecao2 = sortByTitle(base.filter(m=> m.row==='colecao-2'));
   if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes', false);
   if(series.length) createRowSection('Séries', series, 'rowSeries', false);
   if(colecao1.length) createRowSection('Coleção 1', colecao1, 'rowColecao1', false);
@@ -187,7 +188,8 @@ function renderHomeSections(base){
 
 function renderSingleSection(title, items){
   clearSections();
-  createRowSection(title, items, 'rowSingle', true);
+  const sorted = items.slice().sort((a,b)=> (a.title||'').localeCompare(b.title||''));
+  createRowSection(title, sorted, 'rowSingle', true);
 }
 
 // Slideshow do topo (Hero)
