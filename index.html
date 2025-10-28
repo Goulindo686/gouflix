@@ -145,6 +145,23 @@
         <label style="display:flex;gap:8px;align-items:center"><input id="bootstrapAuto" type="checkbox"/> Executar automaticamente ao iniciar (Discloud)</label>
         <button id="runBootstrapBtn" class="btn primary" style="margin-left:auto">Executar bootstrap agora</button>
       </div>
+
+      <div class="panel" style="margin-top:16px">
+        <h3 class="section-title">Configurações do Site</h3>
+        <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="field-group" style="flex:1;min-width:280px">
+            <label for="publicUrl">URL pública do site</label>
+            <input id="publicUrl" type="text" placeholder="https://seu-dominio.com" />
+          </div>
+          <div class="field-group" style="flex:1;min-width:280px">
+            <label for="mpAccessToken">Mercado Pago Access Token</label>
+            <input id="mpAccessToken" type="password" placeholder="Prod/TEST access_token" />
+            <small id="mpTokenStatus" style="display:block;margin-top:4px;color:#888">Token não configurado</small>
+          </div>
+          <button id="saveMpTokenBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
+        </div>
+        <p class="panel-tip">O token é armazenado no servidor (Supabase/arquivo local) e não fica no código-fonte.</p>
+      </div>
     </div>
 
     <div id="adminResults" class="admin-results"></div>

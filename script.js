@@ -970,6 +970,7 @@ if(saveMpTokenBtn){
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
     const bootstrapMoviesUrl = (document.getElementById('bootstrapMoviesUrl').value||'').trim();
     const bootstrapAuto = !!(document.getElementById('bootstrapAuto')?.checked);
+    const mpAccessToken = (document.getElementById('mpAccessToken').value||'').trim();
     try{
       const probe = await fetch('/api/config');
       const cfgProbe = probe.ok ? await probe.json() : { writable:false, source:'env' };
@@ -977,9 +978,11 @@ if(saveMpTokenBtn){
         alert('Configurações gerenciadas por ambiente. Edite no Vercel/variáveis de ambiente.');
         return;
       }
-      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto }) });
+      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, mpAccessToken }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
+      const stat = document.getElementById('mpTokenStatus');
+      if(stat){ stat.textContent = mpAccessToken ? 'Token configurado' : 'Token não configurado'; }
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
   });
 }
@@ -997,6 +1000,8 @@ if(saveMpTokenBtn){
       const ba = document.getElementById('bootstrapAuto');
       if(ba) ba.checked = !!cfg.bootstrapAuto;
       if(!cfg.writable && saveMpTokenBtn){ saveMpTokenBtn.disabled = true; saveMpTokenBtn.title = 'Somente leitura. Gerenciado por variáveis de ambiente.'; }
+      const stat = document.getElementById('mpTokenStatus');
+      if(stat){ stat.textContent = cfg.hasMpAccessToken ? 'Token configurado' : 'Token não configurado'; }
     }
   }catch(_){/* ignore */}
 })();

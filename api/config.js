@@ -79,6 +79,7 @@ export default async function handler(req, res) {
         publicUrl: row?.public_url || COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         bootstrapMoviesUrl: row?.bootstrap_movies_url || null,
         bootstrapAuto: !!row?.bootstrap_auto,
+        hasMpAccessToken: !!row?.mp_access_token,
         ...ENV_EXTRA,
       });
     }
@@ -95,6 +96,7 @@ export default async function handler(req, res) {
           public_url: body?.publicUrl || null,
           bootstrap_movies_url: body?.bootstrapMoviesUrl || null,
           bootstrap_auto: !!body?.bootstrapAuto,
+          mp_access_token: body?.mpAccessToken || null,
           updated_at: new Date().toISOString(),
         };
         const upsertUrl = `${base}?on_conflict=id`;

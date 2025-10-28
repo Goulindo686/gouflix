@@ -53,7 +53,7 @@ function ensureState() {
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0 } };
+  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0, mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '' } };
 }
 function normalizeState(s) {
   const state = s || {};
@@ -65,6 +65,7 @@ function normalizeState(s) {
   if (!state.config.bootstrapMoviesUrl) state.config.bootstrapMoviesUrl = process.env.BOOTSTRAP_MOVIES_URL || '';
   if (typeof state.config.bootstrapAuto === 'undefined') state.config.bootstrapAuto = !!(process.env.BOOTSTRAP_AUTO || false);
   if (!state.config.bootstrapDone) state.config.bootstrapDone = 0;
+  if (typeof state.config.mpAccessToken === 'undefined') state.config.mpAccessToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
   return state;
 }
 
@@ -248,7 +249,8 @@ const server = http.createServer(async (req, res) => {
         const cfg = state.config || {};
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         const isAdmin = ensureIsAdminLocal(req);
-        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0, writable: !!isAdmin }));
+        const hasMpAccessToken = !!(cfg.mpAccessToken && String(cfg.mpAccessToken).length);
+        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0, writable: !!isAdmin, hasMpAccessToken }));
         return;
       }
       if (urlPath === '/api/config' && req.method === 'POST') {
@@ -259,8 +261,9 @@ const server = http.createServer(async (req, res) => {
         // salvar config de bootstrap (sem state)
         if (body.bootstrapMoviesUrl !== undefined) state.config.bootstrapMoviesUrl = body.bootstrapMoviesUrl || '';
         if (body.bootstrapAuto !== undefined) state.config.bootstrapAuto = !!body.bootstrapAuto;
+        if (body.mpAccessToken !== undefined) state.config.mpAccessToken = String(body.mpAccessToken || '');
         await writeState(state);
-        res.end(JSON.stringify({ ok: true, config: state.config }));
+        res.end(JSON.stringify({ ok: true, config: { ...state.config, mpAccessToken: undefined } }));
         return;
       }
       // Disparar bootstrap manualmente
@@ -273,7 +276,8 @@ const server = http.createServer(async (req, res) => {
       // ----- Pagamentos (Mercado Pago PIX) -----
       if (urlPath === '/api/payment/create' && req.method === 'POST') {
         try {
-          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
+          const currentState = await readState();
+          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || currentState.config?.mpAccessToken || '';
           const PUBLIC_URL = process.env.PUBLIC_URL || '';
           if (!MP_ACCESS_TOKEN) {
             res.statusCode = 500;
@@ -319,7 +323,8 @@ const server = http.createServer(async (req, res) => {
       }
       if (urlPath === '/api/payment/status' && req.method === 'GET') {
         try {
-          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
+          const currentState = await readState();
+          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || currentState.config?.mpAccessToken || '';
           if (!MP_ACCESS_TOKEN) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'MP_ACCESS_TOKEN não configurado' })); return; }
           const paramsObj = new URLSearchParams(queryStr || '');
           const id = paramsObj.get('id') || paramsObj.get('paymentId');
