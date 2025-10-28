@@ -625,9 +625,6 @@ const adminPurchasesRefreshBtn = document.getElementById('adminPurchasesRefreshB
 if(adminPurchaseQuery){ adminPurchaseQuery.addEventListener('input', ()=> fetchAdminPurchases()); }
 if(adminPurchaseStatus){ adminPurchaseStatus.addEventListener('change', ()=> fetchAdminPurchases()); }
 if(adminPurchasesRefreshBtn){ adminPurchasesRefreshBtn.addEventListener('click', ()=> fetchAdminPurchases()); }
-// Botão plano teste (2 min) na página de planos
-const btnBuyTest2min = document.getElementById('btnBuyTest2min');
-if(btnBuyTest2min){ btnBuyTest2min.addEventListener('click', ()=> startCheckout('test2min')); }
 
 // Botões de compra
 const btnBuyMonthly = document.getElementById('btnBuyMonthly');
