@@ -1021,6 +1021,9 @@ initEnvAndSupabase().then(()=>{
   loadMovies();
   fetchCurrentUser();
   applyAdminVisibility();
+  // Garantir que o modal de pagamento esteja oculto ao carregar
+  const pm = document.getElementById('paymentModal');
+  if(pm){ pm.classList.add('hidden'); }
 });
 
 // ----- Pagamentos (Mercado Pago PIX) -----
