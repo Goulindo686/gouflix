@@ -171,7 +171,8 @@ async function fetchSubscription(){
 async function startCheckout(plan){
   // Exigir login via Discord antes do pagamento
   if(!CURRENT_USER){
-    showLoginModal();
+    // Não abrir modal; apenas instruir login pelo topo
+    alert('Para comprar, faça login pelo botão "Entrar com Discord" no topo.');
     return;
   }
   try{
@@ -270,8 +271,8 @@ function updateUserArea(){
     area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
     const loginBtn = document.getElementById('loginBtn');
     if(loginBtn){ loginBtn.onclick = ()=>{
-      // Abrir modal de login em vez de redirecionar direto
-      showLoginModal();
+      const ret = location.href;
+      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
     }; }
   }
 }
