@@ -124,16 +124,18 @@ function renderCardsIntoRow(movies, rowEl){
   });
 }
 
-function createRowSection(title, items, id){
+function createRowSection(title, items, id, showTitle = true){
   const container = document.getElementById('sections');
   if(!container) return;
   const wrap = document.createElement('div');
   wrap.className = 'row-wrap';
 
-  const h2 = document.createElement('h2');
-  h2.className = 'row-title section-title';
-  h2.textContent = title;
-  wrap.appendChild(h2);
+  if(showTitle){
+    const h2 = document.createElement('h2');
+    h2.className = 'row-title section-title';
+    h2.textContent = title;
+    wrap.appendChild(h2);
+  }
 
   const row = document.createElement('div');
   row.className = 'row';
@@ -175,15 +177,15 @@ function renderHomeSections(base){
   const series = base.filter(m=> (m.row ? m.row==='series' : (m.type||'filme')==='serie')).slice(0, 18);
   const colecao1 = base.filter(m=> m.row==='colecao-1').slice(0, 18);
   const colecao2 = base.filter(m=> m.row==='colecao-2').slice(0, 18);
-  if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes');
-  if(series.length) createRowSection('Séries', series, 'rowSeries');
-  if(colecao1.length) createRowSection('Coleção 1', colecao1, 'rowColecao1');
-  if(colecao2.length) createRowSection('Coleção 2', colecao2, 'rowColecao2');
+  if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes', false);
+  if(series.length) createRowSection('Séries', series, 'rowSeries', false);
+  if(colecao1.length) createRowSection('Coleção 1', colecao1, 'rowColecao1', false);
+  if(colecao2.length) createRowSection('Coleção 2', colecao2, 'rowColecao2', false);
 }
 
 function renderSingleSection(title, items){
   clearSections();
-  createRowSection(title, items, 'rowSingle');
+  createRowSection(title, items, 'rowSingle', true);
 }
 
 // Slideshow do topo (Hero)
