@@ -68,7 +68,8 @@ export default async function handler(req, res) {
         const userId = body?.userId;
         const plan = body?.plan || 'mensal';
         const paymentId = body?.paymentId || String(Date.now());
-        const amount = plan === 'mensal' ? 19.9 : (plan === 'trimestral' ? 49.9 : 147.9);
+        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9, test2min: 1.0 };
+        const amount = PLAN_PRICES[plan] ?? PLAN_PRICES.mensal;
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
         if (!SUPABASE_READY) {
           // Sem Supabase, apenas confirma ativação (cliente tratará como ativo)

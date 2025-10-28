@@ -106,7 +106,8 @@ create table if not exists public.subscriptions (
 insert into public.plans(id, name, days, price) values
   ('mensal','Mensal',30,19.90),
   ('trimestral','Trimestral',90,49.90),
-  ('anual','Anual',365,147.90)
+  ('anual','Anual',365,147.90),
+  ('test2min','Teste 2 Min',0,1.00)
 on conflict (id) do nothing;
 ```
 
