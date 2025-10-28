@@ -859,7 +859,7 @@ if(adminSubscriptionsRefreshBtn){ adminSubscriptionsRefreshBtn.addEventListener(
 async function fetchAdminSubscriptions(){
   try{
     const status = adminSubscriptionStatus ? (adminSubscriptionStatus.value||'') : '';
-    const url = status ? `/api/subscriptions?status=${encodeURIComponent(status)}` : '/api/subscriptions';
+    const url = status ? `/api/subscription?list=1&status=${encodeURIComponent(status)}` : '/api/subscription?list=1';
     const res = await fetch(url);
     const json = await res.json();
     const list = (json && json.subscriptions) ? json.subscriptions : [];

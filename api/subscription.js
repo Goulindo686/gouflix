@@ -14,7 +14,23 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      const listMode = req.query?.list;
       const userId = req.query?.userId;
+      // Listagem de assinaturas (para reduzir número de funções na Vercel)
+      if (listMode) {
+        if (!SUPABASE_READY) return res.status(200).json({ ok: true, subscriptions: [] });
+        const status = (req.query?.status || '').trim();
+        const select = 'user_id,plan,start_at,end_at,status,payment_id';
+        const base = `${SUPABASE_URL}/rest/v1/subscriptions?select=${select}`;
+        const url = status ? `${base}&status=eq.${encodeURIComponent(status)}` : base;
+        const r = await fetch(url, { headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' } });
+        if (!r.ok) {
+          const text = await r.text();
+          return res.status(r.status || 500).json({ ok: false, error: 'Falha ao listar assinaturas', details: text });
+        }
+        const rows = await r.json();
+        return res.status(200).json({ ok: true, subscriptions: rows || [] });
+      }
       if (!userId) return res.status(400).json({ ok: false, error: 'Parâmetro userId é obrigatório' });
       if (SUPABASE_READY) {
         // Primeiro tenta na tabela subscriptions

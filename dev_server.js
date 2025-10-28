@@ -229,6 +229,27 @@ const server = http.createServer(async (req, res) => {
       // ----- SUBSCRIPTION STATUS -----
       if (urlPath === '/api/subscription' && req.method === 'GET') {
         const state = await readState();
+        const list = params.get('list');
+        if (list) {
+          const statusFilter = params.get('status');
+          const rows = Object.values(state.subscriptions||{}).map(s=>{
+            const endAt = s.expiry ? new Date(s.expiry) : null;
+            const startAt = s.start ? new Date(s.start) : null;
+            const expired = endAt ? (endAt.getTime() <= Date.now()) : false;
+            const status = expired ? 'inactive' : (s.status||'active');
+            return {
+              user_id: s.userId,
+              plan: s.plan,
+              start_at: startAt ? startAt.toISOString() : null,
+              end_at: endAt ? endAt.toISOString() : null,
+              status,
+              payment_id: s.paymentId||null,
+            };
+          });
+          const filtered = statusFilter ? rows.filter(r=> String(r.status) === String(statusFilter)) : rows;
+          res.end(JSON.stringify({ ok:true, subscriptions: filtered }));
+          return;
+        }
         const userId = params.get('userId');
         if (!userId) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'userId required' })); return; }
         const sub = state.subscriptions[userId] || null;
