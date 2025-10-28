@@ -66,6 +66,13 @@ const USER_ID = (()=>{
   }catch(_){ return 'user-demo'; }
 })();
 
+function getEffectiveUserId(){
+  try{
+    if (CURRENT_USER && CURRENT_USER.id) return String(CURRENT_USER.id);
+  }catch(_){/* ignore */}
+  return USER_ID;
+}
+
 // Planos
 const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
 const PLAN_DURATIONS = { mensal: 30, trimestral: 90, anual: 365 };
@@ -271,7 +278,7 @@ async function openModal(id){
   // Checar assinatura
   let active = false;
   try{
-    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(USER_ID)}`);
+    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(getEffectiveUserId())}`);
     if(r.ok){
       const sub = await r.json();
       active = !!sub?.active;
@@ -388,7 +395,7 @@ async function openModalFromTmdbData(data){
   // Checar assinatura
   let active = false;
   try{
-    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(USER_ID)}`);
+    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(getEffectiveUserId())}`);
     if(r.ok){ const sub = await r.json(); active = !!sub?.active; }
   }catch(_){}
   const baseInfo = `
@@ -1053,7 +1060,7 @@ async function openPaymentModal(plan){
   statusEl.textContent = 'Gerando pagamento...';
   modal.classList.remove('hidden');
   try{
-    const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ plan, userId: USER_ID }) });
+    const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ plan, userId: getEffectiveUserId() }) });
     const json = await r.json();
     if(!r.ok || !json.ok){ throw new Error(json.error||'Falha ao gerar pagamento'); }
     const { id, qr_code_base64, qr_code } = json;
@@ -1082,7 +1089,7 @@ function pollPaymentStatus(id, plan){
       if(status === 'approved'){
         stopPaymentPoll();
         // ativar assinatura imediatamente (fallback se webhook não acionou)
-        try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: USER_ID, plan, action:'activate' }) }); }catch(_){}
+        try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: getEffectiveUserId(), plan, action:'activate' }) }); }catch(_){}
         statusEl.textContent = 'Pagamento aprovado! Assinatura ativada.';
         setTimeout(()=>{ document.getElementById('paymentModal').classList.add('hidden'); setRoute('home'); }, 1500);
       }

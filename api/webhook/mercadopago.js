@@ -42,7 +42,7 @@ export default async function handler(req, res){
       if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
         try{
           const payload = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso, start_at: startIso, end_at: endIso }];
-          const r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{
+          const r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
             method:'POST',
             headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
             body: JSON.stringify(payload)
