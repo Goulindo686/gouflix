@@ -470,7 +470,9 @@ function getRouteList(route){
   const base = window.ALL_MOVIES||window.MOVIES||[];
   if(route === 'filmes') return base.filter(m=> (m.type||'filme') === 'filme');
   if(route === 'series') return base.filter(m=> (m.type||'filme') === 'serie');
-  if(route === 'minha-lista') return base.filter(m=> (m.category||'popular') === 'minha-lista');
+  if(route === 'minha-lista') return base.filter(m=> (m.category||'') === 'minha-lista');
+  // Home = Populares: considera "popular" ou sem categoria (seed)
+  if(route === 'home') return base.filter(m=> (m.category||'popular') === 'popular');
   return base;
 }
 
@@ -491,7 +493,8 @@ function setRoute(route){
   const base = getRouteList(route);
   window.MOVIES = base;
   if(route === 'home'){
-    renderHomeSections(base);
+    // Mostra somente Populares
+    renderSingleSection('Populares', base);
   } else {
     const titles = { filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
     renderSingleSection(titles[route] || 'Itens', base);
@@ -506,7 +509,7 @@ function handleSearchInput(e){
     renderSingleSection('Resultados', filtered);
   } else {
     if((window.CURRENT_ROUTE||'home') === 'home'){
-      renderHomeSections(base);
+      renderSingleSection('Populares', base);
     } else {
       const titles = { filmes:'Filmes', series:'Séries', 'minha-lista':'Minha Lista' };
       renderSingleSection(titles[window.CURRENT_ROUTE] || 'Itens', base);
