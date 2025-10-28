@@ -3,6 +3,8 @@ let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
 let TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTJkNGMzMzUxMzcwZWI4NjNiNzljYzZkZGE3YmI4MSIsIm5iZiI6MTc2MTU0MTY5NC4zNTMsInN1YiI6IjY4ZmVmZTNlMTU2MThmMDM5OGRhMDIwMCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Raq9U3uybPj034WxjdiVEdbycZ0VBUQRokSgaN5rjlo';
 let TMDB_BASE = 'https://api.themoviedb.org/3';
 let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+// Paginação dos lotes para sempre trazer conteúdos novos
+window.BULK_PAGES = { filme: 0, serie: 0 };
 
 // Integração com Vercel/Supabase: obter env e iniciar cliente
 window.__ENV = {};
@@ -368,12 +370,12 @@ function openModalFromTmdbData(data){
   
 }
 
-function addFromTmdbData(data){
+async function addFromTmdbData(data){
   const id = `tmdb-${data.type}-${data.tmdbId}`;
   const rowSel = document.getElementById('adminRow');
   const row = rowSel ? rowSel.value : 'recomendados';
   const exists = (window.MOVIES||[]).some(m=> (m.tmdbId===data.tmdbId && (m.type||'filme')===data.type));
-  if(exists){ return; }
+  if(exists){ return true; }
   const item = {
     id,
     type: data.type,
@@ -387,34 +389,44 @@ function addFromTmdbData(data){
     category: '',
     row
   };
-  // Persistir via Supabase (fallback para backend)
-  (async ()=>{
-    const key = getItemKey(item);
+  const key = getItemKey(item);
+  // Preferir API de estado (serverless) para evitar condições de corrida
+  try{
+    const res = await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', ...item, key })
+    });
+    if(!res.ok){ throw new Error('fallback'); }
+  }catch(_){
+    // Fallback: tentar persistir via Supabase client
     const current = (await supabaseGetState()) || { added: [], removed: [] };
     const savedSb = await supabaseSetState({
       added: [...(current.added||[]), { ...item, key }],
       removed: (current.removed||[]).filter(k=>k!==key)
     });
     if(!savedSb){
+      // Fallback local (dev_server)
       try{
-        const res = await fetch('/api/state/add', {
+        const r2 = await fetch('/api/state/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...item, key })
         });
-        if(!res.ok) throw new Error('Falha ao salvar no backend');
+        if(!r2.ok) throw new Error('Falha ao salvar no backend');
       }catch(err){
         alert('Falha ao salvar no servidor: ' + err.message);
-        return;
+        return false;
       }
     }
-    // Atualizar estado em memória e UI
-    window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).concat(item);
-    window.MOVIES = window.ALL_MOVIES;
-    setRoute(window.CURRENT_ROUTE||'home');
-    updateHeroSlides(window.ALL_MOVIES);
-    renderAdminList();
-  })();
+  }
+  // Atualizar estado em memória e UI
+  window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).concat(item);
+  window.MOVIES = window.ALL_MOVIES;
+  setRoute(window.CURRENT_ROUTE||'home');
+  updateHeroSlides(window.ALL_MOVIES);
+  renderAdminList();
+  return true;
 }
 
 function getItemKey(item){
@@ -445,15 +457,26 @@ function renderAdminList(){
   });
 }
 
-function removeItemByKey(key){
-  (async ()=>{
-    // Tenta persistir via Supabase; fallback para backend
+async function removeItemByKey(key){
+  // Preferir API de estado (serverless)
+  let ok = false;
+  try{
+    const r = await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove', key })
+    });
+    ok = r.ok;
+  }catch(_){ ok = false; }
+  if(!ok){
+    // Supabase client fallback
     const current = (await supabaseGetState()) || { added: [], removed: [] };
     const savedSb = await supabaseSetState({
       added: (current.added||[]).filter(i => (i.key || getItemKey(i)) !== key),
       removed: [...(current.removed||[]), key]
     });
     if(!savedSb){
+      // Local backend fallback
       try{
         const res = await fetch('/api/state/remove', {
           method: 'POST',
@@ -466,13 +489,13 @@ function removeItemByKey(key){
         return;
       }
     }
-    // Atualizar estado em memória e UI
-    window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).filter(m => getItemKey(m) !== key);
-    window.MOVIES = window.ALL_MOVIES;
-    setRoute(window.CURRENT_ROUTE||'home');
-    renderAdminList();
-    updateHeroSlides(window.ALL_MOVIES);
-  })();
+  }
+  // Atualizar estado em memória e UI
+  window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).filter(m => getItemKey(m) !== key);
+  window.MOVIES = window.ALL_MOVIES;
+  setRoute(window.CURRENT_ROUTE||'home');
+  renderAdminList();
+  updateHeroSlides(window.ALL_MOVIES);
 }
 
 // KeyAuth removido: helpers e validações não são mais necessários
@@ -634,7 +657,9 @@ function normalizeFromDetails(type, details){
 async function fetchBulkFromTmdb(kind){
   const limit = 12;
   const makeList = async (type) => {
-    const url = type === 'serie' ? `${TMDB_BASE}/tv/popular?language=pt-BR&page=1` : `${TMDB_BASE}/movie/popular?language=pt-BR&page=1`;
+    // Avançar página para sempre trazer novos itens
+    const page = (type === 'serie' ? (window.BULK_PAGES.serie = (window.BULK_PAGES.serie||0) + 1) : (window.BULK_PAGES.filme = (window.BULK_PAGES.filme||0) + 1));
+    const url = type === 'serie' ? `${TMDB_BASE}/tv/popular?language=pt-BR&page=${page}` : `${TMDB_BASE}/movie/popular?language=pt-BR&page=${page}`;
     const r = await fetch(url, { headers: tmdbHeaders() });
     if(!r.ok) throw new Error('TMDB lista falhou');
     const json = await r.json();
@@ -646,7 +671,10 @@ async function fetchBulkFromTmdb(kind){
         out.push(normalizeFromDetails(type, det));
       }catch(_){ /* ignora item com erro */ }
     }
-    return out;
+    // Filtrar duplicados já adicionados ao site
+    const already = window.ALL_MOVIES || [];
+    const filtered = out.filter(it => !already.some(m => m.tmdbId === it.tmdbId && (m.type||'filme') === it.type));
+    return filtered;
   };
   if(kind === 'filme') return await makeList('filme');
   if(kind === 'serie') return await makeList('serie');
@@ -722,9 +750,12 @@ function bindBulkImportButtons(){
   if(bMovies) bMovies.addEventListener('click', ()=> handleBulk('filme'));
   if(bSeries) bSeries.addEventListener('click', ()=> handleBulk('serie'));
   if(bMixed) bMixed.addEventListener('click', ()=> handleBulk('mixed'));
-  if(addAllBtn) addAllBtn.addEventListener('click', ()=>{
+  if(addAllBtn) addAllBtn.addEventListener('click', async ()=>{
     const buffer = window.BULK_BUFFER || [];
-    buffer.forEach(data => addFromTmdbData(data));
+    for(const data of buffer){
+      // Adicionar em sequência para evitar condições de corrida
+      await addFromTmdbData(data);
+    }
     alert('Todos os itens foram adicionados à fileira selecionada.');
     renderAdminList();
   });
