@@ -200,7 +200,10 @@ function buildHeroSlides(items){
   const container = document.getElementById('heroSlides');
   if(!container) return;
   container.innerHTML = '';
-  const posters = (items||[]).filter(m => !!m.poster).slice(0, 12);
+  const posters = (items||[])
+    .filter(m => ['recomendados','mais-assistidos','ultimos-lancamentos'].includes(m.row))
+    .filter(m => !!m.poster)
+    .slice(0, 12);
   HERO_ITEMS = posters;
   posters.forEach((m, idx) => {
     const slide = document.createElement('div');
@@ -373,7 +376,9 @@ function openModalFromTmdbData(data){
 async function addFromTmdbData(data){
   const id = `tmdb-${data.type}-${data.tmdbId}`;
   const rowSel = document.getElementById('adminRow');
-  const row = rowSel ? rowSel.value : 'recomendados';
+  const targetInput = document.querySelector('input[name="adminTarget"]:checked');
+  const target = targetInput ? targetInput.value : 'home';
+  const row = (target === 'home') ? (rowSel ? rowSel.value : 'recomendados') : '';
   const exists = (window.MOVIES||[]).some(m=> (m.tmdbId===data.tmdbId && (m.type||'filme')===data.type));
   if(exists){ return true; }
   const item = {
@@ -879,6 +884,18 @@ const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
 // Botões de importação em massa
 bindBulkImportButtons();
+// Desabilitar seletor de fileira quando destino não é Home
+const adminRowSel = document.getElementById('adminRow');
+const targetRadios = Array.from(document.querySelectorAll('input[name="adminTarget"]'));
+function updateAdminRowEnabled(){
+  const selected = document.querySelector('input[name="adminTarget"]:checked')?.value || 'home';
+  if(adminRowSel){
+    adminRowSel.disabled = selected !== 'home';
+    adminRowSel.title = selected !== 'home' ? 'Desabilitado: item não aparecerá na Home' : '';
+  }
+}
+targetRadios.forEach(r => r.addEventListener('change', updateAdminRowEnabled));
+updateAdminRowEnabled();
 // Admin Compras: filtros e atualizar
 // Admin compras removido
 
