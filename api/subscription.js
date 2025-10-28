@@ -13,38 +13,48 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const userId = req.query?.userId;
       if (!userId) return res.status(400).json({ ok: false, error: 'Parâmetro userId é obrigatório' });
-      if (!SUPABASE_READY) {
-        // Sem Supabase, não há histórico; retorna inativo
-        return res.status(200).json({ ok: true, subscription: { active: false } });
+      if (SUPABASE_READY) {
+        // Primeiro tenta na tabela subscriptions
+        const rSub = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=user_id,plan,start_at,end_at,status`, {
+          headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' },
+        });
+        if (rSub.ok) {
+          const subs = await rSub.json();
+          const sub = Array.isArray(subs) && subs.length ? subs[0] : null;
+          if (sub) {
+            const active = (sub.status === 'active') && (new Date(sub.end_at).getTime() > Date.now());
+            return res.status(200).json({ ok: true, subscription: { active, plan: sub.plan, until: sub.end_at } });
+          }
+        }
+        // Fallback: deduz pelo último purchase aprovado
+        const url = `${SUPABASE_URL}/rest/v1/purchases?user_id=eq.${encodeURIComponent(userId)}&status=eq.approved&select=id,plan,created_at&order=created_at.desc`;
+        const r = await fetch(url, {
+          headers: {
+            'apikey': SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (r.ok) {
+          const rows = await r.json();
+          const last = Array.isArray(rows) && rows.length ? rows[0] : null;
+          if (last) {
+            const plan = last.plan || 'mensal';
+            const createdAt = new Date(last.created_at);
+            let until;
+            if (plan === 'test2min') {
+              until = new Date(createdAt.getTime() + 2 * 60 * 1000);
+            } else {
+              const days = PLAN_DURATIONS_DAYS[plan] ?? 30;
+              until = new Date(createdAt.getTime() + days * 24 * 60 * 60 * 1000);
+            }
+            const active = until.getTime() > Date.now();
+            return res.status(200).json({ ok: true, subscription: { active, plan, until: until.toISOString() } });
+          }
+        }
       }
-      const url = `${SUPABASE_URL}/rest/v1/purchases?user_id=eq.${encodeURIComponent(userId)}&status=eq.approved&select=id,plan,created_at&order=created_at.desc`;
-      const r = await fetch(url, {
-        headers: {
-          'apikey': SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-          'Accept': 'application/json',
-        },
-      });
-      if (!r.ok) {
-        const text = await r.text();
-        return res.status(r.status || 500).json({ ok: false, error: 'Falha ao consultar compras aprovadas', details: text });
-      }
-      const rows = await r.json();
-      const last = Array.isArray(rows) && rows.length ? rows[0] : null;
-      if (!last) return res.status(200).json({ ok: true, subscription: { active: false } });
-
-      const plan = last.plan || 'mensal';
-      const createdAt = new Date(last.created_at);
-      let until;
-      if (plan === 'test2min') {
-        until = new Date(createdAt.getTime() + 2 * 60 * 1000);
-      } else {
-        const days = PLAN_DURATIONS_DAYS[plan] ?? 30;
-        until = new Date(createdAt.getTime() + days * 24 * 60 * 60 * 1000);
-      }
-      const active = until.getTime() > Date.now();
-
-      return res.status(200).json({ ok: true, subscription: { active, plan, until: until.toISOString() } });
+      // Sem Supabase ou nenhum registro: inativo
+      return res.status(200).json({ ok: true, subscription: { active: false } });
     }
 
     if (req.method === 'POST') {
@@ -74,6 +84,23 @@ export default async function handler(req, res) {
         };
         const row = { id: String(paymentId), user_id: userId, plan, amount, status: 'approved', created_at: new Date().toISOString() };
         await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(row) });
+        // Persistir/atualizar assinatura com expiração
+        const startAt = new Date();
+        let endAt;
+        if (plan === 'test2min') endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
+        else endAt = new Date(startAt.getTime() + (PLAN_DURATIONS_DAYS[plan] ?? 30) * 24 * 60 * 60 * 1000);
+        const subHeaders = {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'Prefer': 'resolution=merge-duplicates',
+        };
+        // subscriptions usa user_id como chave única para manter apenas uma assinatura atual
+        await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
+          method: 'POST',
+          headers: subHeaders,
+          body: JSON.stringify({ user_id: userId, plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) })
+        });
         return res.status(200).json({ ok: true, activated: true, paymentId });
       }
       if (action === 'deactivate') {
@@ -91,6 +118,19 @@ export default async function handler(req, res) {
               'Prefer': 'return=minimal',
             },
             body: JSON.stringify({ status: 'cancelled' }),
+          });
+        } catch {}
+        // Atualiza assinatura como inativa e expira agora
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({ status: 'inactive', end_at: new Date().toISOString() }),
           });
         } catch {}
         return res.status(200).json({ ok: true, deactivated: true });

@@ -67,6 +67,57 @@ on conflict (id) do nothing;
 
 Com essa tabela criada, o Admin consegue salvar e visualizar o `mp_token` diretamente do Supabase.
 
+#### Planos, Compras e Assinaturas
+Para o sistema de pagamentos e controle de acesso, crie as tabelas abaixo:
+
+```sql
+-- Catálogo de planos
+create table if not exists public.plans (
+  id text primary key,         -- ex: 'mensal', 'trimestral', 'anual', 'test2min'
+  name text not null,
+  days integer not null,       -- duração em dias (test2min pode ser 0 para usar lógica customizada)
+  price numeric not null,
+  active boolean default true,
+  updated_at timestamptz default now()
+);
+
+-- Compras (pagamentos)
+create table if not exists public.purchases (
+  id text primary key,         -- id do pagamento (Mercado Pago)
+  user_id text not null,
+  plan text not null,
+  amount numeric,
+  status text not null default 'pending', -- pending/approved/cancelled
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Assinatura atual do usuário (um registro por usuário)
+create table if not exists public.subscriptions (
+  user_id text primary key,
+  plan text not null,
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  status text not null default 'active', -- active/inactive
+  payment_id text
+);
+
+-- Planos padrão
+insert into public.plans(id, name, days, price) values
+  ('mensal','Mensal',30,19.90),
+  ('trimestral','Trimestral',90,49.90),
+  ('anual','Anual',365,147.90)
+on conflict (id) do nothing;
+```
+
+Fluxo:
+- A compra é criada via `POST /api/subscription?action=create` e registrada em `purchases`.
+- Quando o pagamento é aprovado (webhook Mercado Pago ou polling), o backend grava/atualiza a assinatura em `subscriptions` com `start_at`/`end_at` e `status = 'active'`.
+- `GET /api/subscription?userId=...` consulta `subscriptions` e valida se `end_at > now` para liberar o acesso.
+- `POST /api/subscription?action=deactivate` marca assinatura como `inactive` e expira imediatamente.
+
+Importante: defina `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no Vercel. O `SERVICE_ROLE_KEY` é usado somente no backend.
+
 ### Passos de deploy na Vercel
 1. Conecte seu repositório GitHub.
 2. Defina as variáveis acima em Project Settings → Environment Variables.

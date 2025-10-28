@@ -36,9 +36,10 @@ export default async function handler(req, res) {
     const payment = r.ok ? await r.json() : null;
     const status = payment?.status || 'unknown';
 
-    // Atualiza status em Supabase, se disponível
+    // Atualiza status em Supabase, e ativa assinatura se aprovado
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       try {
+        // Atualiza purchase
         await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(String(paymentId))}`, {
           method: 'PATCH',
           headers: {
@@ -49,6 +50,38 @@ export default async function handler(req, res) {
           },
           body: JSON.stringify({ status }),
         });
+
+        if (status === 'approved') {
+          // Carrega purchase para obter user/plan
+          const rp = await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(String(paymentId))}&select=user_id,plan`, {
+            headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' },
+          });
+          if (rp.ok) {
+            const rows = await rp.json();
+            const p = Array.isArray(rows) && rows.length ? rows[0] : null;
+            if (p && p.user_id && p.plan) {
+              const plan = String(p.plan);
+              const startAt = new Date();
+              let endAt;
+              if (plan === 'test2min') endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
+              else {
+                const map = { mensal: 30, trimestral: 90, anual: 365 };
+                const days = map[plan] ?? 30;
+                endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
+              }
+              await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': SUPABASE_SERVICE_ROLE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  'Prefer': 'resolution=merge-duplicates',
+                },
+                body: JSON.stringify({ user_id: String(p.user_id), plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) }),
+              });
+            }
+          }
+        }
       } catch {}
     }
 
