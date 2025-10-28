@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
     const sellerKey = process.env.KEYAUTH_SELLER_KEY || '';
     const baseClient = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
+    const ignoreHwid = String(process.env.KEYAUTH_IGNORE_HWID || '').toLowerCase() === 'true';
 
     let timeleft = 0;
     let serverHwid = null;
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       if (!init?.success) {
         // Falha no init; se houver sellerKey, tentar fallback
         if (!sellerKey) {
-          return res.status(500).json({ ok: false, error: 'Falha ao inicializar KeyAuth (client)', details: init?.message || 'init error' });
+          return res.status(500).json({ ok: false, error: 'Falha ao inicializar KeyAuth (client)', reason: 'client_init_failed', details: init?.message || 'init error' });
         }
       } else {
         const loginUrl = `${baseClient}?name=${encodeURIComponent(appName)}&ownerid=${encodeURIComponent(ownerId)}&version=${encodeURIComponent(appVersion)}&secret=${encodeURIComponent(appSecret)}&type=license&key=${encodeURIComponent(licenseKey)}&hwid=${encodeURIComponent(hwid)}&format=json`;
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
           status = String(data?.status || data?.state || 'active').toLowerCase();
           banned = String(data?.banned || data?.is_banned || '').toLowerCase() === 'true';
         } else if (!sellerKey) {
-          return res.status(403).json({ ok: false, error: login?.message || 'licença inválida' });
+          return res.status(403).json({ ok: false, error: login?.message || 'licença inválida', reason: 'client_license_failed' });
         }
       }
     }
@@ -55,7 +56,7 @@ export default async function handler(req, res) {
         const infoUrl = `${sellerBase}?sellerkey=${encodeURIComponent(sellerKey)}&type=licenseinfo&key=${encodeURIComponent(licenseKey)}&format=json`;
         const info = await fetchJson(infoUrl);
         if (!info?.success) {
-          return res.status(403).json({ ok: false, error: info?.message || 'licença inválida' });
+          return res.status(403).json({ ok: false, error: info?.message || 'licença inválida', reason: 'seller_license_failed' });
         }
         const data = info.data || info.license || info.info || info;
         timeleft = parseInt((data?.timeleft || data?.time_left || data?.timeLeft) || '0', 10) || 0;
@@ -66,20 +67,20 @@ export default async function handler(req, res) {
     }
 
     // Checagens finais
-    if (banned) return res.status(403).json({ ok: false, error: 'licença banida' });
-    if (Number.isFinite(timeleft) && timeleft <= 0) return res.status(403).json({ ok: false, error: 'licença expirada' });
-    if (status && ['disabled', 'inactive', 'invalid'].includes(status)) return res.status(403).json({ ok: false, error: 'licença inativa' });
+    if (banned) return res.status(403).json({ ok: false, error: 'licença banida', reason: 'banned' });
+    if (Number.isFinite(timeleft) && timeleft <= 0) return res.status(403).json({ ok: false, error: 'licença expirada', reason: 'expired' });
+    if (status && ['disabled', 'inactive', 'invalid'].includes(status)) return res.status(403).json({ ok: false, error: 'licença inativa', reason: 'inactive' });
 
     // Importante: em Vercel não persistimos HWID localmente.
     // Se a Client API retornar um HWID diferente, podemos ainda aceitar se o Seller API indicou tempo restante.
     // Isso evita bloqueio indevido quando a licença foi vinculada via outro app.
-    if (serverHwid && serverHwid !== hwid && appName && ownerId && appSecret && !sellerKey) {
-      return res.status(403).json({ ok: false, error: 'HWID não corresponde ao dispositivo vinculado' });
+    if (serverHwid && serverHwid !== hwid && appName && ownerId && appSecret && !sellerKey && !ignoreHwid) {
+      return res.status(403).json({ ok: false, error: 'HWID não corresponde ao dispositivo vinculado', reason: 'hwid_mismatch' });
     }
 
     return res.status(200).json({ ok: true, timeleft, bound: !!serverHwid });
   } catch (err) {
-    return res.status(500).json({ ok: false, error: 'falha ao validar no KeyAuth', details: err?.message || String(err) });
+    return res.status(500).json({ ok: false, error: 'falha ao validar no KeyAuth', reason: 'server_error', details: err?.message || String(err) });
   }
 }
 
