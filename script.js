@@ -126,11 +126,11 @@ function renderCardsIntoRow(movies, rowEl){
   });
 }
 
-function createRowSection(title, items, id, showTitle = true){
+function createRowSection(title, items, id, showTitle = true, variant = 'carousel'){
   const container = document.getElementById('sections');
   if(!container) return;
   const wrap = document.createElement('div');
-  wrap.className = 'row-wrap';
+  wrap.className = 'row-wrap' + (variant==='grid' ? ' grid' : '');
 
   if(showTitle){
     const h2 = document.createElement('h2');
@@ -140,7 +140,7 @@ function createRowSection(title, items, id, showTitle = true){
   }
 
   const row = document.createElement('div');
-  row.className = 'row';
+  row.className = 'row' + (variant==='grid' ? ' grid' : '');
   if(id) row.id = id;
   wrap.appendChild(row);
 
@@ -174,22 +174,20 @@ function clearSections(){
 
 function renderHomeSections(base){
   clearSections();
-  // Home exibe fileiras: sem rolagem horizontal, quebrando linha e mostrando todos
+  // Home com carrossel e setas, em três categorias configuráveis
   const sortByTitle = (arr)=> arr.slice().sort((a,b)=> (a.title||'').localeCompare(b.title||''));
-  const filmes = sortByTitle(base.filter(m=> (m.row ? m.row==='filmes' : (m.type||'filme')==='filme')));
-  const series = sortByTitle(base.filter(m=> (m.row ? m.row==='series' : (m.type||'filme')==='serie')));
-  const colecao1 = sortByTitle(base.filter(m=> m.row==='colecao-1'));
-  const colecao2 = sortByTitle(base.filter(m=> m.row==='colecao-2'));
-  if(filmes.length) createRowSection('Filmes', filmes, 'rowFilmes', false);
-  if(series.length) createRowSection('Séries', series, 'rowSeries', false);
-  if(colecao1.length) createRowSection('Coleção 1', colecao1, 'rowColecao1', false);
-  if(colecao2.length) createRowSection('Coleção 2', colecao2, 'rowColecao2', false);
+  const recomendados = sortByTitle(base.filter(m=> (m.row||'') === 'recomendados'));
+  const maisAssistidos = sortByTitle(base.filter(m=> (m.row||'') === 'mais-assistidos'));
+  const ultimosLanc = sortByTitle(base.filter(m=> (m.row||'') === 'ultimos-lancamentos'));
+  if(recomendados.length) createRowSection('Recomendados', recomendados, 'rowRecomendados', true, 'carousel');
+  if(maisAssistidos.length) createRowSection('Mais assistidos', maisAssistidos, 'rowMaisAssistidos', true, 'carousel');
+  if(ultimosLanc.length) createRowSection('Últimos lançamentos', ultimosLanc, 'rowUltimosLancamentos', true, 'carousel');
 }
 
 function renderSingleSection(title, items){
   clearSections();
   const sorted = items.slice().sort((a,b)=> (a.title||'').localeCompare(b.title||''));
-  createRowSection(title, sorted, 'rowSingle', true);
+  createRowSection(title, sorted, 'rowSingle', true, 'grid');
 }
 
 // Slideshow do topo (Hero)
@@ -372,10 +370,8 @@ function openModalFromTmdbData(data){
 
 function addFromTmdbData(data){
   const id = `tmdb-${data.type}-${data.tmdbId}`;
-  const categorySel = document.getElementById('adminCategory');
-  const category = categorySel ? categorySel.value : 'popular';
   const rowSel = document.getElementById('adminRow');
-  const row = rowSel ? rowSel.value : (data.type === 'serie' ? 'series' : 'filmes');
+  const row = rowSel ? rowSel.value : 'recomendados';
   const exists = (window.MOVIES||[]).some(m=> (m.tmdbId===data.tmdbId && (m.type||'filme')===data.type));
   if(exists){ return; }
   const item = {
@@ -388,7 +384,7 @@ function addFromTmdbData(data){
     poster: data.poster,
     trailer: '',
     description: data.description || '',
-    category,
+    category: '',
     row
   };
   // Persistir via Supabase (fallback para backend)

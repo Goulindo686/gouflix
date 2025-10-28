@@ -81,15 +81,25 @@ nav a.active{color:var(--text)}
 .badge-status.pending{background:#2a2a2a;color:#ddd}
 .badge-status.approved{background:#1f3b24;color:#b6f3c1}
 .badge-status.cancelled{background:#3b1f1f;color:#f3b6b6}
-.row{display:flex;flex-wrap:wrap;gap:16px;padding-bottom:10px;overflow-x:hidden}
+.row{display:flex;overflow-x:auto;gap:16px;padding-bottom:10px;scroll-behavior:smooth}
 .row::-webkit-scrollbar{display:none}
-.row-wrap{position:relative;margin:18px 0;padding:0}
+.row-wrap{position:relative;margin:18px 0;padding:0 24px}
 .row-title{font-size:20px;font-weight:700;margin:0 0 10px 6px}
-.row-arrow{display:none}
-.row-arrow:hover{display:none}
-.row-arrow.prev{display:none}
-.row-arrow.next{display:none}
-.row-wrap::before,.row-wrap::after{display:none;content:none}
+.row-arrow{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;
+  background:rgba(0,0,0,0.6);border:1px solid #2a2a2c;color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.5)}
+.row-arrow:hover{background:rgba(255,255,255,0.15)}
+.row-arrow.prev{left:-4px}
+.row-arrow.next{right:-4px}
+.row-wrap::before,.row-wrap::after{content:"";position:absolute;top:32px;bottom:0;width:24px;z-index:5;pointer-events:none}
+.row-wrap::before{left:0;background:linear-gradient(to right, rgba(13,13,15,1) 0%, rgba(13,13,15,0) 100%)}
+.row-wrap::after{right:0;background:linear-gradient(to left, rgba(13,13,15,1) 0%, rgba(13,13,15,0) 100%)}
+
+/* Layout de grade para abas individuais */
+.row.grid{flex-wrap:wrap;overflow-x:hidden}
+.row-wrap.grid{padding:0}
+.row-wrap.grid .row-arrow{display:none}
+.row-wrap.grid::before,.row-wrap.grid::after{display:none;content:none}
 .card{
   min-width:200px;flex-shrink:0;position:relative;border-radius:var(--radius);
   overflow:hidden;cursor:pointer;transition:transform .3s ease;
