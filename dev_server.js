@@ -294,11 +294,15 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ ok:false, error:'Parâmetros inválidos (userId/plan)' }));
             return;
           }
+          let emailDomain = 'gouflix.app';
+          try{ if(PUBLIC_URL){ const u = new URL(PUBLIC_URL); if(u.hostname && u.hostname.includes('.')) emailDomain = u.hostname; } }catch(_){}
+          const safeUser = String(userId).replace(/[^a-zA-Z0-9_.+-]/g,'_');
+          const payerEmail = `${safeUser}@${emailDomain}`;
           const preference = {
             transaction_amount: Number(Number(amount).toFixed(2)),
             description: `Assinatura GouFlix — ${plan}`,
             payment_method_id: 'pix',
-            payer: { email: `${userId}@example.local` },
+            payer: { email: payerEmail },
             notification_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mercadopago` : undefined,
             external_reference: `${userId}|${plan}|${Date.now()}`
           };
