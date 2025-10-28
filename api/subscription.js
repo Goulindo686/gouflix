@@ -150,12 +150,15 @@ export default async function handler(req, res) {
         let amount = null;
         try {
           if (SUPABASE_READ_KEY) {
-            const pr = await fetch(`${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=price`, { headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' } });
+            // Suporta colunas price (reais) e price_cents (centavos)
+            const pr = await fetch(`${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=price,price_cents`, { headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' } });
             if (pr.ok) {
               const arr = await pr.json();
               const row = Array.isArray(arr) && arr.length ? arr[0] : null;
               const price = row?.price;
+              const cents = row?.price_cents;
               if (typeof price === 'number' && price > 0) amount = price;
+              else if (typeof cents === 'number' && cents > 0) amount = Math.round(cents) / 100;
             }
           }
         } catch {}
@@ -167,8 +170,20 @@ export default async function handler(req, res) {
         if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido (preço não encontrado)' });
         const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token'], process.env.SUPABASE_ANON_KEY);
         if (!mpToken) return res.status(400).json({ ok: false, error: 'MP_ACCESS_TOKEN não configurado. Defina em variáveis de ambiente ou salve via /api/config.' });
-
-        const PUBLIC_FALLBACK = COOKIES['public_url'] || PUBLIC_URL;
+        // notification_url: usar cookie/env e, se vazio, buscar de app_config
+        let PUBLIC_FALLBACK = COOKIES['public_url'] || PUBLIC_URL;
+        if (!PUBLIC_FALLBACK && SUPABASE_URL && SUPABASE_READ_KEY) {
+          try {
+            const cr = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=public_url`, {
+              headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' },
+            });
+            if (cr.ok) {
+              const data = await cr.json();
+              const row = Array.isArray(data) && data.length ? data[0] : null;
+              if (row?.public_url) PUBLIC_FALLBACK = row.public_url;
+            }
+          } catch {}
+        }
         const notificationUrl = PUBLIC_FALLBACK ? `${PUBLIC_FALLBACK}/api/webhook/mp${MP_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(MP_WEBHOOK_SECRET)}` : ''}` : undefined;
         const idempotencyKey = `${userId}:${plan}:${Date.now()}`;
         const paymentPayload = {
