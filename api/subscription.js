@@ -7,7 +7,10 @@ const PLAN_DURATIONS_DAYS = {
 export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const SUPABASE_READY = !!(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+  const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+  const SUPABASE_READ_KEY = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+  const SUPABASE_WRITE_KEY = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+  const SUPABASE_READY = !!(SUPABASE_URL && SUPABASE_READ_KEY);
 
   try {
     if (req.method === 'GET') {
@@ -16,7 +19,7 @@ export default async function handler(req, res) {
       if (SUPABASE_READY) {
         // Primeiro tenta na tabela subscriptions
         const rSub = await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=user_id,plan,start_at,end_at,status`, {
-          headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' },
+          headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' },
         });
         if (rSub.ok) {
           const subs = await rSub.json();
@@ -30,8 +33,8 @@ export default async function handler(req, res) {
         const url = `${SUPABASE_URL}/rest/v1/purchases?user_id=eq.${encodeURIComponent(userId)}&status=eq.approved&select=id,plan,created_at&order=created_at.desc`;
         const r = await fetch(url, {
           headers: {
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'apikey': SUPABASE_READ_KEY,
+            'Authorization': `Bearer ${SUPABASE_READ_KEY}`,
             'Accept': 'application/json',
           },
         });
@@ -72,8 +75,8 @@ export default async function handler(req, res) {
         const upsertUrl = `${SUPABASE_URL}/rest/v1/purchases?on_conflict=id`;
         const headers = {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': SUPABASE_WRITE_KEY,
+          'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
           'Prefer': 'resolution=merge-duplicates',
         };
         // Não enviar 'amount' para evitar erro quando a coluna não existir no schema
@@ -85,7 +88,7 @@ export default async function handler(req, res) {
         let days = PLAN_DURATIONS_DAYS[plan] ?? 30;
         try {
           const planUrl = `${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=days,duration_days`;
-          const pr = await fetch(planUrl, { headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' } });
+          const pr = await fetch(planUrl, { headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' } });
           if (pr.ok) {
             const arr = await pr.json();
             const row = Array.isArray(arr) && arr.length ? arr[0] : null;
@@ -96,8 +99,8 @@ export default async function handler(req, res) {
         const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
         const subHeaders = {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': SUPABASE_WRITE_KEY,
+          'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
           'Prefer': 'resolution=merge-duplicates',
         };
         // subscriptions usa user_id como chave única para manter apenas uma assinatura atual
@@ -118,8 +121,8 @@ export default async function handler(req, res) {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': SUPABASE_WRITE_KEY,
+              'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
               'Prefer': 'return=minimal',
             },
             body: JSON.stringify({ status: 'cancelled' }),
@@ -131,8 +134,8 @@ export default async function handler(req, res) {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': SUPABASE_WRITE_KEY,
+              'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
               'Prefer': 'return=minimal',
             },
             body: JSON.stringify({ status: 'inactive', end_at: new Date().toISOString() }),
@@ -143,10 +146,25 @@ export default async function handler(req, res) {
       if (action === 'create') {
         const userId = body?.userId;
         const plan = body?.plan || 'mensal';
-        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9 };
-        const amount = PLAN_PRICES[plan];
+        // Buscar preço do plano no Supabase quando possível, com fallback para mapa
+        let amount = null;
+        try {
+          if (SUPABASE_READ_KEY) {
+            const pr = await fetch(`${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=price`, { headers: { 'apikey': SUPABASE_READ_KEY, 'Authorization': `Bearer ${SUPABASE_READ_KEY}`, 'Accept': 'application/json' } });
+            if (pr.ok) {
+              const arr = await pr.json();
+              const row = Array.isArray(arr) && arr.length ? arr[0] : null;
+              const price = row?.price;
+              if (typeof price === 'number' && price > 0) amount = price;
+            }
+          }
+        } catch {}
+        if (amount == null) {
+          const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9 };
+          amount = PLAN_PRICES[plan];
+        }
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
-        if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido' });
+        if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido (preço não encontrado)' });
         const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token'], process.env.SUPABASE_ANON_KEY);
         if (!mpToken) return res.status(400).json({ ok: false, error: 'MP_ACCESS_TOKEN não configurado. Defina em variáveis de ambiente ou salve via /api/config.' });
 

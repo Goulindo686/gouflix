@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY; // fallback para leitura pública
+  const SUPABASE_WRITE_KEY = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
   const ENV_MP_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN;
   const COOKIES = parseCookies(req.headers?.cookie || '');
 
@@ -32,14 +33,14 @@ export default async function handler(req, res) {
     const status = payment?.status || 'unknown';
 
     // Sincroniza status na tabela purchases se possível
-    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    if (SUPABASE_URL && SUPABASE_WRITE_KEY) {
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(String(id))}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': SUPABASE_SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'apikey': SUPABASE_WRITE_KEY,
+            'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
             'Prefer': 'return=minimal',
           },
           body: JSON.stringify({ status }),
@@ -49,7 +50,7 @@ export default async function handler(req, res) {
         if (status === 'approved') {
           // Buscar dados da compra para obter user_id e plan
           const rp = await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(String(id))}&select=user_id,plan`, {
-            headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' },
+            headers: { 'apikey': SUPABASE_WRITE_KEY, 'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`, 'Accept': 'application/json' },
           });
           if (rp.ok) {
             const rows = await rp.json();
@@ -61,16 +62,16 @@ export default async function handler(req, res) {
               const refPlan = parts[1];
               if (refUser && refPlan) {
                 // Upsert da purchase para manter admin consistente
-                await fetch(`${SUPABASE_URL}/rest/v1/purchases?on_conflict=id`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                    'Prefer': 'resolution=merge-duplicates',
-                  },
-                  body: JSON.stringify({ id: String(id), user_id: String(refUser), plan: String(refPlan), status: 'approved' }),
-                });
+              await fetch(`${SUPABASE_URL}/rest/v1/purchases?on_conflict=id`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': SUPABASE_WRITE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
+                  'Prefer': 'resolution=merge-duplicates',
+                },
+                body: JSON.stringify({ id: String(id), user_id: String(refUser), plan: String(refPlan), status: 'approved' }),
+              });
                 p = { user_id: String(refUser), plan: String(refPlan) };
               }
             }
@@ -99,8 +100,8 @@ export default async function handler(req, res) {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  'apikey': SUPABASE_WRITE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
                   'Prefer': 'resolution=merge-duplicates',
                 },
                 body: JSON.stringify({ user_id: String(p.user_id), plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(id) }),
