@@ -36,7 +36,15 @@ nav a.active{color:var(--text)}
   background:linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.2));
 }
 .hero-slides{position:absolute;inset:0;z-index:0}
-.hero-slides .slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1s ease-in-out}
+.hero-slides .slide{
+  position:absolute;inset:0;
+  /* Centraliza totalmente as capas e exibe por completo */
+  background-size:contain;
+  background-position:center center;
+  background-repeat:no-repeat;
+  background-color:#000;
+  opacity:0;transition:opacity 1s ease-in-out
+}
 .hero-slides .slide.active{opacity:1}
 .hero-content{max-width:500px;position:relative;z-index:2}
 .hero-content h2{font-size:60px;margin-bottom:18px;font-weight:900;letter-spacing:.5px;line-height:1.05;text-shadow:0 4px 24px rgba(0,0,0,.6)}

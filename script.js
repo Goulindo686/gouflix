@@ -196,6 +196,16 @@ function renderSingleSection(title, items){
 let HERO_INTERVAL_ID = null;
 let HERO_ITEMS = [];
 let HERO_INDEX = 0;
+// Usa tamanho maior para pôsters no Hero para melhorar qualidade
+function toHighResPoster(url){
+  if(!url) return url;
+  try{
+    // Substitui qualquer /w<numero>/ por /w780/ para pôster vertical
+    const upgraded = url.replace(/\/w\d+(?=\/)/, '/w780');
+    // Se vier como original deixamos como está
+    return upgraded;
+  }catch(_){ return url; }
+}
 function buildHeroSlides(items){
   const container = document.getElementById('heroSlides');
   if(!container) return;
@@ -208,7 +218,7 @@ function buildHeroSlides(items){
   posters.forEach((m, idx) => {
     const slide = document.createElement('div');
     slide.className = 'slide' + (idx === 0 ? ' active' : '');
-    slide.style.backgroundImage = `url('${m.poster}')`;
+    slide.style.backgroundImage = `url('${toHighResPoster(m.poster)}')`;
     container.appendChild(slide);
   });
   // Atualiza conteúdo textual do hero com o primeiro item
