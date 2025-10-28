@@ -277,41 +277,7 @@ function updateUserArea(){
   }
 }
 
-function showLoginModal(){
-  const m = document.getElementById('loginModal');
-  if(!m) return;
-  m.classList.remove('hidden');
-}
-function closeLoginModal(){
-  const m = document.getElementById('loginModal');
-  if(!m) return; m.classList.add('hidden');
-}
-
-// Botão do modal de login
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Garantir que o modal de login comece oculto
-  closeLoginModal();
-  const discordLoginBtn = document.getElementById('discordLoginBtn');
-  if(discordLoginBtn){ discordLoginBtn.onclick = ()=>{
-    const ret = location.href;
-    location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
-  }; }
-  // Fechar modal de login pelo ESC
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'Escape'){
-      closeLoginModal();
-    }
-  });
-  // Fechar modal de login clicando fora do conteúdo
-  const loginModal = document.getElementById('loginModal');
-  if(loginModal){
-    loginModal.addEventListener('click', (e)=>{
-      if(e.target === loginModal){
-        closeLoginModal();
-      }
-    });
-  }
-});
+// Modal de login removida: o login ocorre somente via botão no topo
 
 function openModalFromTmdbData(data){
   const modal = document.getElementById('modal');
