@@ -761,7 +761,7 @@ async function startPaymentPolling(paymentId, plan){
   if(window.PAYMENT_POLL_TID){ clearInterval(window.PAYMENT_POLL_TID); }
   const poll = async ()=>{
     try{
-      const r = await fetch(`/api/payment/status?id=${encodeURIComponent(paymentId)}`);
+      const r = await fetch(`/api/payment/status?id=${encodeURIComponent(paymentId)}`, { credentials: 'include' });
       const j = await r.json();
       if(j.ok && j.status === 'approved'){
         clearInterval(window.PAYMENT_POLL_TID); window.PAYMENT_POLL_TID = null;
@@ -771,6 +771,12 @@ async function startPaymentPolling(paymentId, plan){
           closePaymentModal();
           alert('Pagamento aprovado e plano ativado!');
         }catch(err){ alert('Falha ao ativar plano: ' + err.message); }
+      } else if (!j.ok) {
+        // Feedback claro para configuração ausente
+        if (j.error && String(j.error).toLowerCase().includes('mp_access_token')) {
+          clearInterval(window.PAYMENT_POLL_TID); window.PAYMENT_POLL_TID = null;
+          alert('Token do Mercado Pago não está configurado. Vá ao Admin > Configurações e salve o Access Token.');
+        }
       }
     }catch(_){ /* ignore */ }
   };

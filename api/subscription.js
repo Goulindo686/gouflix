@@ -216,6 +216,12 @@ export default async function handler(req, res) {
             }
           } catch {}
         }
+        // Fallback final: derivar da requisição atual (host) para garantir webhook
+        if (!PUBLIC_FALLBACK && req?.headers?.host) {
+          const scheme = (req.headers['x-forwarded-proto'] || '').includes('http') ? req.headers['x-forwarded-proto'] : 'https';
+          const host = req.headers.host;
+          PUBLIC_FALLBACK = `${scheme}://${host}`;
+        }
         const notificationUrl = PUBLIC_FALLBACK ? `${PUBLIC_FALLBACK}/api/webhook/mp${MP_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(MP_WEBHOOK_SECRET)}` : ''}` : undefined;
         const idempotencyKey = `${userId}:${plan}:${Date.now()}`;
         const paymentPayload = {
