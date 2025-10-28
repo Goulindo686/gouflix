@@ -82,13 +82,9 @@ export default async function handler(req, res) {
             if (p && p.user_id && p.plan) {
               const plan = String(p.plan);
               const startAt = new Date();
-              let endAt;
-              if (plan === 'test2min') endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
-              else {
-                const map = { mensal: 30, trimestral: 90, anual: 365 };
-                const days = map[plan] ?? 30;
-                endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
-              }
+              const map = { mensal: 30, trimestral: 90, anual: 365 };
+              const days = map[plan] ?? 30;
+              const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
               await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
                 method: 'POST',
                 headers: {

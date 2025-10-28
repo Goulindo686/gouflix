@@ -251,8 +251,8 @@ const server = http.createServer(async (req, res) => {
         const token = state.config.mercadoPagoAccessToken;
         if (!token) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Mercado Pago token not configured' })); return; }
 
-        const priceMap = { mensal: 19.90, trimestral: 49.90, anual: 147.90, test2min: 1.00 };
-        const titleMap = { mensal:'Plano Mensal', trimestral:'Plano Trimestral', anual:'Plano Anual', test2min:'Plano Teste 2 minutos' };
+        const priceMap = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
+        const titleMap = { mensal:'Plano Mensal', trimestral:'Plano Trimestral', anual:'Plano Anual' };
         const amount = priceMap[plan];
         const title = titleMap[plan];
         if (!amount) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'invalid plan' })); return; }
@@ -362,7 +362,7 @@ const server = http.createServer(async (req, res) => {
         const { userId, plan, status, paymentId } = body;
         if (!userId || !plan || !status) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'userId, plan, status required' })); return; }
         if (status !== 'approved') { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'status not approved' })); return; }
-        const daysMap = { mensal: 30, trimestral: 90, anual: 365, test2min: (2/(24*60)) };
+        const daysMap = { mensal: 30, trimestral: 90, anual: 365 };
         const days = daysMap[plan];
         if (!days) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'invalid plan' })); return; }
         const now = Date.now();

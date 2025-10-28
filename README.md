@@ -73,9 +73,9 @@ Para o sistema de pagamentos e controle de acesso, crie as tabelas abaixo:
 ```sql
 -- Catálogo de planos
 create table if not exists public.plans (
-  id text primary key,         -- ex: 'mensal', 'trimestral', 'anual', 'test2min'
+  id text primary key,         -- ex: 'mensal', 'trimestral', 'anual'
   name text not null,
-  days integer not null,       -- duração em dias (test2min pode ser 0 para usar lógica customizada)
+  days integer not null,       -- duração em dias
   price numeric not null,
   active boolean default true,
   updated_at timestamptz default now()
@@ -106,8 +106,7 @@ create table if not exists public.subscriptions (
 insert into public.plans(id, name, days, price) values
   ('mensal','Mensal',30,19.90),
   ('trimestral','Trimestral',90,49.90),
-  ('anual','Anual',365,147.90),
-  ('test2min','Teste 2 Min',0,1.00)
+  ('anual','Anual',365,147.90)
 on conflict (id) do nothing;
 ```
 

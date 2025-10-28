@@ -41,13 +41,8 @@ export default async function handler(req, res) {
           if (last) {
             const plan = last.plan || 'mensal';
             const createdAt = new Date(last.created_at);
-            let until;
-            if (plan === 'test2min') {
-              until = new Date(createdAt.getTime() + 2 * 60 * 1000);
-            } else {
-              const days = PLAN_DURATIONS_DAYS[plan] ?? 30;
-              until = new Date(createdAt.getTime() + days * 24 * 60 * 60 * 1000);
-            }
+            const days = PLAN_DURATIONS_DAYS[plan] ?? 30;
+            const until = new Date(createdAt.getTime() + days * 24 * 60 * 60 * 1000);
             const active = until.getTime() > Date.now();
             return res.status(200).json({ ok: true, subscription: { active, plan, until: until.toISOString() } });
           }
@@ -68,9 +63,10 @@ export default async function handler(req, res) {
         const userId = body?.userId;
         const plan = body?.plan || 'mensal';
         const paymentId = body?.paymentId || String(Date.now());
-        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9, test2min: 1.0 };
-        const amount = PLAN_PRICES[plan] ?? PLAN_PRICES.mensal;
+        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9 };
+        const amount = PLAN_PRICES[plan];
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
+        if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido' });
         if (!SUPABASE_READY) {
           // Sem Supabase, apenas confirma ativação (cliente tratará como ativo)
           return res.status(200).json({ ok: true, activated: true, paymentId });
@@ -88,9 +84,7 @@ export default async function handler(req, res) {
         await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(row) });
         // Persistir/atualizar assinatura com expiração
         const startAt = new Date();
-        let endAt;
-        if (plan === 'test2min') endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
-        else endAt = new Date(startAt.getTime() + (PLAN_DURATIONS_DAYS[plan] ?? 30) * 24 * 60 * 60 * 1000);
+        const endAt = new Date(startAt.getTime() + (PLAN_DURATIONS_DAYS[plan] ?? 30) * 24 * 60 * 60 * 1000);
         const subHeaders = {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_SERVICE_ROLE_KEY,
@@ -140,9 +134,10 @@ export default async function handler(req, res) {
       if (action === 'create') {
         const userId = body?.userId;
         const plan = body?.plan || 'mensal';
-        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9, test2min: 1.0 };
-        const amount = PLAN_PRICES[plan] ?? PLAN_PRICES.mensal;
+        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9 };
+        const amount = PLAN_PRICES[plan];
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
+        if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido' });
         const mpToken = await getMpToken(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ENV_MP_TOKEN || COOKIES['mp_token']);
         if (!mpToken) return res.status(400).json({ ok: false, error: 'MP_ACCESS_TOKEN não configurado. Defina em variáveis de ambiente ou salve via /api/config.' });
 
@@ -184,32 +179,14 @@ export default async function handler(req, res) {
             'Prefer': 'resolution=merge-duplicates',
           };
           // Não enviar 'amount' para evitar incompatibilidade com schema
-          const initialStatus = (plan === 'test2min') ? 'approved' : (payment?.status || 'pending');
+          const initialStatus = payment?.status || 'pending';
           const purchaseRow = { id: String(paymentId), user_id: userId, plan, status: initialStatus, created_at: new Date().toISOString() };
           const saveResp = await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(purchaseRow) });
           if (!saveResp.ok) {
             const text = await saveResp.text();
             return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Compra criada, mas não persistida no Supabase', details: text });
           }
-
-          // Auto-ativar assinatura de teste (2 min) imediatamente
-          if (plan === 'test2min') {
-            const startAt = new Date();
-            const endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
-            const subHeaders = {
-              'Content-Type': 'application/json',
-              'apikey': SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              'Prefer': 'resolution=merge-duplicates',
-            };
-            await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
-              method: 'POST',
-              headers: subHeaders,
-              body: JSON.stringify({ user_id: userId, plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) })
-            });
-          }
-
-          return res.status(200).json({ ok: true, paymentId, qr, qrCode, activated: plan === 'test2min' });
+          return res.status(200).json({ ok: true, paymentId, qr, qrCode });
         }
         return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Supabase não configurado; pagamento não foi persistido no banco.' });
       }
