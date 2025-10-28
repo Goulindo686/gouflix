@@ -106,6 +106,7 @@ export default async function handler(req, res) {
 
         const PUBLIC_FALLBACK = COOKIES['public_url'] || PUBLIC_URL;
         const notificationUrl = PUBLIC_FALLBACK ? `${PUBLIC_FALLBACK}/api/webhook/mp${MP_WEBHOOK_SECRET ? `?secret=${encodeURIComponent(MP_WEBHOOK_SECRET)}` : ''}` : undefined;
+        const idempotencyKey = `${userId}:${plan}:${Date.now()}`;
         const paymentPayload = {
           transaction_amount: amount,
           description: `Assinatura ${plan}`,
@@ -117,7 +118,7 @@ export default async function handler(req, res) {
 
         const mpResp = await fetch('https://api.mercadopago.com/v1/payments', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mpToken}` },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mpToken}`, 'X-Idempotency-Key': idempotencyKey },
           body: JSON.stringify(paymentPayload),
         });
         if (!mpResp.ok) {
