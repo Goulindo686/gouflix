@@ -260,7 +260,7 @@ function heroUpdateContent(item){
 
 // Assinaturas/Mercado Pago removidos
 
-function openModal(id){
+async function openModal(id){
   const movie = window.MOVIES.find(m=>m.id===id);
   const modal = document.getElementById('modal');
   const body = document.getElementById('modalBody');
@@ -268,6 +268,39 @@ function openModal(id){
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
   const canWatch = !!superflixUrl;
+  // Checar assinatura
+  let active = false;
+  try{
+    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(USER_ID)}`);
+    if(r.ok){
+      const sub = await r.json();
+      active = !!sub?.active;
+    }
+  }catch(_){ /* fallback: sem assinatura */ }
+  if(!active){
+    // Bloqueio com link para Planos
+    body.innerHTML = `
+      <img src="${movie.poster}" alt="${movie.title} poster">
+      <div class="modal-info" style="width:100%">
+        <h2>${movie.title} <span style="color:#666;font-size:14px;">(${movie.year})</span></h2>
+        <p>${movie.description}</p>
+        <div class="genres">
+          ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
+        </div>
+        <div class="missing-id" style="margin-top:16px">
+          Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.
+        </div>
+        <div style="margin-top:12px">
+          <button id="goToPlansBtn" class="btn primary">Ver planos</button>
+        </div>
+      </div>
+    `;
+    modal.classList.remove('hidden');
+    const goBtn = document.getElementById('goToPlansBtn');
+    if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
+    return;
+  }
+  // Assinante: exibir player
   body.innerHTML = `
     <img src="${movie.poster}" alt="${movie.title} poster">
     <div class="modal-info" style="width:100%">
@@ -282,7 +315,6 @@ function openModal(id){
     </div>
   `;
   modal.classList.remove('hidden');
-  
 }
 
 // --------- Login via Discord ---------
@@ -348,12 +380,18 @@ function applyAdminVisibility(){
 
 // Modal de login removida: o login ocorre somente via botão no topo
 
-function openModalFromTmdbData(data){
+async function openModalFromTmdbData(data){
   const modal = document.getElementById('modal');
   const body = document.getElementById('modalBody');
   const superflixUrl = buildSuperflixUrl(data.type, data.tmdbId);
   const canWatch = !!superflixUrl;
-  body.innerHTML = `
+  // Checar assinatura
+  let active = false;
+  try{
+    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(USER_ID)}`);
+    if(r.ok){ const sub = await r.json(); active = !!sub?.active; }
+  }catch(_){}
+  const baseInfo = `
     <img src="${data.poster}" alt="${data.title} poster">
     <div class="modal-info">
       <h2>${data.title} <span style="color:#666;font-size:14px;">(${data.year || 'N/A'})</span></h2>
@@ -361,16 +399,29 @@ function openModalFromTmdbData(data){
       <div class="genres">
         ${(data.genres||[]).map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
       </div>
-      <div style="margin-top:10px;color:#999;font-size:13px">SuperFlix: ${superflixUrl}</div>
+      <div style="margin-top:10px;color:#999;font-size:13px">SuperFlix: ${superflixUrl}</div>`;
+  if(!active){
+    body.innerHTML = baseInfo + `
+      <div class="missing-id" style="margin-top:12px">Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button id="addToSiteBtn" class="btn secondary">Adicionar ao site</button>
+        <button id="goToPlansBtn" class="btn primary">Ver planos</button>
+      </div>
+    </div>`;
+    modal.classList.remove('hidden');
+    const goBtn = document.getElementById('goToPlansBtn');
+    if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
+  } else {
+    body.innerHTML = baseInfo + `
       <div class="player" style="margin-top:12px;width:100%">
         <iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
         <button id="addToSiteBtn" class="btn secondary">Adicionar ao site</button>
       </div>
-    </div>
-  `;
-  modal.classList.remove('hidden');
+    </div>`;
+    modal.classList.remove('hidden');
+  }
 
   const addBtn = document.getElementById('addToSiteBtn');
   if(addBtn){
@@ -972,6 +1023,67 @@ initEnvAndSupabase().then(()=>{
   applyAdminVisibility();
 });
 
-// Pagamentos removidos
+// ----- Pagamentos (Mercado Pago PIX) -----
+function bindPlanButtons(){
+  const buttons = Array.from(document.querySelectorAll('.plan-buy[data-plan]'));
+  buttons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const plan = btn.getAttribute('data-plan');
+      openPaymentModal(plan);
+    });
+  });
+}
+
+async function openPaymentModal(plan){
+  const modal = document.getElementById('paymentModal');
+  const img = document.getElementById('qrCodeImage');
+  const codeEl = document.getElementById('pixCode');
+  const statusEl = document.getElementById('paymentStatus');
+  if(!modal) return;
+  img.src = '';
+  codeEl.textContent = '';
+  statusEl.textContent = 'Gerando pagamento...';
+  modal.classList.remove('hidden');
+  try{
+    const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ plan, userId: USER_ID }) });
+    const json = await r.json();
+    if(!r.ok || !json.ok){ throw new Error(json.error||'Falha ao gerar pagamento'); }
+    const { id, qr_code_base64, qr_code } = json;
+    if(qr_code_base64){ img.src = `data:image/png;base64,${qr_code_base64}`; }
+    codeEl.textContent = qr_code || '';
+    statusEl.textContent = 'Aguardando pagamento...';
+    pollPaymentStatus(id, plan);
+  }catch(err){
+    statusEl.textContent = 'Erro: ' + err.message;
+  }
+}
+
+let paymentPollTimer = null;
+function stopPaymentPoll(){ if(paymentPollTimer){ clearInterval(paymentPollTimer); paymentPollTimer=null; } }
+function pollPaymentStatus(id, plan){
+  stopPaymentPoll();
+  let attempts = 0;
+  const statusEl = document.getElementById('paymentStatus');
+  paymentPollTimer = setInterval(async ()=>{
+    attempts++;
+    if(attempts>90){ stopPaymentPoll(); statusEl.textContent = 'Tempo esgotado. Tente novamente.'; return; }
+    try{
+      const r = await fetch(`/api/payment/status?id=${encodeURIComponent(id)}`);
+      const json = await r.json();
+      const status = String(json?.status||'').toLowerCase();
+      if(status === 'approved'){
+        stopPaymentPoll();
+        // ativar assinatura imediatamente (fallback se webhook não acionou)
+        try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: USER_ID, plan, action:'activate' }) }); }catch(_){}
+        statusEl.textContent = 'Pagamento aprovado! Assinatura ativada.';
+        setTimeout(()=>{ document.getElementById('paymentModal').classList.add('hidden'); setRoute('home'); }, 1500);
+      }
+    }catch(_){ /* ignore */ }
+  }, 5000);
+}
+
+const closePaymentBtn = document.getElementById('closePayment');
+if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.getElementById('paymentModal').classList.add('hidden'); stopPaymentPoll(); }); }
+bindPlanButtons();
 
 // Admin compras/assinaturas removido

@@ -41,6 +41,48 @@
     <div id="sections"></div>
   </main>
 
+  <!-- Página de Planos -->
+  <section id="plansPage" class="plans hidden">
+    <div class="plans-header">
+      <h2>Escolha seu plano</h2>
+      <p>Assine para liberar acesso imediato aos filmes e séries.</p>
+    </div>
+    <div class="plans-grid">
+      <div class="plan-card" data-plan="mensal">
+        <h3>Mensal</h3>
+        <div class="price">R$ 19,90</div>
+        <ul class="benefits">
+          <li>Acesso ilimitado</li>
+          <li>Sem anúncios</li>
+          <li>Suporte rápido</li>
+        </ul>
+        <button class="btn primary plan-buy" data-plan="mensal">Assinar Mensal</button>
+      </div>
+      <div class="plan-card popular" data-plan="trimestral">
+        <div class="badge">Mais vantajoso</div>
+        <h3>Trimestral</h3>
+        <div class="price">R$ 49,90</div>
+        <ul class="benefits">
+          <li>Acesso ilimitado</li>
+          <li>Sem anúncios</li>
+          <li>Economia por mês</li>
+        </ul>
+        <button class="btn primary plan-buy" data-plan="trimestral">Assinar Trimestral</button>
+      </div>
+      <div class="plan-card" data-plan="anual">
+        <h3>Anual</h3>
+        <div class="price">R$ 147,90</div>
+        <ul class="benefits">
+          <li>Acesso ilimitado</li>
+          <li>Sem anúncios</li>
+          <li>Melhor custo-benefício</li>
+        </ul>
+        <button class="btn primary plan-buy" data-plan="anual">Assinar Anual</button>
+      </div>
+    </div>
+    <p class="plans-tip">Pagamento via Mercado Pago (Pix): QR Code e copiar e colar.</p>
+  </section>
+
   
 
   <section id="adminPanel" class="admin hidden">
@@ -118,6 +160,26 @@
     <div class="modal-inner">
       <button id="closeModal" class="close">&times;</button>
       <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal de Pagamento -->
+  <div id="paymentModal" class="payment-modal hidden">
+    <div class="payment-modal-content">
+      <div class="payment-header">
+        <h3>Pagamento Pix (Mercado Pago)</h3>
+        <button id="closePayment" class="close-payment">&times;</button>
+      </div>
+      <div class="payment-body">
+        <div id="qrCodeContainer">
+          <img id="qrCodeImage" src="" alt="QR Code Pix" />
+        </div>
+        <div class="payment-instructions">
+          Escaneie o QR Code ou use o Pix copiar e colar.
+        </div>
+        <div class="payment-status" id="paymentStatus">Aguardando pagamento...</div>
+        <div id="pixCode" style="color:#ddd;font-size:12px;word-break:break-all;margin-top:10px"></div>
+      </div>
     </div>
   </div>
 
