@@ -12,13 +12,17 @@ export default async function handler(req, res) {
   const WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET || null;
 
   try {
+    // Observabilidade básica
+    console.log('[MP Webhook] headers', req.headers);
     // Validação simples por segredo em querystring (opcional)
     const provided = req.query?.secret || null;
     if (WEBHOOK_SECRET && provided !== WEBHOOK_SECRET) {
+      console.warn('[MP Webhook] Segredo inválido');
       return res.status(401).json({ ok: false, error: 'Segredo do webhook inválido' });
     }
 
     const body = await readBody(req);
+    console.log('[MP Webhook] body', body);
     const paymentId = body?.data?.id || body?.id || null;
     if (!paymentId) {
       // Aceita, mas informa ausência de id
@@ -37,20 +41,31 @@ export default async function handler(req, res) {
     });
     const payment = r.ok ? await r.json() : null;
     const status = payment?.status || 'unknown';
+    console.log('[MP Webhook] paymentId', paymentId, 'status', status);
 
     // Atualiza status em Supabase, e ativa assinatura se aprovado
     if (SUPABASE_URL && SUPABASE_WRITE_KEY) {
       try {
-        // Atualiza purchase
-        await fetch(`${SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(String(paymentId))}`, {
-          method: 'PATCH',
+        // Upsert da purchase com status atual (garante registro mesmo se criação falhou)
+        const baseRow = { id: String(paymentId), status };
+        // Se houver external_reference, tentar preencher user/plan
+        try {
+          const ext = payment?.external_reference ? String(payment.external_reference) : '';
+          if (ext) {
+            const parts = ext.split(':');
+            if (parts[0]) baseRow.user_id = String(parts[0]);
+            if (parts[1]) baseRow.plan = String(parts[1]);
+          }
+        } catch (_) {}
+        await fetch(`${SUPABASE_URL}/rest/v1/purchases?on_conflict=id`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'apikey': SUPABASE_WRITE_KEY,
             'Authorization': `Bearer ${SUPABASE_WRITE_KEY}`,
-            'Prefer': 'return=minimal',
+            'Prefer': 'resolution=merge-duplicates',
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify(baseRow),
         });
 
         if (status === 'approved') {
@@ -120,6 +135,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, received: true, status, paymentId });
   } catch (err) {
+    console.error('[MP Webhook] Erro', err);
     return res.status(500).json({ ok: false, error: err?.message || 'Erro interno em /api/webhook/mp' });
   }
 }
