@@ -605,6 +605,131 @@ function renderAdminPreview(data){
   if(addBtn){ addBtn.onclick = () => { addFromTmdbData(data); renderAdminList(); } }
 }
 
+// ---- Importação em massa (IMDb/SuperFlix via TMDB) ----
+function tmdbHeaders(){
+  return {
+    Authorization: `Bearer ${TMDB_TOKEN}`,
+    'Content-Type': 'application/json;charset=utf-8'
+  };
+}
+
+async function fetchTmdbDetails(type, id){
+  const endpoint = type === 'serie' ? `${TMDB_BASE}/tv/${id}?language=pt-BR&append_to_response=external_ids` : `${TMDB_BASE}/movie/${id}?language=pt-BR&append_to_response=external_ids`;
+  const r = await fetch(endpoint, { headers: tmdbHeaders() });
+  if(!r.ok) throw new Error('TMDB detalhe falhou');
+  return await r.json();
+}
+
+function normalizeFromDetails(type, details){
+  const tmdbId = details.id;
+  const imdbId = (details.external_ids && details.external_ids.imdb_id) || '';
+  const title = type === 'serie' ? (details.name || details.original_name) : (details.title || details.original_title);
+  const year = (type === 'serie' ? (details.first_air_date||'') : (details.release_date||'')).slice(0,4);
+  const genres = Array.isArray(details.genres) ? details.genres.map(g=>g.name) : [];
+  const poster = details.poster_path ? `${TMDB_IMG}${details.poster_path}` : '';
+  const description = details.overview || '';
+  return { type, tmdbId, imdbId, title, year, genres, poster, description };
+}
+
+async function fetchBulkFromTmdb(kind){
+  const limit = 12;
+  const makeList = async (type) => {
+    const url = type === 'serie' ? `${TMDB_BASE}/tv/popular?language=pt-BR&page=1` : `${TMDB_BASE}/movie/popular?language=pt-BR&page=1`;
+    const r = await fetch(url, { headers: tmdbHeaders() });
+    if(!r.ok) throw new Error('TMDB lista falhou');
+    const json = await r.json();
+    const base = (json.results||[]).slice(0, limit);
+    const out = [];
+    for(const it of base){
+      try{
+        const det = await fetchTmdbDetails(type, it.id);
+        out.push(normalizeFromDetails(type, det));
+      }catch(_){ /* ignora item com erro */ }
+    }
+    return out;
+  };
+  if(kind === 'filme') return await makeList('filme');
+  if(kind === 'serie') return await makeList('serie');
+  const movies = await makeList('filme');
+  const series = await makeList('serie');
+  // Misturado: intercalar
+  const mixed = [];
+  const max = Math.max(movies.length, series.length);
+  for(let i=0;i<max;i++){
+    if(movies[i]) mixed.push(movies[i]);
+    if(series[i]) mixed.push(series[i]);
+  }
+  return mixed.slice(0, limit);
+}
+
+function renderBulkResults(items){
+  const container = document.getElementById('bulkResults');
+  const addAllBtn = document.getElementById('bulkAddAllBtn');
+  if(!container) return;
+  if(!items || !items.length){
+    container.innerHTML = '<div class="missing-id">Nenhum resultado encontrado para o critério.</div>';
+    if(addAllBtn) addAllBtn.disabled = true;
+    return;
+  }
+  window.BULK_BUFFER = items;
+  container.innerHTML = '';
+  items.forEach((data, idx) => {
+    const card = document.createElement('div');
+    card.className = 'bulk-card';
+    const superflixUrl = buildSuperflixUrl(data.type, data.imdbId || data.tmdbId);
+    card.innerHTML = `
+      <img src="${data.poster}" alt="poster">
+      <div class="meta">
+        <h4>${data.title} <span style="color:#666;font-size:12px">(${data.year||'N/A'})</span></h4>
+        <p>${(data.type==='serie'?'Série':'Filme')} • SuperFlix: ${superflixUrl ? 'OK' : 'N/A'}</p>
+        <div class="actions">
+          <button class="btn secondary" data-idx="${idx}">Adicionar</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  // Ligar botões individuais
+  container.querySelectorAll('button[data-idx]').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const idx = Number(btn.getAttribute('data-idx'));
+      const data = window.BULK_BUFFER[idx];
+      if(data) addFromTmdbData(data);
+    });
+  });
+  if(addAllBtn) addAllBtn.disabled = false;
+}
+
+async function handleBulk(kind){
+  const container = document.getElementById('bulkResults');
+  const addAllBtn = document.getElementById('bulkAddAllBtn');
+  try{
+    if(container) container.innerHTML = '<div class="missing-id">Carregando lista...</div>';
+    if(addAllBtn) addAllBtn.disabled = true;
+    const items = await fetchBulkFromTmdb(kind);
+    renderBulkResults(items);
+  }catch(err){
+    if(container) container.innerHTML = `<div class="missing-id">Erro ao importar: ${err.message}</div>`;
+    if(addAllBtn) addAllBtn.disabled = true;
+  }
+}
+
+function bindBulkImportButtons(){
+  const bMovies = document.getElementById('bulkMoviesBtn');
+  const bSeries = document.getElementById('bulkSeriesBtn');
+  const bMixed = document.getElementById('bulkMixedBtn');
+  const addAllBtn = document.getElementById('bulkAddAllBtn');
+  if(bMovies) bMovies.addEventListener('click', ()=> handleBulk('filme'));
+  if(bSeries) bSeries.addEventListener('click', ()=> handleBulk('serie'));
+  if(bMixed) bMixed.addEventListener('click', ()=> handleBulk('mixed'));
+  if(addAllBtn) addAllBtn.addEventListener('click', ()=>{
+    const buffer = window.BULK_BUFFER || [];
+    buffer.forEach(data => addFromTmdbData(data));
+    alert('Todos os itens foram adicionados à fileira selecionada.');
+    renderAdminList();
+  });
+}
+
 async function handleAdminSearch(){
   const type = document.querySelector('input[name="adminType"]:checked').value;
   const id = (document.getElementById('adminTmdbId').value||'').trim();
@@ -721,6 +846,8 @@ const navPlans = document.getElementById('navPlans');
 if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
 const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
+// Botões de importação em massa
+bindBulkImportButtons();
 // Admin Compras: filtros e atualizar
 // Admin compras removido
 
