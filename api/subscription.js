@@ -184,13 +184,32 @@ export default async function handler(req, res) {
             'Prefer': 'resolution=merge-duplicates',
           };
           // Não enviar 'amount' para evitar incompatibilidade com schema
-          const purchaseRow = { id: String(paymentId), user_id: userId, plan, status: payment?.status || 'pending', created_at: new Date().toISOString() };
+          const initialStatus = (plan === 'test2min') ? 'approved' : (payment?.status || 'pending');
+          const purchaseRow = { id: String(paymentId), user_id: userId, plan, status: initialStatus, created_at: new Date().toISOString() };
           const saveResp = await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(purchaseRow) });
           if (!saveResp.ok) {
             const text = await saveResp.text();
             return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Compra criada, mas não persistida no Supabase', details: text });
           }
-          return res.status(200).json({ ok: true, paymentId, qr, qrCode });
+
+          // Auto-ativar assinatura de teste (2 min) imediatamente
+          if (plan === 'test2min') {
+            const startAt = new Date();
+            const endAt = new Date(startAt.getTime() + 2 * 60 * 1000);
+            const subHeaders = {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'Prefer': 'resolution=merge-duplicates',
+            };
+            await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
+              method: 'POST',
+              headers: subHeaders,
+              body: JSON.stringify({ user_id: userId, plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) })
+            });
+          }
+
+          return res.status(200).json({ ok: true, paymentId, qr, qrCode, activated: plan === 'test2min' });
         }
         return res.status(200).json({ ok: true, paymentId, qr, qrCode, warning: 'Supabase não configurado; pagamento não foi persistido no banco.' });
       }

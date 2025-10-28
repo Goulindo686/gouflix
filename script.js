@@ -186,6 +186,10 @@ async function startCheckout(plan){
     if(json.ok && qrBase64){
       // Exibir QR code no modal
       showPaymentModal(qrBase64, null);
+      // Se for plano de teste, assinatura é ativada imediatamente no backend
+      if(plan === 'test2min'){
+        try{ await fetchSubscription(); }catch(_){}
+      }
       // Iniciar polling de status do pagamento
       if(json.paymentId){ startPaymentPolling(json.paymentId, plan); }
     } else {
