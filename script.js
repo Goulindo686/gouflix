@@ -190,17 +190,22 @@ function renderSingleSection(title, items){
 
 // Slideshow do topo (Hero)
 let HERO_INTERVAL_ID = null;
+let HERO_ITEMS = [];
+let HERO_INDEX = 0;
 function buildHeroSlides(items){
   const container = document.getElementById('heroSlides');
   if(!container) return;
   container.innerHTML = '';
   const posters = (items||[]).filter(m => !!m.poster).slice(0, 12);
+  HERO_ITEMS = posters;
   posters.forEach((m, idx) => {
     const slide = document.createElement('div');
     slide.className = 'slide' + (idx === 0 ? ' active' : '');
     slide.style.backgroundImage = `url('${m.poster}')`;
     container.appendChild(slide);
   });
+  // Atualiza conteúdo textual do hero com o primeiro item
+  heroUpdateContent(HERO_ITEMS[0] || null);
 }
 
 function startHeroSlideshow(){
@@ -208,18 +213,32 @@ function startHeroSlideshow(){
   if(!container) return;
   const slides = Array.from(container.querySelectorAll('.slide'));
   if(slides.length <= 1) return;
-  let index = 0;
+  HERO_INDEX = 0;
   if(HERO_INTERVAL_ID){ clearInterval(HERO_INTERVAL_ID); }
   HERO_INTERVAL_ID = setInterval(() => {
-    slides[index].classList.remove('active');
-    index = (index + 1) % slides.length;
-    slides[index].classList.add('active');
+    slides[HERO_INDEX].classList.remove('active');
+    HERO_INDEX = (HERO_INDEX + 1) % slides.length;
+    slides[HERO_INDEX].classList.add('active');
+    heroUpdateContent(HERO_ITEMS[HERO_INDEX] || null);
   }, 5000);
 }
 
 function updateHeroSlides(items){
   buildHeroSlides(items);
   startHeroSlideshow();
+}
+
+function heroUpdateContent(item){
+  const titleEl = document.querySelector('.hero-content h2');
+  const descEl = document.querySelector('.hero-content p');
+  const exploreBtn = document.querySelector('.hero-content .btn.primary');
+  if(titleEl){ titleEl.textContent = item?.title || 'Explorar conteúdos'; }
+  if(descEl){ descEl.textContent = item?.description || 'Seleção de filmes e séries atualizada.'; }
+  if(exploreBtn){
+    exploreBtn.onclick = () => {
+      if(item && item.id){ openModal(item.id); }
+    };
+  }
 }
 
 // Assinaturas/Mercado Pago removidos
