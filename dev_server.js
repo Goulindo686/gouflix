@@ -221,16 +221,37 @@ const server = http.createServer(async (req, res) => {
     // API de persistência
     if (urlPath.startsWith('/api/')) {
       res.setHeader('Content-Type', 'application/json');
+      // Cabeçalhos de segurança básicos
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+      res.setHeader('Content-Security-Policy', "default-src 'self' https: data:; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'");
       const params = new URLSearchParams(queryStr || '');
+      // /api/env para local (sem rewrite do Vercel)
+      if (urlPath === '/api/env' && req.method === 'GET') {
+        res.end(JSON.stringify({
+          SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+          SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null,
+          TMDB_BASE: process.env.TMDB_BASE || 'https://api.themoviedb.org/3',
+          TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
+          TMDB_TOKEN: process.env.TMDB_TOKEN || null,
+          NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
+          ADMIN_IDS: process.env.ADMIN_IDS || null,
+        }));
+        return;
+      }
       // ----- CONFIG -----
       if (urlPath === '/api/config' && req.method === 'GET') {
         const state = await readState();
         const cfg = state.config || {};
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
-        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0 }));
+        const isAdmin = ensureIsAdminLocal(req);
+        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0, writable: !!isAdmin }));
         return;
       }
       if (urlPath === '/api/config' && req.method === 'POST') {
+        if(!ensureIsAdminLocal(req)){ res.statusCode = 403; res.end(JSON.stringify({ ok:false, error:'forbidden' })); return; }
         const body = await parseBody(req);
         const state = await readState();
         state.config.publicUrl = body.publicUrl || state.config.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
@@ -243,6 +264,7 @@ const server = http.createServer(async (req, res) => {
       }
       // Disparar bootstrap manualmente
       if (urlPath === '/api/bootstrap/run' && req.method === 'POST') {
+        if(!ensureIsAdminLocal(req)){ res.statusCode = 403; res.end(JSON.stringify({ ok:false, error:'forbidden' })); return; }
         await bootstrapFromConfig(true);
         res.end(JSON.stringify({ ok: true }));
         return;
@@ -261,6 +283,7 @@ const server = http.createServer(async (req, res) => {
       }
       // Importar/mesclar estado (opcional replace)
       if (urlPath === '/api/state/import' && req.method === 'POST') {
+        if(!ensureIsAdminLocal(req)){ res.statusCode = 403; res.end(JSON.stringify({ ok:false, error:'forbidden' })); return; }
         const body = await parseBody(req);
         const { state: incoming, replace } = body;
         if (!incoming || typeof incoming !== 'object') {
@@ -309,6 +332,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       if (urlPath === '/api/state/remove' && req.method === 'POST') {
+        if(!ensureIsAdminLocal(req)){ res.statusCode = 403; res.end(JSON.stringify({ ok:false, error:'forbidden' })); return; }
         const body = await parseBody(req);
         const state = await readState();
         const key = body.key;
@@ -326,6 +350,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       if (urlPath === '/api/state/unremove' && req.method === 'POST') {
+        if(!ensureIsAdminLocal(req)){ res.statusCode = 403; res.end(JSON.stringify({ ok:false, error:'forbidden' })); return; }
         const body = await parseBody(req);
         const state = await readState();
         const key = body.key;
@@ -349,6 +374,12 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('Content-Type', types[ext] || 'application/octet-stream');
       // Evitar cache para garantir que novas versões apareçam após deploy
       res.setHeader('Cache-Control', 'no-store');
+      // Cabeçalhos de segurança básicos para páginas
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+      res.setHeader('Content-Security-Policy', "default-src 'self' https: data:; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'");
       fs.createReadStream(target).pipe(res);
     } else {
       res.statusCode = 404;
@@ -365,3 +396,22 @@ server.listen(port, () => {
   // Iniciar bootstrap em background (não bloqueia o servidor)
   bootstrapFromConfig(false);
 });
+
+// ---- Admin check helpers (local) ----
+function parseCookieHeader(cookie) {
+  const out = {};
+  (cookie||'').split(';').forEach(part => {
+    const [k,v] = part.split('=');
+    if(!k) return; out[k.trim()] = decodeURIComponent((v||'').trim());
+  });
+  return out;
+}
+function ensureIsAdminLocal(req){
+  try{
+    const ids = String(process.env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(ids.length === 0) return false;
+    const cookies = parseCookieHeader(req.headers.cookie||'');
+    const uid = cookies['uid'] || null;
+    return !!(uid && ids.includes(String(uid)));
+  }catch(_){ return false; }
+}

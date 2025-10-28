@@ -44,6 +44,10 @@ export default async function handler(req, res) {
     }
 
     if (method === 'POST') {
+      const isAdmin = await ensureIsAdmin(req, url, serviceKey);
+      if (!isAdmin) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
       const body = await readBody(req);
       const action = String((req.query?.action || body?.action || '').toLowerCase());
       if (!action) return res.status(400).json({ error: 'Missing action' });
@@ -112,4 +116,36 @@ async function readBody(req) {
     });
     req.on('error', (err) => reject(err));
   });
+}
+
+function parseCookies(str){
+  const out = {};
+  str.split(';').forEach(part=>{
+    const [k,v] = part.split('=');
+    if(!k) return;
+    out[k.trim()] = decodeURIComponent((v||'').trim());
+  });
+  return out;
+}
+
+async function ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY){
+  try{
+    const ids = String(process.env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(ids.length === 0) return false;
+    const cookies = parseCookies(req.headers?.cookie||'');
+    const uid = cookies['uid'] || null;
+    if(uid && ids.includes(String(uid))) return true;
+    const sid = cookies['sid'] || null;
+    if(!sid || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sid)}&select=user_id,expires_at`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept: 'application/json' }
+    });
+    if(!r.ok) return false;
+    const data = await r.json();
+    const row = Array.isArray(data) && data.length ? data[0] : null;
+    if(!row) return false;
+    const exp = row.expires_at ? (new Date(row.expires_at)).getTime() : Date.now();
+    if(exp < Date.now()) return false;
+    return ids.includes(String(row.user_id));
+  }catch(_){ return false; }
 }

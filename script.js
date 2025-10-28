@@ -17,6 +17,7 @@ async function initEnvAndSupabase(){
       TMDB_BASE = env.TMDB_BASE || TMDB_BASE;
       TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
       TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
+      window.ADMIN_IDS = String(env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
       const url = env.SUPABASE_URL;
       const key = env.SUPABASE_ANON_KEY;
       if(url && key && window.supabase){
@@ -276,6 +277,7 @@ async function fetchCurrentUser(){
     const j = await res.json();
     CURRENT_USER = (j.logged && j.user) ? j.user : null;
     updateUserArea();
+    applyAdminVisibility();
   }catch(_){ CURRENT_USER = null; updateUserArea(); }
 }
 
@@ -300,6 +302,29 @@ function updateUserArea(){
       const ret = location.href;
       location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
     }; }
+  }
+}
+
+function isAdminUser(){
+  const ids = window.ADMIN_IDS || [];
+  const uid = CURRENT_USER && CURRENT_USER.id ? String(CURRENT_USER.id) : null;
+  return !!(uid && ids.includes(uid));
+}
+
+function setRobotsMeta(content){
+  try{
+    let m = document.querySelector('meta[name="robots"]');
+    if(!m){ m = document.createElement('meta'); m.setAttribute('name','robots'); document.head.appendChild(m); }
+    m.setAttribute('content', content);
+  }catch(_){/* ignore */}
+}
+
+function applyAdminVisibility(){
+  const navAdmin = document.getElementById('navAdmin');
+  const isAdmin = isAdminUser();
+  if(navAdmin){ navAdmin.style.display = isAdmin ? '' : 'none'; navAdmin.setAttribute('rel','nofollow'); }
+  if((window.CURRENT_ROUTE||'home') === 'admin' && !isAdmin){
+    setRoute('home');
   }
 }
 
@@ -456,10 +481,16 @@ function showSection(section){
   const main = document.getElementById('mainContent');
   const plans = document.getElementById('plansPage');
   if(section === 'admin'){
+    if(!isAdminUser()){
+      // Bloqueia acesso direto
+      setRoute('home');
+      return;
+    }
     admin.classList.remove('hidden');
     main.classList.add('hidden');
     if(plans) plans.classList.add('hidden');
     renderAdminList();
+    setRobotsMeta('noindex, nofollow');
     
   } else {
     admin.classList.add('hidden');
@@ -470,6 +501,7 @@ function showSection(section){
       if(plans) plans.classList.add('hidden');
       main.classList.remove('hidden');
     }
+    setRobotsMeta('index, follow');
   }
 }
 
@@ -676,7 +708,7 @@ document.getElementById('search').addEventListener('input', handleSearchInput);
 const btnTmdb = document.getElementById('tmdbFetchBtn');
 if(btnTmdb){ btnTmdb.addEventListener('click', handleTmdbFetch); }
 const navAdmin = document.getElementById('navAdmin');
-if(navAdmin){ navAdmin.addEventListener('click', ()=> showSection('admin')); }
+if(navAdmin){ navAdmin.addEventListener('click', ()=> setRoute('admin')); }
 const navHome = document.getElementById('navHome');
 if(navHome){ navHome.addEventListener('click', ()=> setRoute('home')); }
 const navPopulares = document.getElementById('navPopulares');
@@ -754,6 +786,7 @@ if(runBootstrapBtn){
 initEnvAndSupabase().then(()=>{
   loadMovies();
   fetchCurrentUser();
+  applyAdminVisibility();
 });
 
 // Pagamentos removidos

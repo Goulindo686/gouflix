@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
     TMDB_TOKEN: process.env.TMDB_TOKEN || null,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
+    ADMIN_IDS: process.env.ADMIN_IDS || null,
   };
   const COOKIES = parseCookies(req.headers?.cookie || '');
   const COOKIE_PUBLIC = COOKIES['public_url'] || null;
@@ -70,16 +71,22 @@ export default async function handler(req, res) {
       } catch (_) {
         // ignorar e cair para env/cookies
       }
+      const isAdmin = await ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       return res.status(200).json({
         ok: true,
-        writable: true,
+        writable: !!isAdmin,
         publicUrl: row?.public_url || COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
         bootstrapMoviesUrl: row?.bootstrap_movies_url || null,
         bootstrapAuto: !!row?.bootstrap_auto,
+        ...ENV_EXTRA,
       });
     }
 
     if (req.method === 'POST') {
+      const isAdmin = await ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      if (!isAdmin) {
+        return res.status(403).json({ ok: false, error: 'Acesso negado' });
+      }
       const body = await readBody(req);
       try {
         const payload = {
@@ -140,4 +147,26 @@ function parseCookies(str){
     out[k.trim()] = decodeURIComponent((v||'').trim());
   });
   return out;
+}
+
+async function ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY){
+  try{
+    const ids = String(process.env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(ids.length === 0) return false;
+    const cookies = parseCookies(req.headers?.cookie||'');
+    const uid = cookies['uid'] || null;
+    if(uid && ids.includes(String(uid))) return true;
+    const sid = cookies['sid'] || null;
+    if(!sid || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sid)}&select=user_id,expires_at`, {
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept: 'application/json' }
+    });
+    if(!r.ok) return false;
+    const data = await r.json();
+    const row = Array.isArray(data) && data.length ? data[0] : null;
+    if(!row) return false;
+    const exp = row.expires_at ? (new Date(row.expires_at)).getTime() : Date.now();
+    if(exp < Date.now()) return false;
+    return ids.includes(String(row.user_id));
+  }catch(_){ return false; }
 }
