@@ -480,26 +480,32 @@ async function handleAdminSearch(){
 }
 
 async function fetchTmdbById(type, id){
-  const endpoint = type === 'serie' ? `${TMDB_BASE}/tv/${id}?language=pt-BR` : `${TMDB_BASE}/movie/${id}?language=pt-BR`;
-  const res = await fetch(endpoint, {
-    headers: {
-      Authorization: `Bearer ${TMDB_TOKEN}`,
-      'Content-Type': 'application/json;charset=utf-8'
+  // Tenta o endpoint do tipo selecionado; se 404, tenta o tipo alternativo.
+  const endpoints = {
+    filme: `${TMDB_BASE}/movie/${id}?language=pt-BR`,
+    serie: `${TMDB_BASE}/tv/${id}?language=pt-BR`
+  };
+  const headers = {
+    Authorization: `Bearer ${TMDB_TOKEN}`,
+    'Content-Type': 'application/json;charset=utf-8'
+  };
+
+  const primary = type === 'serie' ? 'serie' : 'filme';
+  const secondary = primary === 'filme' ? 'serie' : 'filme';
+
+  // Helper de mapeamento
+  const mapJson = (json, kind) => {
+    if(kind === 'serie'){
+      return {
+        type: 'serie',
+        tmdbId: json.id,
+        title: json.name,
+        year: (json.first_air_date||'').slice(0,4),
+        description: json.overview,
+        poster: json.poster_path ? `${TMDB_IMG}${json.poster_path}` : '',
+        genres: (json.genres||[]).map(g=>g.name)
+      };
     }
-  });
-  if(!res.ok){ throw new Error(`TMDB erro ${res.status}`); }
-  const json = await res.json();
-  if(type === 'serie'){
-    return {
-      type: 'serie',
-      tmdbId: json.id,
-      title: json.name,
-      year: (json.first_air_date||'').slice(0,4),
-      description: json.overview,
-      poster: json.poster_path ? `${TMDB_IMG}${json.poster_path}` : '',
-      genres: (json.genres||[]).map(g=>g.name)
-    };
-  } else {
     return {
       type: 'filme',
       tmdbId: json.id,
@@ -509,7 +515,26 @@ async function fetchTmdbById(type, id){
       poster: json.poster_path ? `${TMDB_IMG}${json.poster_path}` : '',
       genres: (json.genres||[]).map(g=>g.name)
     };
+  };
+
+  // Primeiro: tentar o tipo primário
+  let res = await fetch(endpoints[primary], { headers });
+  if(res.ok){
+    const json = await res.json();
+    return mapJson(json, primary);
   }
+  // Se 404, tenta automaticamente o tipo alternativo
+  if(res.status === 404){
+    const res2 = await fetch(endpoints[secondary], { headers });
+    if(res2.ok){
+      const json2 = await res2.json();
+      return mapJson(json2, secondary);
+    }
+    // Mensagem mais clara para 404
+    throw new Error(`TMDB erro 404: ID não encontrado para ${primary}. Tente ${secondary}.`);
+  }
+  // Outros erros: repassar status
+  throw new Error(`TMDB erro ${res.status}`);
 }
 
 async function handleTmdbFetch(){
