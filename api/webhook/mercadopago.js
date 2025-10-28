@@ -31,15 +31,36 @@ export default async function handler(req, res){
     // external_reference formato: userId|plan|timestamp
     const [userId, plan] = ext.split('|');
     if(status === 'approved' && userId && plan){
-      // ativar assinatura
-      try{
-        const act = await fetch(`${process.env.PUBLIC_URL || ''}/api/subscription`,{
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ userId, plan, action:'activate' })
-        });
-        if(!act.ok){ console.error('Falha ao ativar assinatura via webhook', await act.text()); }
-      }catch(err){ console.error('Erro ao ativar assinatura via webhook', err); }
+      // ativar assinatura diretamente no Supabase (mais robusto), com fallback para endpoint interno
+      const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      const table = process.env.SUBSCRIPTIONS_TABLE || 'subscriptions';
+      const durationDays = { mensal:30, trimestral:90, anual:365 }[String(plan).toLowerCase()] || 30;
+      const startIso = new Date().toISOString();
+      const endIso = new Date(Date.now() + durationDays*24*60*60*1000).toISOString();
+      let activated = false;
+      if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
+        try{
+          const payload = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso, start_at: startIso, end_at: endIso }];
+          const r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{
+            method:'POST',
+            headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
+            body: JSON.stringify(payload)
+          });
+          if(r2.ok){ activated = true; }
+          else { console.error('Supabase activation failed', await r2.text()); }
+        }catch(err){ console.error('Supabase activation error', err); }
+      }
+      if(!activated){
+        try{
+          const act = await fetch(`${process.env.PUBLIC_URL || ''}/api/subscription`,{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ userId, plan, action:'activate' })
+          });
+          if(!act.ok){ console.error('Falha ao ativar assinatura via webhook (fallback)', await act.text()); }
+        }catch(err){ console.error('Erro ao ativar assinatura via webhook (fallback)', err); }
+      }
     }
     res.status(200).json({ ok:true });
   }catch(err){

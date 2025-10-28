@@ -13,7 +13,7 @@ export default async function handler(req, res){
       return res.status(200).json({ ok:true, active:false });
     }
     try{
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(userId)}&select=plan,start_date,end_date,status`,{
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(userId)}&select=plan,start_date,end_date,start_at,end_at,status`,{
         headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' }
       });
       if(!r.ok){ return res.status(r.status).json({ ok:false, error:'Falha ao consultar assinatura' }); }
@@ -21,7 +21,8 @@ export default async function handler(req, res){
       const row = Array.isArray(rows) && rows.length ? rows[0] : null;
       if(!row){ return res.status(200).json({ ok:true, active:false }); }
       const now = Date.now();
-      const end = row.end_date ? (new Date(row.end_date)).getTime() : 0;
+      const endIso = row.end_date || row.end_at || null;
+      const end = endIso ? (new Date(endIso)).getTime() : 0;
       const active = String(row.status||'').toLowerCase() === 'active' && end > now;
       return res.status(200).json({ ok:true, active, plan: row.plan, end_date: row.end_date });
     }catch(err){ return res.status(500).json({ ok:false, error: err.message }); }
@@ -41,7 +42,10 @@ export default async function handler(req, res){
       if(action === 'activate'){
         const start = new Date();
         const end = new Date(start.getTime() + (duration||30)*24*60*60*1000);
-        const payload = [{ user_id: userId, plan, status:'active', start_date: start.toISOString(), end_date: end.toISOString() }];
+        const startIso = start.toISOString();
+        const endIso = end.toISOString();
+        // Escreve em ambos os esquemas (start_date/end_date e start_at/end_at)
+        const payload = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso, start_at: startIso, end_at: endIso }];
         const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`,{
           method:'POST',
           headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
