@@ -270,6 +270,72 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: true }));
         return;
       }
+      // ----- Pagamentos (Mercado Pago PIX) -----
+      if (urlPath === '/api/payment/create' && req.method === 'POST') {
+        try {
+          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
+          const PUBLIC_URL = process.env.PUBLIC_URL || '';
+          if (!MP_ACCESS_TOKEN) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ ok:false, error:'MP_ACCESS_TOKEN não configurado' }));
+            return;
+          }
+          const body = await parseBody(req);
+          const plan = String(body?.plan||'').toLowerCase();
+          const userId = String(body?.userId||'').trim();
+          const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
+          const amount = PLAN_PRICES[plan];
+          if(!userId || !amount){
+            res.statusCode = 400;
+            res.end(JSON.stringify({ ok:false, error:'Parâmetros inválidos (userId/plan)' }));
+            return;
+          }
+          const preference = {
+            transaction_amount: Number(Number(amount).toFixed(2)),
+            description: `Assinatura GouFlix — ${plan}`,
+            payment_method_id: 'pix',
+            payer: { email: `${userId}@example.local` },
+            notification_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mercadopago` : undefined,
+            external_reference: `${userId}|${plan}|${Date.now()}`
+          };
+          const r = await fetch('https://api.mercadopago.com/v1/payments',{
+            method:'POST',
+            headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json' },
+            body: JSON.stringify(preference)
+          });
+          const json = await r.json();
+          if(!r.ok){
+            res.statusCode = r.status || 500;
+            res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao criar pagamento', details: json }));
+            return;
+          }
+          const poi = json?.point_of_interaction?.transaction_data || {};
+          res.end(JSON.stringify({ ok:true, id: json.id, status: json.status, qr_code_base64: poi.qr_code_base64 || null, qr_code: poi.qr_code || null, external_reference: json.external_reference || null }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ ok:false, error: err.message }));
+        }
+        return;
+      }
+      if (urlPath === '/api/payment/status' && req.method === 'GET') {
+        try {
+          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
+          if (!MP_ACCESS_TOKEN) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'MP_ACCESS_TOKEN não configurado' })); return; }
+          const paramsObj = new URLSearchParams(queryStr || '');
+          const id = paramsObj.get('id') || paramsObj.get('paymentId');
+          if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Informe id do pagamento' })); return; }
+          const r = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`,{
+            headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+          });
+          const json = await r.json();
+          if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar pagamento', details: json })); return; }
+          res.end(JSON.stringify({ ok:true, id: json.id, status: json.status, status_detail: json.status_detail }));
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ ok:false, error: err.message }));
+        }
+        return;
+      }
       // CORS não é necessário pois é mesma origem
       if (urlPath === '/api/state' && req.method === 'GET') {
         const state = await readState();
