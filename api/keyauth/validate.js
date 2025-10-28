@@ -20,10 +20,11 @@ export default async function handler(req, res) {
     const baseClient = process.env.KEYAUTH_API_URL || 'https://keyauth.win/api/1.0/';
     const ignoreHwid = String(process.env.KEYAUTH_IGNORE_HWID || '').toLowerCase() === 'true';
 
-    let timeleft = 0;
+    let timeleft = null; // null quando o campo não vier do KeyAuth
     let serverHwid = null;
     let status = 'active';
     let banned = false;
+    let clientValidated = false;
 
     // Primeiro: tentar Client API se credenciais estão presentes
     if (appName && ownerId && appSecret) {
@@ -39,10 +40,12 @@ export default async function handler(req, res) {
         const login = await fetchJson(loginUrl);
         if (login?.success) {
           const data = login.data || login.info || login;
-          timeleft = parseInt((data?.timeleft || data?.time_left || data?.timeLeft) || '0', 10) || 0;
+          const tl = (data?.timeleft ?? data?.time_left ?? data?.timeLeft);
+          timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
           serverHwid = data?.hwid || data?.device || data?.bound_hwid || null;
           status = String(data?.status || data?.state || 'active').toLowerCase();
           banned = String(data?.banned || data?.is_banned || '').toLowerCase() === 'true';
+          clientValidated = true;
         } else if (!sellerKey) {
           return res.status(403).json({ ok: false, error: login?.message || 'licença inválida', reason: 'client_license_failed' });
         }
@@ -50,7 +53,8 @@ export default async function handler(req, res) {
     }
 
     // Fallback Seller API (sem HWID) caso client falhe ou não esteja configurado
-    if ((!appName || !ownerId || !appSecret) || timeleft === 0 && sellerKey) {
+    // Fallback Seller API somente se Client API não validou ou não há credenciais
+    if ((!appName || !ownerId || !appSecret) || (!clientValidated && sellerKey)) {
       if (sellerKey) {
         const sellerBase = 'https://keyauth.win/api/seller/';
         const infoUrl = `${sellerBase}?sellerkey=${encodeURIComponent(sellerKey)}&type=licenseinfo&key=${encodeURIComponent(licenseKey)}&format=json`;
@@ -59,7 +63,8 @@ export default async function handler(req, res) {
           return res.status(403).json({ ok: false, error: info?.message || 'licença inválida', reason: 'seller_license_failed' });
         }
         const data = info.data || info.license || info.info || info;
-        timeleft = parseInt((data?.timeleft || data?.time_left || data?.timeLeft) || '0', 10) || 0;
+        const tl = (data?.timeleft ?? data?.time_left ?? data?.timeLeft);
+        timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
         serverHwid = data?.hwid || data?.device || data?.bound_hwid || null;
         status = String(data?.status || data?.state || 'active').toLowerCase();
         banned = String(data?.banned || data?.is_banned || '').toLowerCase() === 'true';
@@ -68,7 +73,9 @@ export default async function handler(req, res) {
 
     // Checagens finais
     if (banned) return res.status(403).json({ ok: false, error: 'licença banida', reason: 'banned' });
-    if (Number.isFinite(timeleft) && timeleft <= 0) return res.status(403).json({ ok: false, error: 'licença expirada', reason: 'expired' });
+    if (typeof timeleft === 'number' && Number.isFinite(timeleft) && timeleft <= 0) {
+      return res.status(403).json({ ok: false, error: 'licença expirada', reason: 'expired' });
+    }
     if (status && ['disabled', 'inactive', 'invalid'].includes(status)) return res.status(403).json({ ok: false, error: 'licença inativa', reason: 'inactive' });
 
     // Importante: em Vercel não persistimos HWID localmente.

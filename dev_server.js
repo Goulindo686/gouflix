@@ -253,7 +253,7 @@ const server = http.createServer(async (req, res) => {
         const appVersion = process.env.KEYAUTH_APP_VERSION || '1.0.0';
         const sellerKey = process.env.KEYAUTH_SELLER_KEY || '';
         try {
-          let timeleft = 0;
+          let timeleft = null; // null quando não houver campo
           let serverHwid = null;
           let status = 'active';
           let banned = false;
@@ -275,7 +275,8 @@ const server = http.createServer(async (req, res) => {
             }
             // Tentar extrair tempo restante
             const data = login.data || login.info || login;
-            timeleft = parseInt((data && (data.timeleft || data.time_left || data.timeLeft)) || '0', 10) || 0;
+            const tl = data && (data.timeleft ?? data.time_left ?? data.timeLeft);
+            timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
             serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
             status = String((data && (data.status || data.state)) || 'active').toLowerCase();
             banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
@@ -288,7 +289,8 @@ const server = http.createServer(async (req, res) => {
             }
             // Estrutura defensiva: tentar diferentes campos comuns
             const data = info.data || info.license || info.info || info;
-            timeleft = parseInt((data && (data.timeleft || data.time_left || data.timeLeft)) || '0', 10) || 0;
+            const tl = data && (data.timeleft ?? data.time_left ?? data.timeLeft);
+            timeleft = tl != null ? (parseInt(String(tl), 10) || 0) : null;
             serverHwid = (data && (data.hwid || data.device || data.bound_hwid)) || null;
             status = String((data && (data.status || data.state)) || '').toLowerCase();
             banned = String((data && (data.banned || data.is_banned)) || '').toLowerCase() === 'true';
@@ -304,7 +306,7 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ ok: false, error: 'licença banida' }));
             return;
           }
-          if (Number.isFinite(timeleft) && timeleft <= 0) {
+          if (typeof timeleft === 'number' && Number.isFinite(timeleft) && timeleft <= 0) {
             res.statusCode = 403;
             res.end(JSON.stringify({ ok: false, error: 'licença expirada' }));
             return;
