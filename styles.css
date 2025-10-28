@@ -38,8 +38,8 @@ nav a.active{color:var(--text)}
 .hero-slides{position:absolute;inset:0;z-index:0}
 .hero-slides .slide{
   position:absolute;inset:0;
-  /* Centraliza totalmente as capas e exibe por completo */
-  background-size:contain;
+  /* Preenche a área como antes, mantendo centralização */
+  background-size:cover;
   background-position:center center;
   background-repeat:no-repeat;
   background-color:#000;
