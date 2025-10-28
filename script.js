@@ -18,6 +18,7 @@ async function initEnvAndSupabase(){
       TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
       TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
       window.ADMIN_IDS = String(env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
+      window.ADMIN_USERNAMES = String(env.ADMIN_USERNAMES||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
       const url = env.SUPABASE_URL;
       const key = env.SUPABASE_ANON_KEY;
       if(url && key && window.supabase){
@@ -307,8 +308,10 @@ function updateUserArea(){
 
 function isAdminUser(){
   const ids = window.ADMIN_IDS || [];
+  const names = window.ADMIN_USERNAMES || [];
   const uid = CURRENT_USER && CURRENT_USER.id ? String(CURRENT_USER.id) : null;
-  return !!(uid && ids.includes(uid));
+  const uname = (CURRENT_USER && CURRENT_USER.username ? String(CURRENT_USER.username).toLowerCase() : null);
+  return !!((uid && ids.includes(uid)) || (uname && names.includes(uname)));
 }
 
 function setRobotsMeta(content){

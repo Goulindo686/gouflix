@@ -10,6 +10,7 @@ export default async function handler(req, res) {
     TMDB_TOKEN: process.env.TMDB_TOKEN || null,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
     ADMIN_IDS: process.env.ADMIN_IDS || null,
+    ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
   };
   const COOKIES = parseCookies(req.headers?.cookie || '');
   const COOKIE_PUBLIC = COOKIES['public_url'] || null;
@@ -152,13 +153,15 @@ function parseCookies(str){
 async function ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY){
   try{
     const ids = String(process.env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const names = String(process.env.ADMIN_USERNAMES||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     if(ids.length === 0) return false;
     const cookies = parseCookies(req.headers?.cookie||'');
     const uid = cookies['uid'] || null;
-    if(uid && ids.includes(String(uid))) return true;
+    const uname = (cookies['uname']||'').toLowerCase();
+    if((uid && ids.includes(String(uid))) || (uname && names.includes(uname))) return true;
     const sid = cookies['sid'] || null;
     if(!sid || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sid)}&select=user_id,expires_at`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sessions?id=eq.${encodeURIComponent(sid)}&select=user_id,username,expires_at`, {
       headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept: 'application/json' }
     });
     if(!r.ok) return false;
@@ -167,6 +170,6 @@ async function ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY){
     if(!row) return false;
     const exp = row.expires_at ? (new Date(row.expires_at)).getTime() : Date.now();
     if(exp < Date.now()) return false;
-    return ids.includes(String(row.user_id));
+    return ids.includes(String(row.user_id)) || (row.username && names.includes(String(row.username).toLowerCase()));
   }catch(_){ return false; }
 }

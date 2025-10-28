@@ -238,6 +238,7 @@ const server = http.createServer(async (req, res) => {
           TMDB_TOKEN: process.env.TMDB_TOKEN || null,
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
           ADMIN_IDS: process.env.ADMIN_IDS || null,
+          ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
         }));
         return;
       }
@@ -409,9 +410,11 @@ function parseCookieHeader(cookie) {
 function ensureIsAdminLocal(req){
   try{
     const ids = String(process.env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const names = String(process.env.ADMIN_USERNAMES||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     if(ids.length === 0) return false;
     const cookies = parseCookieHeader(req.headers.cookie||'');
     const uid = cookies['uid'] || null;
-    return !!(uid && ids.includes(String(uid)));
+    const uname = (cookies['uname']||'').toLowerCase();
+    return !!((uid && ids.includes(String(uid))) || (uname && names.includes(uname)));
   }catch(_){ return false; }
 }
