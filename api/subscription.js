@@ -63,10 +63,7 @@ export default async function handler(req, res) {
         const userId = body?.userId;
         const plan = body?.plan || 'mensal';
         const paymentId = body?.paymentId || String(Date.now());
-        const PLAN_PRICES = { mensal: 19.9, trimestral: 49.9, anual: 147.9 };
-        const amount = PLAN_PRICES[plan];
         if (!userId) return res.status(400).json({ ok: false, error: 'userId é obrigatório' });
-        if (!amount) return res.status(400).json({ ok: false, error: 'Plano inválido' });
         if (!SUPABASE_READY) {
           // Sem Supabase, apenas confirma ativação (cliente tratará como ativo)
           return res.status(200).json({ ok: true, activated: true, paymentId });
@@ -84,7 +81,19 @@ export default async function handler(req, res) {
         await fetch(upsertUrl, { method: 'POST', headers, body: JSON.stringify(row) });
         // Persistir/atualizar assinatura com expiração
         const startAt = new Date();
-        const endAt = new Date(startAt.getTime() + (PLAN_DURATIONS_DAYS[plan] ?? 30) * 24 * 60 * 60 * 1000);
+        // Busca duração do plano no Supabase (compatível com 'days' ou 'duration_days')
+        let days = PLAN_DURATIONS_DAYS[plan] ?? 30;
+        try {
+          const planUrl = `${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=days,duration_days`;
+          const pr = await fetch(planUrl, { headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' } });
+          if (pr.ok) {
+            const arr = await pr.json();
+            const row = Array.isArray(arr) && arr.length ? arr[0] : null;
+            const d = (row?.days ?? row?.duration_days);
+            if (typeof d === 'number' && d > 0) days = d;
+          }
+        } catch {}
+        const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
         const subHeaders = {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_SERVICE_ROLE_KEY,

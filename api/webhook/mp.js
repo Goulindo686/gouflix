@@ -82,23 +82,35 @@ export default async function handler(req, res) {
             }
             if (p && p.user_id && p.plan) {
               const plan = String(p.plan);
-              // Bloqueia planos fora do catálogo oficial
-              if (['mensal','trimestral','anual'].includes(plan)) {
-                const startAt = new Date();
+              const startAt = new Date();
+              // Busca duração do plano no Supabase (compatível com 'days' ou 'duration_days')
+              let days = 30;
+              try {
+                const planUrl = `${SUPABASE_URL}/rest/v1/plans?id=eq.${encodeURIComponent(plan)}&select=days,duration_days`;
+                const pr = await fetch(planUrl, { headers: { 'apikey': SUPABASE_SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Accept': 'application/json' } });
+                if (pr.ok) {
+                  const arr = await pr.json();
+                  const row = Array.isArray(arr) && arr.length ? arr[0] : null;
+                  const d = (row?.days ?? row?.duration_days);
+                  if (typeof d === 'number' && d > 0) days = d;
+                }
+              } catch {}
+              // Fallback: map padrão para planos conhecidos
+              if (days === 30) {
                 const map = { mensal: 30, trimestral: 90, anual: 365 };
-                const days = map[plan] ?? 30;
-                const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
-                await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_SERVICE_ROLE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                    'Prefer': 'resolution=merge-duplicates',
-                  },
-                  body: JSON.stringify({ user_id: String(p.user_id), plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) }),
-                });
+                if (map[plan]) days = map[plan];
               }
+              const endAt = new Date(startAt.getTime() + days * 24 * 60 * 60 * 1000);
+              await fetch(`${SUPABASE_URL}/rest/v1/subscriptions?on_conflict=user_id`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': SUPABASE_SERVICE_ROLE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  'Prefer': 'resolution=merge-duplicates',
+                },
+                body: JSON.stringify({ user_id: String(p.user_id), plan, start_at: startAt.toISOString(), end_at: endAt.toISOString(), status: 'active', payment_id: String(paymentId) }),
+              });
             }
           }
         }
