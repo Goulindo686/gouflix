@@ -12,12 +12,14 @@
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    .install-prompt{position:fixed;bottom:12px;left:12px;right:12px;z-index:9999;background:#121822;border:1px solid #1f2a38;color:#e8f1ff;border-radius:12px;padding:12px;display:none;align-items:center;gap:10px}
-    .install-prompt .text{flex:1}
-    .install-prompt .actions{display:flex;gap:8px}
-    .install-prompt .btn{padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:600}
-    .install-prompt .btn.primary{background:#00e5ff;color:#001018}
-    .install-prompt .btn.secondary{background:#1c2530;color:#cfe6ff}
+    .install-popup{position:fixed;bottom:20px;right:20px;background:#0a0e13;color:#cfe6ff;padding:12px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:10000;display:none;border:2px solid #00bcd4;animation:slideUp 0.3s ease-out;width:200px;text-align:center}
+    .install-popup .app-icon{font-size:32px;margin-bottom:8px;color:#00bcd4}
+    .install-popup .app-text{font-size:12px;margin-bottom:12px;color:#cfe6ff}
+    .install-popup .install-btn{background:#00bcd4;color:#0a0e13;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;transition:all 0.2s}
+    .install-popup .install-btn:hover{background:#00d4e6;transform:translateY(-1px)}
+    .install-popup .close-btn{position:absolute;top:4px;right:8px;background:none;border:none;color:#cfe6ff;cursor:pointer;font-size:16px;opacity:0.7}
+    .install-popup .close-btn:hover{opacity:1}
+    @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
   </style>
 </head>
 <body>
@@ -29,7 +31,6 @@
       <a href="#" id="navSeries">Séries</a>
       <a href="#" id="navLista">Minha Lista</a>
       <a href="#" id="navPlans">Planos</a>
-      <a href="#" id="navInstall">Instalar App</a>
       <a href="#" id="navAdmin" rel="nofollow">Admin</a>
       <div class="search-box">
         <input id="search" type="text" placeholder="Buscar..." />
@@ -42,12 +43,13 @@
     </div>
   </header>
 
-  <div id="installPrompt" class="install-prompt" role="dialog" aria-live="polite">
-    <div class="text">Instale o GouFlix para uma experiência mais rápida e prática.</div>
-    <div class="actions">
-      <button id="installBtn" class="btn primary">Instalar</button>
-      <button id="installClose" class="btn secondary">Agora não</button>
-    </div>
+  <div id="installPopup" class="install-popup" role="dialog" aria-live="polite">
+    <button id="installClose" class="close-btn">×</button>
+    <div class="app-icon">📱</div>
+    <div class="app-text">App</div>
+    <button id="installBtn" class="install-btn">
+      <span>⬇</span> Instalar
+    </button>
   </div>
 
   <section class="hero">
@@ -275,71 +277,69 @@
       });
     }
 
-    // Install Prompt (Chrome/Android)
+    // PWA Installation Popup
     let deferredPrompt = null;
-    const promptEl = document.getElementById('installPrompt');
+    const popupEl = document.getElementById('installPopup');
     const installBtn = document.getElementById('installBtn');
     const installClose = document.getElementById('installClose');
-    const installNav = document.getElementById('navInstall');
 
-    const dismissed = localStorage.getItem('pwa_prompt_dismissed') === '1';
+    console.log('PWA script iniciado - Remote');
 
     window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('beforeinstallprompt capturado - Remote');
       e.preventDefault();
       deferredPrompt = e;
-      if (!dismissed) promptEl.style.display = 'flex';
+      const dismissed = localStorage.getItem('pwa_popup_dismissed');
+      if (!dismissed && popupEl) {
+        popupEl.style.display = 'block';
+      }
     });
 
-    installBtn?.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      promptEl.style.display = 'none';
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      if (choice.outcome !== 'accepted') localStorage.setItem('pwa_prompt_dismissed', '1');
+    installBtn?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      console.log('Botão instalar clicado - Remote');
+      
+      if (deferredPrompt) {
+        try {
+          console.log('Usando prompt nativo - Remote');
+          popupEl.style.display = 'none';
+          await deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          console.log('Escolha do usuário - Remote:', choice.outcome);
+          deferredPrompt = null;
+          if (choice.outcome !== 'accepted') {
+            localStorage.setItem('pwa_popup_dismissed', '1');
+          }
+        } catch (err) {
+          console.error('Erro ao instalar - Remote:', err);
+        }
+      } else {
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        
+        if (isIOS && isSafari) {
+          alert('Para instalar no iPhone:\n1. Toque no botão Compartilhar (⬆️)\n2. Selecione "Adicionar à Tela de Início"');
+        } else {
+          alert('Para instalar:\n- Chrome/Android: aguarde o prompt de instalação\n- iPhone: use Safari e "Adicionar à Tela de Início"');
+        }
+        popupEl.style.display = 'none';
+        localStorage.setItem('pwa_popup_dismissed', '1');
+      }
     });
 
     installClose?.addEventListener('click', () => {
-      promptEl.style.display = 'none';
-      localStorage.setItem('pwa_prompt_dismissed', '1');
+      popupEl.style.display = 'none';
+      localStorage.setItem('pwa_popup_dismissed', '1');
     });
 
-    // Clique na aba da navbar para instalar
-    installNav?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      if (!promptEl) return;
-      if (deferredPrompt) {
-        try {
-          promptEl.style.display = 'none';
-          deferredPrompt.prompt();
-          const choice = await deferredPrompt.userChoice;
-          deferredPrompt = null;
-          if (choice?.outcome !== 'accepted') promptEl.style.display = 'flex';
-        } catch (err) {
-          console.error('Falha ao acionar instalação:', err);
-          promptEl.style.display = 'flex';
-        }
-        return;
+    // Mostrar popup automaticamente após 3 segundos (desenvolvimento)
+    setTimeout(() => {
+      const dismissed = localStorage.getItem('pwa_popup_dismissed');
+      if (!dismissed && popupEl) {
+        console.log('Mostrando popup PWA automaticamente - Remote');
+        popupEl.style.display = 'block';
       }
-      const isIOSLink = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const isSafariLink = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      const isStandaloneLink = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-      if (isIOSLink && isSafariLink && !isStandaloneLink) {
-        promptEl.querySelector('.text').textContent = 'Para instalar no iPhone: toque em Compartilhar → Adicionar à Tela de Início.';
-      } else {
-        promptEl.querySelector('.text').textContent = 'Instale o GouFlix como app para uma experiência melhor!';
-      }
-      promptEl.style.display = 'flex';
-    });
-
-    // iOS/Safari guidance
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    if (isIOS && isSafari && !isStandalone && !dismissed) {
-      promptEl.querySelector('.text').textContent = 'Para instalar no iPhone: toque em Compartilhar → Adicionar à Tela de Início.';
-      promptEl.style.display = 'flex';
-    }
+    }, 3000);
   </script>
   
   
