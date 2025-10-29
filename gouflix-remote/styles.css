@@ -26,6 +26,10 @@ nav a.active{color:var(--text)}
 .search-box input{
   background:#222;border:none;border-radius:20px;padding:6px 14px;color:var(--text);
 }
+/* Search dentro do nav (desktop e mobile) */
+.navbar nav{display:flex;align-items:center}
+.navbar nav .search-box{margin-left:auto;display:flex;align-items:center}
+.navbar nav .search-box input{width:240px}
 
 /* Hero */
 .hero{
@@ -160,6 +164,8 @@ nav a.active{color:var(--text)}
   .search-box input{width:clamp(140px,48vw,240px);height:clamp(30px,7vw,36px)}
   .navbar nav{grid-area:nav;display:flex;gap:10px;overflow-x:auto;white-space:nowrap;padding:4px 0;-webkit-overflow-scrolling:touch}
   .navbar nav a{margin:0 8px;font-size:clamp(12px,3.5vw,14px);padding:6px 0}
+  .navbar nav .search-box{flex:0 0 auto;margin-left:auto}
+  .navbar nav .search-box input{width:clamp(140px,48vw,240px);height:clamp(30px,7vw,36px)}
 
   .hero{height:64vh;padding-left:16px;justify-content:center;margin-top:clamp(48px,9vw,72px)}
   .hero-content{max-width:92%;margin:0 auto}
@@ -225,6 +231,14 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 .footer{text-align:center;padding:30px 10px;background:#000;color:var(--muted)}
 .legal-disclaimer{margin-top:10px;color:#9aa7b8;font-size:12px;line-height:1.5}
 @media (max-width:480px){.legal-disclaimer{font-size:11px;padding:0 12px}}
+
+/* Ajustes extras para modal e player em telas pequenas */
+@media (max-width: 480px){
+  .modal-body{flex-direction:column;align-items:stretch;gap:14px}
+  .modal-info{width:100%}
+  .player{width:100%}
+  .modal-body img{width:100%;max-width:240px;margin:0 auto}
+}
 
 /* Plans Page */
 .plans{padding:100px 40px 60px}
