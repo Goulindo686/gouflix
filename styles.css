@@ -34,7 +34,11 @@ nav a.active{color:var(--text)}
 }
 .hero::after{
   content:"";position:absolute;inset:0;z-index:1;
-  background:linear-gradient(to right, rgba(8,12,16,0.92) 0%, rgba(8,12,16,0.50) 45%, rgba(8,12,16,0.15) 100%);
+  /* Vignette escura nas bordas + degrader no rodapé e leve na esquerda */
+  background:
+    radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.65) 100%),
+    linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 35%),
+    linear-gradient(to right, rgba(8,12,16,0.92) 0%, rgba(8,12,16,0.50) 45%, rgba(8,12,16,0.15) 100%);
 }
 /* brilho leve azul à esquerda para lembrar o exemplo */
 .hero::before{
@@ -61,7 +65,17 @@ nav a.active{color:var(--text)}
 }
 .hero-content{max-width:560px;position:relative;z-index:2}
 .hero-content h2{font-size:56px;margin-bottom:16px;font-weight:900;letter-spacing:.5px;line-height:1.08;text-shadow:0 6px 28px rgba(0,0,0,.65)}
+.hero-chips{display:flex;gap:10px;align-items:center;margin:-6px 0 14px}
+.chip{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);color:#ddd;padding:6px 10px;border-radius:999px;font-size:13px}
+.chip .icon{opacity:.85}
+.chip.red{background:#3a1f1f;color:#ffb3b3;border-color:#5a2b2b}
+.chip.green{background:#123b2a;color:#b6f3d8;border-color:#1e5e44}
 .hero-content p{font-size:18px;margin-bottom:22px;color:#cfe6ff;max-width:540px}
+.hero-actions{display:flex;gap:12px;align-items:center}
+.hero .btn.watch{background:#e50914;color:#fff;box-shadow:0 0 14px rgba(229,9,20,0.35)}
+.hero .btn.watch:hover{background:#f6121d}
+.hero .btn.secondary.info{background:#2a2a2a;color:#eee}
+.hero .btn.secondary.info:hover{background:#3a3a3a}
 .btn{padding:10px 20px;border:none;border-radius:var(--radius);cursor:pointer;font-weight:600}
 .btn.primary{background:var(--accent);color:var(--text);box-shadow:0 0 10px rgba(0,229,255,.35)}
 .btn.primary:hover{background:var(--accent-weak);box-shadow:0 0 14px rgba(0,229,255,.5)}
@@ -318,3 +332,7 @@ display:flex;align-items:center;justify-content:center;z-index:200}
   object-position:center 35%; /* foco levemente mais alto para títulos */
   filter:drop-shadow(0 8px 32px rgba(0,0,0,.35));
 }
+/* Dots de navegação do Hero */
+.hero-dots{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:2}
+.hero-dots .dot{width:8px;height:8px;border-radius:50%;background:#666;border:1px solid #888;opacity:.9;cursor:pointer}
+.hero-dots .dot.active{background:#e50914;border-color:#e50914;opacity:1}

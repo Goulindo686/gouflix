@@ -417,6 +417,11 @@ async function ensureBannerPath(item){
   try{
     const det = await fetchTmdbDetails(type, id);
     const bp = det.backdrop_path || '';
+    // Captura metadados úteis para chips do Hero
+    const vote = typeof det.vote_average === 'number' ? Math.round(det.vote_average * 10) / 10 : null;
+    const runtime = (type === 'filme') ? (det.runtime || null) : (Array.isArray(det.episode_run_time) ? det.episode_run_time[0] || null : null);
+    if(vote != null) item.tmdbVote = vote;
+    if(runtime != null) item.runtime = runtime; // minutos
     if(bp){ item.bannerPath = bp; return bp; }
   }catch(_){ /* ignore */ }
   return null;
@@ -468,6 +473,35 @@ async function buildHeroSlides(items){
   });
   // Atualiza conteúdo textual do hero com o primeiro item
   heroUpdateContent(HERO_ITEMS[0] || null);
+  initHeroDots();
+}
+
+function initHeroDots(){
+  const box = document.getElementById('heroDots');
+  if(!box) return;
+  box.innerHTML = '';
+  HERO_ITEMS.forEach((_, idx)=>{
+    const dot = document.createElement('span');
+    dot.className = 'dot' + (idx===0 ? ' active' : '');
+    dot.addEventListener('click', ()=>{
+      const container = document.getElementById('heroSlides');
+      if(!container) return;
+      const slides = Array.from(container.querySelectorAll('.slide'));
+      if(!slides.length) return;
+      slides[HERO_INDEX].classList.remove('active');
+      HERO_INDEX = idx;
+      slides[HERO_INDEX].classList.add('active');
+      heroUpdateContent(HERO_ITEMS[HERO_INDEX] || null);
+      updateHeroDots();
+    });
+    box.appendChild(dot);
+  });
+  function updateHeroDots(){
+    const dots = Array.from(box.querySelectorAll('.dot'));
+    dots.forEach((d,i)=> d.classList.toggle('active', i===HERO_INDEX));
+  }
+  // Exponho para uso no slideshow automático
+  window.updateHeroDots = updateHeroDots;
 }
 
 function startHeroSlideshow(){
@@ -482,6 +516,7 @@ function startHeroSlideshow(){
     HERO_INDEX = (HERO_INDEX + 1) % slides.length;
     slides[HERO_INDEX].classList.add('active');
     heroUpdateContent(HERO_ITEMS[HERO_INDEX] || null);
+    if(typeof window.updateHeroDots === 'function'){ window.updateHeroDots(); }
   }, 5000);
 }
 
@@ -589,14 +624,26 @@ function initSubscriptionsPanel(){
 function heroUpdateContent(item){
   const titleEl = document.querySelector('.hero-content h2');
   const descEl = document.querySelector('.hero-content p');
-  const exploreBtn = document.querySelector('.hero-content .btn.primary');
+  const chipsEl = document.getElementById('heroChips');
+  const watchBtn = document.getElementById('heroWatchBtn');
+  const infoBtn = document.getElementById('heroInfoBtn');
   if(titleEl){ titleEl.textContent = item?.title || 'Explorar conteúdos'; }
   if(descEl){ descEl.textContent = item?.description || 'Seleção de filmes e séries atualizada.'; }
-  if(exploreBtn){
-    exploreBtn.onclick = () => {
-      if(item && item.id){ openModal(item.id); }
-    };
+  if(chipsEl){
+    const vote = (item && typeof item.tmdbVote === 'number') ? item.tmdbVote.toFixed(1) : null;
+    const runtimeMin = (item && typeof item.runtime === 'number') ? item.runtime : null;
+    const timeStr = (runtimeMin!=null) ? `${Math.floor(runtimeMin/60)}h ${runtimeMin%60}m` : null;
+    const year = item?.year || null;
+    const type = item?.type === 'serie' ? 'SÉRIE' : 'FILME';
+    const chips = [];
+    if(vote) chips.push(`<span class="chip"><span class="icon">⭐</span>${vote}</span>`);
+    if(timeStr) chips.push(`<span class="chip"><span class="icon">⏱️</span>${timeStr}</span>`);
+    if(year) chips.push(`<span class="chip red">${year}</span>`);
+    chips.push(`<span class="chip green">${type}</span>`);
+    chipsEl.innerHTML = chips.join(' ');
   }
+  if(watchBtn){ watchBtn.onclick = ()=>{ if(item && item.id){ openModal(item.id); } }; }
+  if(infoBtn){ infoBtn.onclick = ()=>{ if(item && item.id){ openModal(item.id); } }; }
 }
 
 // Assinaturas/Mercado Pago removidos

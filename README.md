@@ -14,6 +14,32 @@ Site estático moderno inspirado na Netflix.
 
 Feito por ChatGPT — demonstração educacional.
 
+## Deploy no GitHub Pages
+
+Este projeto é estático (HTML/CSS/JS) e pode ser publicado no GitHub Pages.
+
+Passos:
+
+1. Crie um repositório no GitHub (ou use um existente).
+2. No terminal, dentro da pasta do projeto:
+
+   ```bash
+   git init
+   git add -A
+   git commit -m "Primeiro commit"
+   git branch -M main
+   git remote add origin https://github.com/<seu-usuario>/<seu-repo>.git
+   git push -u origin main
+   ```
+
+3. No GitHub, vá em `Settings` → `Pages` → em "Build and deployment" selecione `Source: GitHub Actions`.
+4. O workflow `Deploy to GitHub Pages` (arquivo `.github/workflows/pages.yml`) fará o deploy automático a cada push na `main`.
+5. A URL do site será `https://<seu-usuario>.github.io/<seu-repo>/`.
+
+Notas:
+- Pastas `api/` e `dev_server.js` são para backend/dev e não rodam no Pages.
+- O conteúdo estático da raiz (banner com sombreados, chips e dots) funciona normalmente.
+
 ## Deploy na Vercel + Supabase
 
 Este projeto agora suporta hospedagem na Vercel e persistência de estado no Supabase.
