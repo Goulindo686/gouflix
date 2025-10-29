@@ -775,12 +775,38 @@ function updateUserArea(){
     const badge = (sub && sub.active) ? `<span class="user-badge" title="${sub.plan ? `Plano ${sub.plan}` : 'Plano ativo'}${sub.until ? ` até ${new Date(sub.until).toLocaleDateString('pt-BR')}` : ''}">Plano ativo</span>` : '';
     area.innerHTML = `
       <div class="user-avatar">${CURRENT_USER.avatar ? `<img src="https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
-      <span class="user-name">${CURRENT_USER.username}</span>
+      <button id="userMenuToggle" class="user-toggle"><span class="user-name">${CURRENT_USER.username}</span><span class="caret">▾</span></button>
       ${badge}
-      <button id="logoutBtn" class="btn secondary">Sair</button>
+      <div id="userMenu" class="user-menu hidden">
+        <div class="user-menu-header">
+          <div class="user-avatar small">${CURRENT_USER.avatar ? `<img src="https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
+          <div class="user-ident">
+            <div class="user-title">${CURRENT_USER.username}</div>
+            <div class="user-email">${CURRENT_USER.email || ''}</div>
+          </div>
+        </div>
+        <div class="user-menu-items">
+          <button id="menuAccount" class="menu-item">Minha Conta</button>
+          <button id="menuFavorites" class="menu-item">Favoritos</button>
+          <button id="menuPlans" class="menu-item highlight">Planos Premium</button>
+          <button id="menuLogout" class="menu-item danger">Sair da Conta</button>
+        </div>
+      </div>
     `;
-    const logoutBtn = document.getElementById('logoutBtn');
-    if(logoutBtn){ logoutBtn.onclick = async()=>{
+
+    const toggle = document.getElementById('userMenuToggle');
+    const menu = document.getElementById('userMenu');
+    if(toggle && menu){
+      toggle.onclick = (e)=>{ e.stopPropagation(); menu.classList.toggle('hidden'); };
+    }
+    const menuAccount = document.getElementById('menuAccount');
+    const menuFavorites = document.getElementById('menuFavorites');
+    const menuPlans = document.getElementById('menuPlans');
+    const menuLogout = document.getElementById('menuLogout');
+    if(menuAccount){ menuAccount.onclick = ()=>{ setRoute('minha-conta'); if(menu) menu.classList.add('hidden'); }; }
+    if(menuFavorites){ menuFavorites.onclick = ()=>{ setRoute('minha-lista'); if(menu) menu.classList.add('hidden'); }; }
+    if(menuPlans){ menuPlans.onclick = ()=>{ setRoute('plans'); if(menu) menu.classList.add('hidden'); }; }
+    if(menuLogout){ menuLogout.onclick = async()=>{
       try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
       CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
@@ -894,8 +920,8 @@ async function openModalFromTmdbData(data){
         <button id="addToSiteBtn" class="btn secondary">Adicionar ao site</button>
       </div>
     </div>`;
-    modal.classList.remove('hidden');
-  }
+  modal.classList.remove('hidden');
+}
 
   const addBtn = document.getElementById('addToSiteBtn');
   if(addBtn){
@@ -1327,6 +1353,20 @@ function bindBulkImportButtons(){
     renderAdminList();
   });
 }
+
+// Fechar dropdown do usuário ao clicar fora
+window.addEventListener('click', (e)=>{
+  try{
+    const menu = document.getElementById('userMenu');
+    const toggle = document.getElementById('userMenuToggle');
+    if(menu && !menu.classList.contains('hidden')){
+      const target = e.target;
+      const insideMenu = menu.contains(target);
+      const isToggle = toggle && toggle.contains(target);
+      if(!insideMenu && !isToggle){ menu.classList.add('hidden'); }
+    }
+  }catch(_){/* ignore */}
+});
 
 async function handleAdminSearch(){
   const type = document.querySelector('input[name="adminType"]:checked').value;

@@ -369,6 +369,20 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 .login-body { padding:20px; text-align:center }
 .login-intro { color:#ccc; margin-bottom:16px }
 .user-area { display:flex; align-items:center; gap:10px }
+.user-toggle{display:flex;align-items:center;gap:6px;background:#1a1a1c;border:1px solid #2a2a2c;color:#ddd;padding:6px 10px;border-radius:999px;cursor:pointer}
+.user-toggle .caret{margin-left:4px;color:#888}
+.user-menu{position:relative}
+.user-menu{position:absolute;right:0;top:44px;background:#121214;border:1px solid #2a2a2c;border-radius:12px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.45);z-index:300;padding:10px}
+.user-menu.hidden{display:none}
+.user-menu-header{display:flex;gap:10px;align-items:center;padding:6px 8px;border-bottom:1px solid #1f1f21;margin-bottom:8px}
+.user-menu .user-avatar.small{width:36px;height:36px;border-radius:50%;overflow:hidden;border:1px solid #333}
+.user-menu .user-title{font-weight:600;color:#eee}
+.user-menu .user-email{font-size:12px;color:#9aa7b8}
+.user-menu-items{display:flex;flex-direction:column}
+.user-menu .menu-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#161618;border:1px solid #222;margin-bottom:6px;border-radius:8px;color:#ddd;cursor:pointer}
+.user-menu .menu-item:hover{background:#1c1c1f}
+.user-menu .menu-item.highlight{color:#ffd166;border-color:#34322a;background:#181614}
+.user-menu .menu-item.danger{color:#ff6b6b;border-color:#3a2222;background:#181212}
 .user-avatar { width:28px; height:28px; border-radius:50%; overflow:hidden; border:1px solid #333 }
 .user-name { font-size:13px; color:#ddd }
 /* Emblema de assinatura ativa no topo */
