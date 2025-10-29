@@ -29,6 +29,7 @@
       <a href="#" id="navSeries">Séries</a>
       <a href="#" id="navLista">Minha Lista</a>
       <a href="#" id="navPlans">Planos</a>
+      <a href="#" id="navInstall">Instalar App</a>
       <a href="#" id="navAdmin" rel="nofollow">Admin</a>
       <div class="search-box">
         <input id="search" type="text" placeholder="Buscar..." />
@@ -279,6 +280,7 @@
     const promptEl = document.getElementById('installPrompt');
     const installBtn = document.getElementById('installBtn');
     const installClose = document.getElementById('installClose');
+    const installNav = document.getElementById('navInstall');
 
     const dismissed = localStorage.getItem('pwa_prompt_dismissed') === '1';
 
@@ -300,6 +302,34 @@
     installClose?.addEventListener('click', () => {
       promptEl.style.display = 'none';
       localStorage.setItem('pwa_prompt_dismissed', '1');
+    });
+
+    // Clique na aba da navbar para instalar
+    installNav?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!promptEl) return;
+      if (deferredPrompt) {
+        try {
+          promptEl.style.display = 'none';
+          deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if (choice?.outcome !== 'accepted') promptEl.style.display = 'flex';
+        } catch (err) {
+          console.error('Falha ao acionar instalação:', err);
+          promptEl.style.display = 'flex';
+        }
+        return;
+      }
+      const isIOSLink = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isSafariLink = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isStandaloneLink = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isIOSLink && isSafariLink && !isStandaloneLink) {
+        promptEl.querySelector('.text').textContent = 'Para instalar no iPhone: toque em Compartilhar → Adicionar à Tela de Início.';
+      } else {
+        promptEl.querySelector('.text').textContent = 'Instale o GouFlix como app para uma experiência melhor!';
+      }
+      promptEl.style.display = 'flex';
     });
 
     // iOS/Safari guidance
