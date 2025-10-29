@@ -6,8 +6,19 @@
   <meta name="robots" content="index, follow" />
   <!-- Base da API para ambientes estáticos (GitHub Pages). Preencha com seu domínio Vercel. -->
   <meta name="config-api-base-url" content="">
+  <meta name="theme-color" content="#0b1623" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/gouflix-192.png" />
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    .install-prompt{position:fixed;bottom:12px;left:12px;right:12px;z-index:9999;background:#121822;border:1px solid #1f2a38;color:#e8f1ff;border-radius:12px;padding:12px;display:none;align-items:center;gap:10px}
+    .install-prompt .text{flex:1}
+    .install-prompt .actions{display:flex;gap:8px}
+    .install-prompt .btn{padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:600}
+    .install-prompt .btn.primary{background:#00e5ff;color:#001018}
+    .install-prompt .btn.secondary{background:#1c2530;color:#cfe6ff}
+  </style>
 </head>
 <body>
   <header class="navbar">
@@ -29,6 +40,14 @@
       </div>
     </div>
   </header>
+
+  <div id="installPrompt" class="install-prompt" role="dialog" aria-live="polite">
+    <div class="text">Instale o GouFlix para uma experiência mais rápida e prática.</div>
+    <div class="actions">
+      <button id="installBtn" class="btn primary">Instalar</button>
+      <button id="installClose" class="btn secondary">Agora não</button>
+    </div>
+  </div>
 
   <section class="hero">
     <!-- Slides dinâmicos do topo -->
@@ -247,6 +266,51 @@
   <!-- Supabase JS (UMD CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="script.js"></script>
+  <script>
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/gouflix-remote/sw.js').catch(console.error);
+      });
+    }
+
+    // Install Prompt (Chrome/Android)
+    let deferredPrompt = null;
+    const promptEl = document.getElementById('installPrompt');
+    const installBtn = document.getElementById('installBtn');
+    const installClose = document.getElementById('installClose');
+
+    const dismissed = localStorage.getItem('pwa_prompt_dismissed') === '1';
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (!dismissed) promptEl.style.display = 'flex';
+    });
+
+    installBtn?.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      promptEl.style.display = 'none';
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      if (choice.outcome !== 'accepted') localStorage.setItem('pwa_prompt_dismissed', '1');
+    });
+
+    installClose?.addEventListener('click', () => {
+      promptEl.style.display = 'none';
+      localStorage.setItem('pwa_prompt_dismissed', '1');
+    });
+
+    // iOS/Safari guidance
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (isIOS && isSafari && !isStandalone && !dismissed) {
+      promptEl.querySelector('.text').textContent = 'Para instalar no iPhone: toque em Compartilhar → Adicionar à Tela de Início.';
+      promptEl.style.display = 'flex';
+    }
+  </script>
   
   
 </body>

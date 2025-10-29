@@ -1,0 +1,43 @@
+const CACHE_NAME = 'gouflix-remote-v1';
+const ROOT = '/gouflix-remote';
+const CORE_ASSETS = [
+  `${ROOT}/`,
+  `${ROOT}/index.html`,
+  `${ROOT}/styles.css`,
+  `${ROOT}/script.js`,
+  `${ROOT}/data/movies.json`,
+  `${ROOT}/manifest.json`,
+  `${ROOT}/icons/gouflix-192.png`,
+  `${ROOT}/icons/gouflix-512.png`
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.map((key) => {
+      if (key !== CACHE_NAME) return caches.delete(key);
+    })))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const fetchPromise = fetch(request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        return response;
+      }).catch(() => cached);
+      return cached || fetchPromise;
+    })
+  );
+});
