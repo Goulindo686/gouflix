@@ -149,6 +149,33 @@ nav a.active{color:var(--text)}
   .hero-content h2{font-size:34px}
 }
 
+/* Mobile refinements (sem alterar desktop) */
+@media (max-width: 480px){
+  .navbar{padding:14px 16px}
+  .logo{font-size:22px}
+  .search-box input{max-width:160px}
+
+  .hero{height:64vh;padding-left:16px;justify-content:center}
+  .hero-content{max-width:92%;margin:0 auto}
+  .hero-content h2{font-size:32px;line-height:1.1}
+  .hero-content p{font-size:15px;max-width:92%}
+  .hero-actions{flex-direction:column;gap:10px;width:100%}
+  .hero .btn{width:100%}
+
+  .content{padding:84px 16px 40px}
+  .row-wrap{padding:0 12px}
+  .row-title{margin-left:0}
+
+  .player iframe{height:360px}
+}
+
+/* Safe-area para iOS notch */
+@supports (padding: max(0px)){
+  @media (max-width: 480px){
+    .navbar{padding-top:calc(14px + env(safe-area-inset-top));padding-left:max(16px, env(safe-area-inset-left));padding-right:max(16px, env(safe-area-inset-right))}
+  }
+}
+
 /* Layout de grade para abas individuais */
 .row.grid{flex-wrap:wrap;overflow-x:hidden}
 .row-wrap.grid{padding:0}
