@@ -24,6 +24,20 @@ export default async function handler(req, res){
     const body = await readBody(req);
     const plan = String(body?.plan||'').toLowerCase();
     const userId = String(body?.userId||'').trim();
+    function isUuid(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v)); }
+    function toUuidStable(input){
+      const s = String(input||'').trim();
+      if(!s) return '00000000-0000-0000-0000-000000000000';
+      if(isUuid(s)) return s.toLowerCase();
+      const crypto = require('crypto');
+      const namespace = 'gouflix-namespace-fixed-v5';
+      const hash = crypto.createHash('sha1').update(namespace+':'+s).digest('hex');
+      let hex = hash.slice(0,32).toLowerCase();
+      hex = hex.slice(0,12) + '5' + hex.slice(13);
+      hex = hex.slice(0,16) + '8' + hex.slice(17);
+      return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+    }
+    const uuidForSub = toUuidStable(userId);
     const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
     const amount = PLAN_PRICES[plan];
     if(!userId || !amount){
@@ -39,7 +53,7 @@ export default async function handler(req, res){
       payment_method_id: 'pix',
       payer: { email: payerEmail },
       notification_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mercadopago` : undefined,
-      external_reference: `${userId}|${plan}|${Date.now()}`
+      external_reference: `${uuidForSub}|${plan}|${Date.now()}`
     };
     const r = await fetch('https://api.mercadopago.com/v1/payments',{
       method:'POST',

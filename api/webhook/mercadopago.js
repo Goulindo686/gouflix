@@ -30,6 +30,20 @@ export default async function handler(req, res){
     const ext = String(json.external_reference||'');
     // external_reference formato: userId|plan|timestamp
     const [userId, plan] = ext.split('|');
+    function isUuid(v){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v)); }
+    function toUuidStable(input){
+      const s = String(input||'').trim();
+      if(!s) return '00000000-0000-0000-0000-000000000000';
+      if(isUuid(s)) return s.toLowerCase();
+      const crypto = require('crypto');
+      const namespace = 'gouflix-namespace-fixed-v5';
+      const hash = crypto.createHash('sha1').update(namespace+':'+s).digest('hex');
+      let hex = hash.slice(0,32).toLowerCase();
+      hex = hex.slice(0,12) + '5' + hex.slice(13);
+      hex = hex.slice(0,16) + '8' + hex.slice(17);
+      return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+    }
+    const uid = toUuidStable(userId);
     if(status === 'approved' && userId && plan){
       // ativar assinatura diretamente no Supabase (mais robusto), com fallback para endpoint interno
       const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -42,7 +56,7 @@ export default async function handler(req, res){
       if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
         try{
           // Variante A (status/plan + start_date/end_date)
-          const payloadA = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso }];
+          const payloadA = [{ user_id: uid, plan, status:'active', start_date: startIso, end_date: endIso }];
           let r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
             method:'POST',
             headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
@@ -50,7 +64,7 @@ export default async function handler(req, res){
           });
           if(!r2.ok){
             // Fallback: Variante B (active/plan_id + start_at/end_at)
-            const payloadB = [{ user_id: userId, plan_id: plan, active: true, start_at: startIso, end_at: endIso }];
+            const payloadB = [{ user_id: uid, plan_id: plan, active: true, start_at: startIso, end_at: endIso }];
             r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
               method:'POST',
               headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
@@ -74,7 +88,7 @@ export default async function handler(req, res){
           const act = await fetch(`${BASE_URL || ''}/api/subscription`,{
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ userId, plan, action:'activate' })
+            body: JSON.stringify({ userId: uid, plan, action:'activate' })
           });
           if(!act.ok){ console.error('Falha ao ativar assinatura via webhook (fallback)', await act.text()); }
         }catch(err){ console.error('Erro ao ativar assinatura via webhook (fallback)', err); }
