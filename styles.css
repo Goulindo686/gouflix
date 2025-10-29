@@ -198,10 +198,31 @@ nav a.active{color:var(--text)}
 }
 .card:hover{transform:scale(1.07)}
 .card img{width:100%;height:300px;object-fit:cover;display:block;border-radius:var(--radius)}
+/* Minha Conta */
+.account{padding:100px 40px 60px}
+.account-header h2{font-size:26px;margin-bottom:6px}
+.account-header p{color:var(--muted);margin-bottom:16px}
+.account-grid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:16px}
+.account-left .account-user{display:flex;gap:12px;align-items:center}
+.account-avatar{width:64px;height:64px;border-radius:50%;overflow:hidden;border:1px solid #2a2a2c;background:#111}
+.account-user-meta h3{font-size:18px;margin-bottom:4px}
+.muted{color:#9aa7b8}
+.account-actions{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.plan-status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;background:#222;color:#ddd;font-size:12px;border:1px solid #2a2a2c}
+
+@media(max-width:840px){
+  .account-grid{grid-template-columns:1fr}
+}
 .card .info{
   position:absolute;bottom:0;left:0;right:0;
   padding:10px;background:linear-gradient(180deg,transparent,rgba(0,0,0,0.9));
 }
+.card .fav-btn{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;
+  background:rgba(0,0,0,0.55);border:1px solid #2a2a2c;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.card .fav-btn:hover{background:rgba(0,0,0,0.7)}
+.card .fav-btn.active{background:#3a1f1f;border-color:#5a2b2b;color:#ff6b86;box-shadow:0 0 10px rgba(255,0,80,0.35)}
+.card .fav-btn.disabled{opacity:.6;cursor:not-allowed}
 .card h3{font-size:16px;font-weight:600}
 .card p{font-size:13px;color:var(--muted)}
 

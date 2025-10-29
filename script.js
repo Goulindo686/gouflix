@@ -251,6 +251,36 @@ function getEffectiveUserId(){
   return USER_ID;
 }
 
+// Favoritos (Local Storage por usuário)
+function favoritesKey(){
+  return `favorites:${getEffectiveUserId()}`;
+}
+function getFavorites(){
+  try{
+    const raw = localStorage.getItem(favoritesKey());
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch(_){ return []; }
+}
+function setFavorites(arr){
+  try{ localStorage.setItem(favoritesKey(), JSON.stringify(Array.from(new Set(arr)))); }catch(_){/* ignore */}
+}
+function isFavorite(id){
+  const favs = getFavorites();
+  return favs.includes(String(id));
+}
+function toggleFavorite(id){
+  const sId = String(id);
+  const favs = getFavorites();
+  const idx = favs.indexOf(sId);
+  if(idx >= 0){ favs.splice(idx,1); } else { favs.push(sId); }
+  setFavorites(favs);
+  if((window.CURRENT_ROUTE||'home') === 'minha-lista'){
+    const base = getRouteList('minha-lista');
+    renderSingleSection('Minha Lista', base);
+  }
+}
+
 // Planos
 const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
 const PLAN_DURATIONS = { mensal: 30, trimestral: 90, anual: 365 };
@@ -308,6 +338,17 @@ function renderCardsIntoRow(movies, rowEl){
         <p>${m.year||''}</p>
       </div>
     `;
+    // Botão de favoritos (coração)
+    const favBtn = document.createElement('button');
+    favBtn.className = 'fav-btn' + (isFavorite(m.id) ? ' active' : '');
+    favBtn.setAttribute('aria-label','Favoritar');
+    favBtn.innerHTML = '❤';
+    favBtn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      toggleFavorite(m.id);
+      favBtn.classList.toggle('active', isFavorite(m.id));
+    });
+    div.appendChild(favBtn);
     div.onclick = () => openModal(m.id);
     rowEl.appendChild(div);
   });
@@ -753,6 +794,43 @@ function updateUserArea(){
   }
 }
 
+function renderAccountPage(){
+  const avatarEl = document.getElementById('accountAvatar');
+  const userEl = document.getElementById('accountUsername');
+  const emailEl = document.getElementById('accountEmail');
+  const nameField = document.getElementById('accountNameField');
+  const emailField = document.getElementById('accountEmailField');
+  const planBadge = document.getElementById('accountPlanBadge');
+  const myListBtn = document.getElementById('accountMyListBtn');
+  const subscribeBtn = document.getElementById('accountSubscribeBtn');
+  const sub = window.SUBSCRIPTION || null;
+  const u = CURRENT_USER || null;
+  if(avatarEl){
+    avatarEl.innerHTML = u && u.avatar ? `<img src="https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : '';
+  }
+  if(userEl){ userEl.textContent = u ? (u.username || '—') : '—'; }
+  if(emailEl){ emailEl.textContent = u ? (u.email || '—') : '—'; }
+  if(nameField){ nameField.value = u ? (u.username || '') : ''; }
+  if(emailField){ emailField.value = u ? (u.email || '') : ''; }
+  if(planBadge){ planBadge.textContent = sub && sub.active ? `Plano: ${sub.plan || 'Ativo'}` : 'Plano: —'; }
+  if(myListBtn){ myListBtn.onclick = ()=> setRoute('minha-lista'); }
+  if(subscribeBtn){ subscribeBtn.onclick = ()=> setRoute('plans'); }
+}
+
+async function loadSubscriptionStatus(){
+  try{
+    const res = await fetch('/api/subscription');
+    if(res.ok){
+      const j = await res.json();
+      window.SUBSCRIPTION = j || null;
+    } else {
+      window.SUBSCRIPTION = null;
+    }
+  }catch(_){ window.SUBSCRIPTION = null; }
+  updateUserArea();
+  if((window.CURRENT_ROUTE||'') === 'minha-conta') renderAccountPage();
+}
+
 function isAdminUser(){
   return !!window.ADMIN_WRITABLE;
 }
@@ -967,6 +1045,7 @@ function showSection(section){
   const admin = document.getElementById('adminPanel');
   const main = document.getElementById('mainContent');
   const plans = document.getElementById('plansPage');
+  const account = document.getElementById('accountPage');
   if(section === 'admin'){
     if(!isAdminUser()){
       // Bloqueia acesso direto
@@ -976,6 +1055,7 @@ function showSection(section){
     admin.classList.remove('hidden');
     main.classList.add('hidden');
     if(plans) plans.classList.add('hidden');
+    if(account) account.classList.add('hidden');
     renderAdminList();
     setRobotsMeta('noindex, nofollow');
     
@@ -984,8 +1064,17 @@ function showSection(section){
     if(section === 'plans'){
       if(plans) plans.classList.remove('hidden');
       main.classList.add('hidden');
+      if(account) account.classList.add('hidden');
+    } else if(section === 'account'){
+      if(account) account.classList.remove('hidden');
+      if(plans) plans.classList.add('hidden');
+      main.classList.add('hidden');
+      renderAccountPage();
+      setRobotsMeta('noindex, nofollow');
+      return;
     } else {
       if(plans) plans.classList.add('hidden');
+      if(account) account.classList.add('hidden');
       main.classList.remove('hidden');
     }
     setRobotsMeta('index, follow');
@@ -993,7 +1082,7 @@ function showSection(section){
 }
 
 function updateActiveNav(route){
-  const ids = ['navHome','navFilmes','navSeries','navLista','navPlans','navAdmin'];
+  const ids = ['navHome','navFilmes','navSeries','navLista','navAccount','navPlans','navAdmin'];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -1004,6 +1093,7 @@ function updateActiveNav(route){
     filmes: 'navFilmes',
     series: 'navSeries',
     'minha-lista': 'navLista',
+    'minha-conta': 'navAccount',
     plans: 'navPlans',
     admin: 'navAdmin'
   };
@@ -1016,7 +1106,10 @@ function getRouteList(route){
   const base = window.ALL_MOVIES||window.MOVIES||[];
   if(route === 'filmes') return base.filter(m=> (m.type||'filme') === 'filme');
   if(route === 'series') return base.filter(m=> (m.type||'filme') === 'serie');
-  if(route === 'minha-lista') return base.filter(m=> (m.category||'') === 'minha-lista');
+  if(route === 'minha-lista'){
+    const favs = new Set(getFavorites().map(String));
+    return base.filter(m=> favs.has(String(m.id)));
+  }
   // Home: retorna base completa; renderização decide as fileiras (Filmes e Séries)
   return base;
 }
@@ -1031,6 +1124,11 @@ function setRoute(route){
   if(route === 'plans'){
     showSection('plans');
     updateActiveNav('plans');
+    return;
+  }
+  if(route === 'minha-conta'){
+    showSection('account');
+    updateActiveNav('minha-conta');
     return;
   }
   showSection('home');
@@ -1331,6 +1429,8 @@ const navSeries = document.getElementById('navSeries');
 if(navSeries){ navSeries.addEventListener('click', ()=> setRoute('series')); }
 const navLista = document.getElementById('navLista');
 if(navLista){ navLista.addEventListener('click', ()=> setRoute('minha-lista')); }
+const navAccount = document.getElementById('navAccount');
+if(navAccount){ navAccount.addEventListener('click', ()=> setRoute('minha-conta')); }
 const navPlans = document.getElementById('navPlans');
 if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
 const adminSearchBtn = document.getElementById('adminSearchBtn');
@@ -1462,6 +1562,7 @@ if(runBootstrapBtn){
 
 initEnvAndSupabase().then(async()=>{
   await fetchCurrentUser();
+  await loadSubscriptionStatus();
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }
   const searchEl = document.getElementById('search');
