@@ -27,7 +27,7 @@ export default async function handler(req, res){
     }
     try{
       const uid = toUuidStable(userId);
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&select=plan,plan_id,start_date,end_date,start_at,end_at,status,active`,{
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}&select=*`,{
         headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' }
       });
       if(!r.ok){ return res.status(r.status).json({ ok:false, error:'Falha ao consultar assinatura' }); }
