@@ -667,7 +667,7 @@ async function addFromTmdbData(data){
   window.MOVIES = window.ALL_MOVIES;
   setRoute(window.CURRENT_ROUTE||'home');
   updateHeroSlides(window.ALL_MOVIES);
-  filterAdminItems();
+  renderAdminList();
   return true;
 }
 
@@ -679,7 +679,7 @@ function getItemKey(item){
 function renderAdminList(){
   const container = document.getElementById('adminItems');
   if(!container) return;
-  const source = window.ADMIN_FILTERED || window.ALL_MOVIES || window.MOVIES || [];
+  const source = window.ALL_MOVIES || window.MOVIES || [];
   container.innerHTML = '';
   source.forEach(m => {
     const div = document.createElement('div');
@@ -737,7 +737,7 @@ async function removeItemByKey(key){
   window.ALL_MOVIES = (window.ALL_MOVIES||window.MOVIES||[]).filter(m => getItemKey(m) !== key);
   window.MOVIES = window.ALL_MOVIES;
   setRoute(window.CURRENT_ROUTE||'home');
-  filterAdminItems();
+  renderAdminList();
   updateHeroSlides(window.ALL_MOVIES);
 }
 
@@ -850,21 +850,7 @@ function handleSearchInput(e){
   }
 }
 
-// Busca rápida na lista do Admin
-function filterAdminItems(){
-  const input = document.getElementById('adminSearchInput');
-  const radios = Array.from(document.querySelectorAll('input[name="adminListType"]'));
-  const typeSel = (radios.find(r=>r.checked)?.value) || 'all';
-  const q = (input && input.value ? input.value : '').toLowerCase();
-  const base = window.ALL_MOVIES || window.MOVIES || [];
-  const filtered = base.filter(m => {
-    const matchTitle = !q || (String(m.title||'').toLowerCase().includes(q));
-    const matchType = typeSel === 'all' || (String(m.type||'filme') === typeSel);
-    return matchTitle && matchType;
-  });
-  window.ADMIN_FILTERED = filtered;
-  renderAdminList();
-}
+// Busca rápida removida: exibição da lista sem filtros
 
 function renderAdminPreview(data){
   const results = document.getElementById('adminResults');
@@ -1137,11 +1123,7 @@ const navPlans = document.getElementById('navPlans');
 if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
 const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
-// Busca rápida na lista do admin
-const adminSearchInput = document.getElementById('adminSearchInput');
-if(adminSearchInput){ adminSearchInput.addEventListener('input', filterAdminItems); }
-const adminListRadios = Array.from(document.querySelectorAll('input[name="adminListType"]'));
-if(adminListRadios.length){ adminListRadios.forEach(r=> r.addEventListener('change', filterAdminItems)); }
+// Campos de busca rápida removidos; nenhum listener necessário
 // Botões de importação em massa
 bindBulkImportButtons();
 // Desabilitar seletor de fileira quando destino não é Home
