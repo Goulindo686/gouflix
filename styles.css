@@ -151,11 +151,14 @@ nav a.active{color:var(--text)}
 
 /* Mobile refinements (sem alterar desktop) */
 @media (max-width: 480px){
-  .navbar{padding:14px 16px}
-  .logo{font-size:22px}
-  .search-box input{max-width:160px}
+  .navbar{padding:14px 16px;flex-wrap:wrap;gap:8px;background:rgba(0,0,0,0.9)}
+  .logo{font-size:22px;flex:1}
+  .navbar-right{flex:1;justify-content:flex-end}
+  .search-box input{max-width:56vw}
+  .navbar nav{order:3;width:100%;display:flex;gap:10px;overflow-x:auto;white-space:nowrap;padding:4px 0;-webkit-overflow-scrolling:touch}
+  .navbar nav a{margin:0 8px;font-size:14px}
 
-  .hero{height:64vh;padding-left:16px;justify-content:center}
+  .hero{height:64vh;padding-left:16px;justify-content:center;margin-top:74px}
   .hero-content{max-width:92%;margin:0 auto}
   .hero-content h2{font-size:32px;line-height:1.1}
   .hero-content p{font-size:15px;max-width:92%}
