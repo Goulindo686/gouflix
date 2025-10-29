@@ -19,6 +19,47 @@ export default async function handler(req, res){
   const table = process.env.SUBSCRIPTIONS_TABLE || 'subscriptions';
 
   if(req.method === 'GET'){
+    // Listagem completa com filtro de status/ativo
+    const listMode = String(req.query?.list||'').trim();
+    const statusFilter = String(req.query?.status||'').trim().toLowerCase();
+    if(listMode){
+      if(!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY){
+        return res.status(500).json({ ok:false, error:'Supabase não configurado (SERVICE ROLE KEY ausente)' });
+      }
+      try{
+        let query = `${SUPABASE_URL}/rest/v1/${table}?select=*`;
+        if(statusFilter && statusFilter !== 'all'){
+          if(statusFilter === 'active'){
+            query += `&or=(status.eq.active,active.eq.true)`;
+          } else if(statusFilter === 'inactive'){
+            query += `&or=(status.eq.inactive,active.eq.false)`;
+          }
+        }
+        query += `&order=updated_at.desc`;
+        const r = await fetch(query,{ headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' } });
+        if(!r.ok){ const tx = await r.text(); return res.status(r.status).json({ ok:false, error:'Falha ao buscar assinaturas', details: tx }); }
+        const rows = await r.json();
+        const items = (Array.isArray(rows)?rows:[]).map(row=>{
+          const start = row.start_date || row.start_at || null;
+          const end = row.end_date || row.end_at || null;
+          const plan = row.plan || row.plan_id || null;
+          const active = (String(row.status||'').toLowerCase()==='active') || (!!row.active);
+          return {
+            id: row.id || null,
+            user_id: row.user_id || null,
+            plan,
+            status: row.status || (row.active===true?'active':'inactive'),
+            active,
+            start,
+            end,
+            updated_at: row.updated_at || null,
+            payment_id: row.payment_id || null
+          };
+        });
+        return res.status(200).json({ ok:true, items });
+      }catch(err){ return res.status(500).json({ ok:false, error: err.message }); }
+    }
+
     const userId = String(req.query?.userId||'').trim();
     if(!userId){ return res.status(400).json({ ok:false, error:'userId obrigatório' }); }
     if(!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY){
@@ -50,11 +91,16 @@ export default async function handler(req, res){
     }
     try{
       const body = await readBody(req);
+      const action = String(body?.action||'activate'); // activate | deactivate | list
       const userId = String(body?.userId||'').trim();
-      const uid = toUuidStable(userId);
+      const uid = userId ? toUuidStable(userId) : null;
       const plan = String(body?.plan||'').toLowerCase();
-      const action = String(body?.action||'activate'); // activate | deactivate
-      if(!userId || !plan){ return res.status(400).json({ ok:false, error:'Parâmetros inválidos (userId/plan)' }); }
+      const id = body?.id || null;
+      if(action === 'activate'){
+        if(!userId || !plan){ return res.status(400).json({ ok:false, error:'Parâmetros inválidos (userId/plan)' }); }
+      } else if(action === 'deactivate'){
+        if(!userId && !id){ return res.status(400).json({ ok:false, error:'Parâmetros inválidos (informe userId ou id)' }); }
+      }
       const duration = PLAN_DURATIONS[plan];
       if(action === 'activate'){
         const start = new Date();
@@ -79,15 +125,16 @@ export default async function handler(req, res){
         }
         if(!r.ok){ const tx = await r.text(); return res.status(r.status).json({ ok:false, error:'Falha ao ativar', details: tx }); }
         return res.status(200).json({ ok:true });
-      } else {
+      } else if(action === 'deactivate'){
         // Desativar com fallback (status ou active)
-        let r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}`,{
+        let target = uid ? `user_id=eq.${encodeURIComponent(uid)}` : (id ? `id=eq.${encodeURIComponent(id)}` : '');
+        let r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${target}`,{
           method:'PATCH',
           headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json' },
           body: JSON.stringify({ status:'inactive' })
         });
         if(!r.ok){
-          r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?user_id=eq.${encodeURIComponent(uid)}`,{
+          r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${target}`,{
             method:'PATCH',
             headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json' },
             body: JSON.stringify({ active:false })
@@ -95,6 +142,8 @@ export default async function handler(req, res){
         }
         if(!r.ok){ const tx = await r.text(); return res.status(r.status).json({ ok:false, error:'Falha ao desativar', details: tx }); }
         return res.status(200).json({ ok:true });
+      } else {
+        return res.status(400).json({ ok:false, error:'Ação inválida' });
       }
     }catch(err){ return res.status(500).json({ ok:false, error: err.message }); }
   }

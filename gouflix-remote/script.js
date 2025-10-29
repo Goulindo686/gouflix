@@ -540,8 +540,10 @@ async function updateHeroSlides(items){
 // =====================
 async function fetchSubscriptions(status){
   try{
-    const q = status && status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
-    const r = await fetch(`/api/subscription/list${q}`);
+    const q = status && status !== 'all' ? `&status=${encodeURIComponent(status)}` : '';
+    const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || 'https://gouflix.discloud.app';
+    const apiUrl = (p)=> `${API_BASE}${p}`;
+    const r = await fetch(apiUrl(`/api/subscription?list=1${q}`));
     if(!r.ok){
       const tx = await r.text();
       return { ok:false, error: tx };
@@ -612,10 +614,12 @@ function initSubscriptionsPanel(){
       const user = tgt.getAttribute('data-user');
       if(!confirm('Confirmar desativação desta assinatura?')) return;
       try{
-        const r = await fetch('/api/subscription/deactivate',{
+        const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || 'https://gouflix.discloud.app';
+        const apiUrl = (p)=> `${API_BASE}${p}`;
+        const r = await fetch(apiUrl('/api/subscription'),{
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ id, userId: user })
+          body: JSON.stringify({ id, userId: user, action:'deactivate' })
         });
         if(!r.ok){ const tx = await r.text(); alert('Falha ao desativar: '+tx); return; }
         const js = await r.json();
