@@ -312,10 +312,9 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 }
 /* Imagem do banner sem zoom, preservando retângulo dentro da área */
 .hero-slides .slide img.banner-img{
-  max-width:100%;
-  max-height:100%;
-  width:auto;height:auto;
-  aspect-ratio:16/9;
-  object-fit:contain;
-  filter:drop-shadow(0 8px 32px rgba(0,0,0,.45));
+  width:100%;
+  height:100%;
+  object-fit:cover; /* cobre toda área, sem partes vazias */
+  object-position:center 35%; /* foco levemente mais alto para títulos */
+  filter:drop-shadow(0 8px 32px rgba(0,0,0,.35));
 }

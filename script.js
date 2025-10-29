@@ -237,6 +237,13 @@ function buildBannerImageSet(path){
     fallback: u2
   };
 }
+function buildBannerSrcSet(path){
+  const base = tmdbImgBase();
+  const w780 = `${base}/w780${path}`;
+  const w1280 = `${base}/w1280${path}`;
+  const orig = `${base}/original${path}`;
+  return `${w780} 780w, ${w1280} 1280w, ${orig} 1920w`;
+}
 async function ensureBannerPath(item){
   if(item.bannerPath) return item.bannerPath;
   const type = (item.type === 'serie') ? 'serie' : 'filme';
@@ -283,6 +290,8 @@ async function buildHeroSlides(items){
       const img = document.createElement('img');
       img.className = 'banner-img';
       img.src = `${tmdbImgBase()}/w1280${m.bannerPath}`;
+      img.srcset = buildBannerSrcSet(m.bannerPath);
+      img.sizes = '100vw';
       img.alt = m.title || '';
       slide.appendChild(img);
     } else if(m.poster) {
