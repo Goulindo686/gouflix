@@ -45,9 +45,10 @@ nav a.active{color:var(--text)}
 .hero-slides{position:absolute;inset:0;z-index:0}
 .hero-slides .slide{
   position:absolute;inset:0;
-  /* Menos zoom e melhor enquadramento do banner */
-  background-size:contain;
-  background-position:center 35%;
+  /* Fundo borrado cobre toda área; banner real sem zoom fica por cima */
+  display:flex;align-items:center;justify-content:center;
+  background-size:cover;
+  background-position:center center;
   background-repeat:no-repeat;
   background-color:#000;
   opacity:0;transition:opacity 1s ease-in-out
@@ -308,4 +309,13 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+/* Imagem do banner sem zoom, preservando retângulo dentro da área */
+.hero-slides .slide img.banner-img{
+  max-width:100%;
+  max-height:100%;
+  width:auto;height:auto;
+  aspect-ratio:16/9;
+  object-fit:contain;
+  filter:drop-shadow(0 8px 32px rgba(0,0,0,.45));
 }

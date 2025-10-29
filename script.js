@@ -3,6 +3,10 @@ let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
 let TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTJkNGMzMzUxMzcwZWI4NjNiNzljYzZkZGE3YmI4MSIsIm5iZiI6MTc2MTU0MTY5NC4zNTMsInN1YiI6IjY4ZmVmZTNlMTU2MThmMDM5OGRhMDIwMCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Raq9U3uybPj034WxjdiVEdbycZ0VBUQRokSgaN5rjlo';
 let TMDB_BASE = 'https://api.themoviedb.org/3';
 let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+// Base sem tamanho para montar banners responsivos
+function tmdbImgBase(){
+  try{ return String(TMDB_IMG||'').replace(/\/w\d+$/, ''); }catch(_){ return 'https://image.tmdb.org/t/p'; }
+}
 // Paginação dos lotes para sempre trazer conteúdos novos
 window.BULK_PAGES = { filme: 0, serie: 0 };
 
@@ -213,19 +217,79 @@ function toHighResPoster(url){
     return upgraded;
   }catch(_){ return url; }
 }
-function buildHeroSlides(items){
+// Escolhe tamanho de banner responsivo conforme viewport / DPR
+function bannerSizes(){
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+  const w = window.innerWidth||1280;
+  // Base de backdrops do TMDB: w300, w780, w1280, original
+  if(w <= 768){ return dpr > 1 ? ['w780','w780'] : ['w780','w780']; }
+  if(w <= 1440){ return dpr > 1 ? ['w1280','w1280'] : ['w780','w780']; }
+  return dpr > 1 ? ['w1280','w1280'] : ['w1280','w1280'];
+}
+function buildBannerImageSet(path){
+  const base = tmdbImgBase();
+  const [size1, size2] = bannerSizes();
+  const u1 = `${base}/${size1}${path}`;
+  const u2 = `${base}/${size2}${path}`;
+  // Usa image-set para background com fallback
+  return {
+    css: `image-set(url('${u1}') 1x, url('${u2}') 2x)`,
+    fallback: u2
+  };
+}
+async function ensureBannerPath(item){
+  if(item.bannerPath) return item.bannerPath;
+  const type = (item.type === 'serie') ? 'serie' : 'filme';
+  const id = item.tmdbId || item.imdbId || '';
+  if(!id) return null;
+  try{
+    const det = await fetchTmdbDetails(type, id);
+    const bp = det.backdrop_path || '';
+    if(bp){ item.bannerPath = bp; return bp; }
+  }catch(_){ /* ignore */ }
+  return null;
+}
+
+async function prepareHeroItems(items){
+  const base = (items||[])
+    .filter(m => ['recomendados','mais-assistidos','ultimos-lancamentos'].includes(m.row) || true)
+    .slice(0, 12);
+  // Prepara banners para os itens, quando possível
+  const out = [];
+  for(const m of base){
+    try{ await ensureBannerPath(m); }catch(_){/* ignore */}
+    // Apenas itens com backdrop para garantir imagem horizontal retangular
+    if(m.bannerPath){ out.push(m); }
+  }
+  return out;
+}
+
+async function buildHeroSlides(items){
   const container = document.getElementById('heroSlides');
   if(!container) return;
   container.innerHTML = '';
-  const posters = (items||[])
-    .filter(m => ['recomendados','mais-assistidos','ultimos-lancamentos'].includes(m.row))
-    .filter(m => !!m.poster)
-    .slice(0, 12);
-  HERO_ITEMS = posters;
-  posters.forEach((m, idx) => {
+  const list = await prepareHeroItems(items);
+  HERO_ITEMS = list;
+  list.forEach((m, idx) => {
     const slide = document.createElement('div');
     slide.className = 'slide' + (idx === 0 ? ' active' : '');
-    slide.style.backgroundImage = `url('${toHighResPoster(m.poster)}')`;
+    // Usa banner/backdrop se disponível, com image-set para responsividade
+    if(m.bannerPath){
+      const iset = buildBannerImageSet(m.bannerPath);
+      // Define variáveis CSS para fallback e image-set sem sobrescrever
+      slide.style.setProperty('--hero-img', `url('${iset.fallback}')`);
+      slide.style.setProperty('--hero-img-set', iset.css);
+      // Imagem real por cima, sem zoom (retangular)
+      const img = document.createElement('img');
+      img.className = 'banner-img';
+      img.src = `${tmdbImgBase()}/w1280${m.bannerPath}`;
+      img.alt = m.title || '';
+      slide.appendChild(img);
+    } else if(m.poster) {
+      // Sem backdrop, preferimos não usar pôster vertical no Hero
+      // (mantém visual consistente sem gerar faixa estreita)
+      return; // pula este item
+    }
     container.appendChild(slide);
   });
   // Atualiza conteúdo textual do hero com o primeiro item
@@ -247,8 +311,8 @@ function startHeroSlideshow(){
   }, 5000);
 }
 
-function updateHeroSlides(items){
-  buildHeroSlides(items);
+async function updateHeroSlides(items){
+  await buildHeroSlides(items);
   startHeroSlideshow();
 }
 
@@ -820,7 +884,8 @@ function normalizeFromDetails(type, details){
   const genres = Array.isArray(details.genres) ? details.genres.map(g=>g.name) : [];
   const poster = details.poster_path ? `${TMDB_IMG}${details.poster_path}` : '';
   const description = details.overview || '';
-  return { type, tmdbId, imdbId, title, year, genres, poster, description };
+  const bannerPath = details.backdrop_path || '';
+  return { type, tmdbId, imdbId, title, year, genres, poster, description, bannerPath };
 }
 
 async function fetchBulkFromTmdb(kind){
