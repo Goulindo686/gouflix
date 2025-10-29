@@ -714,7 +714,7 @@ async function openModal(id){
   modal.classList.remove('hidden');
 }
 
-// --------- Login via Discord ---------
+// --------- Usuário atual (Discord backend) ---------
 async function fetchCurrentUser(){
   try{
     const res = await fetch('/api/auth/me');
@@ -739,14 +739,14 @@ function updateUserArea(){
       <button id="logoutBtn" class="btn secondary">Sair</button>
     `;
     const logoutBtn = document.getElementById('logoutBtn');
-    if(logoutBtn){ logoutBtn.onclick = async()=>{ try{ await fetch('/api/auth/logout'); CURRENT_USER = null; updateUserArea(); }catch(_){/* ignore */} } }
+    if(logoutBtn){ logoutBtn.onclick = async()=>{
+      try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
+      CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
+    }; }
   } else {
     area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
     const loginBtn = document.getElementById('loginBtn');
-    if(loginBtn){ loginBtn.onclick = ()=>{
-      const ret = location.href;
-      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
-    }; }
+    if(loginBtn){ loginBtn.onclick = ()=>{ window.location.href = '/api/auth/login'; }; }
   }
 }
 

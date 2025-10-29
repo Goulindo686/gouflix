@@ -202,6 +202,7 @@
     </div>
   </div>
 
+
   <!-- Modal de Pagamento -->
   <div id="paymentModal" class="payment-modal hidden">
     <div class="payment-modal-content">
@@ -218,6 +219,38 @@
         </div>
         <div class="payment-status" id="paymentStatus">Aguardando pagamento...</div>
         <div id="pixCode" style="color:#ddd;font-size:12px;word-break:break-all;margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gate de Autenticação Local (Login/Registro) -->
+  <div id="authGate" class="login-modal hidden" aria-hidden="true">
+    <div class="login-modal-content">
+      <div class="login-header">
+        <h3>Autenticação</h3>
+        <button id="closeAuthGate" class="close-login" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="login-body">
+        <div class="auth-tabs" style="display:flex;gap:8px;justify-content:center;margin-bottom:10px">
+          <button id="tabLogin" class="btn secondary" type="button">Login</button>
+          <button id="tabRegister" class="btn secondary" type="button">Registrar</button>
+        </div>
+        <form id="loginForm" class="auth-form" autocomplete="off">
+          <label for="loginUsername">Nome</label>
+          <input id="loginUsername" type="text" placeholder="Seu nome" required />
+          <label for="loginPassword">Senha</label>
+          <input id="loginPassword" type="password" placeholder="Sua senha" required />
+          <label class="remember"><input id="loginRemember" type="checkbox" /> Salvar login</label>
+          <button type="submit" class="btn primary" style="margin-top:8px">Entrar</button>
+        </form>
+        <form id="registerForm" class="auth-form hidden" autocomplete="off">
+          <label for="regUsername">Nome</label>
+          <input id="regUsername" type="text" placeholder="Crie um nome" required />
+          <label for="regPassword">Senha</label>
+          <input id="regPassword" type="password" placeholder="Crie uma senha" required />
+          <label class="remember"><input id="regRemember" type="checkbox" /> Salvar login</label>
+          <button type="submit" class="btn primary" style="margin-top:8px">Registrar</button>
+        </form>
       </div>
     </div>
   </div>

@@ -218,6 +218,7 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 /* Garantir que o modal permaneça oculto quando tiver a classe .hidden */
 .payment-modal.hidden { display: none; }
 
+
 .payment-modal-content {
   background: #1a1a1a;
   border-radius: 12px;

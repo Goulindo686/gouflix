@@ -15,6 +15,108 @@ window.__ENV = {};
 window.supabaseClient = null;
 let CURRENT_USER = null;
 
+// Autenticação Local: helpers de cookie e armazenamento simples
+function setCookie(name, value, days){
+  try{
+    const d = new Date();
+    d.setTime(d.getTime() + (days*24*60*60*1000));
+    const expires = `expires=${d.toUTCString()}`;
+    document.cookie = `${name}=${encodeURIComponent(value)};${expires};path=/`;
+  }catch(_){/* ignore */}
+}
+function getCookie(name){
+  try{
+    const n = `${name}=`;
+    const parts = document.cookie.split(';');
+    for(let p of parts){
+      p = p.trim();
+      if(p.startsWith(n)) return decodeURIComponent(p.substring(n.length));
+    }
+  }catch(_){/* ignore */}
+  return null;
+}
+function deleteCookie(name){ setCookie(name, '', -1); }
+function readAccounts(){
+  try{ return JSON.parse(localStorage.getItem('gouflix_accounts')||'{}'); }catch(_){ return {}; }
+}
+function writeAccounts(obj){
+  try{ localStorage.setItem('gouflix_accounts', JSON.stringify(obj)); }catch(_){/* ignore */}
+}
+function hashCredentials(name, pass){
+  const s = `${name}|${pass}`;
+  let h = 0;
+  for(let i=0;i<s.length;i++){ h = ((h<<5)-h) + s.charCodeAt(i); h |= 0; }
+  return String(h);
+}
+function registerLocal(name, pass, remember){
+  name = String(name||'').trim();
+  pass = String(pass||'').trim();
+  if(!name || !pass){ alert('Informe nome e senha.'); return false; }
+  const db = readAccounts();
+  const id = `local:${name.toLowerCase()}`;
+  db[id] = { id, username: name, hash: hashCredentials(name, pass) };
+  writeAccounts(db);
+  CURRENT_USER = { id, username: name, avatar: null };
+  updateUserArea(); applyAdminVisibility();
+  if(remember) setCookie('gouflix_remember', JSON.stringify({ id, name }), 365);
+  else deleteCookie('gouflix_remember');
+  const gate = document.getElementById('authGate'); if(gate) gate.classList.add('hidden');
+  try{ loadMovies(); }catch(_){/* ignore */}
+  return true;
+}
+function loginLocal(name, pass, remember){
+  name = String(name||'').trim();
+  pass = String(pass||'').trim();
+  if(!name || !pass){ alert('Informe nome e senha.'); return false; }
+  const db = readAccounts();
+  const id = `local:${name.toLowerCase()}`;
+  const acc = db[id];
+  if(!acc || acc.hash !== hashCredentials(name, pass)){
+    alert('Usuário ou senha inválidos.'); return false;
+  }
+  CURRENT_USER = { id, username: name, avatar: null };
+  updateUserArea(); applyAdminVisibility();
+  if(remember) setCookie('gouflix_remember', JSON.stringify({ id, name }), 365);
+  else deleteCookie('gouflix_remember');
+  const gate = document.getElementById('authGate'); if(gate) gate.classList.add('hidden');
+  try{ loadMovies(); }catch(_){/* ignore */}
+  return true;
+}
+function autoLoginFromCookie(){
+  const raw = getCookie('gouflix_remember');
+  if(!raw) return false;
+  try{
+    const obj = JSON.parse(raw);
+    if(obj && obj.id && obj.name){
+      CURRENT_USER = { id: obj.id, username: obj.name, avatar: null };
+      return true;
+    }
+  }catch(_){/* ignore */}
+  return false;
+}
+function openAuthGate(){
+  const gate = document.getElementById('authGate');
+  if(!gate) return;
+  gate.classList.remove('hidden');
+}
+function bindAuthGate(){
+  const gate = document.getElementById('authGate');
+  if(!gate) return;
+  const closeBtn = document.getElementById('closeAuthGate');
+  if(closeBtn){ closeBtn.onclick = ()=>{ gate.classList.add('hidden'); } }
+  const tabLogin = document.getElementById('tabLogin');
+  const tabRegister = document.getElementById('tabRegister');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  function showLogin(){ loginForm.classList.remove('hidden'); registerForm.classList.add('hidden'); tabLogin.classList.add('active'); tabRegister.classList.remove('active'); }
+  function showRegister(){ registerForm.classList.remove('hidden'); loginForm.classList.add('hidden'); tabRegister.classList.add('active'); tabLogin.classList.remove('active'); }
+  if(tabLogin) tabLogin.onclick = showLogin;
+  if(tabRegister) tabRegister.onclick = showRegister;
+  showLogin();
+  if(loginForm){ loginForm.onsubmit = (e)=>{ e.preventDefault(); const name = document.getElementById('loginUsername').value; const pass = document.getElementById('loginPassword').value; const remember = !!document.getElementById('loginRemember').checked; loginLocal(name, pass, remember); }; }
+  if(registerForm){ registerForm.onsubmit = (e)=>{ e.preventDefault(); const name = document.getElementById('regUsername').value; const pass = document.getElementById('regPassword').value; const remember = !!document.getElementById('regRemember').checked; registerLocal(name, pass, remember); }; }
+}
+
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
 (function initConsoleSanitizer(){
   try{
@@ -705,13 +807,10 @@ async function openModal(id){
   modal.classList.remove('hidden');
 }
 
-// --------- Login via Discord ---------
+// --------- Usuário atual (Local) ---------
 async function fetchCurrentUser(){
   try{
-    const res = await fetch('/api/auth/me');
-    if(!res.ok){ CURRENT_USER = null; updateUserArea(); return; }
-    const j = await res.json();
-    CURRENT_USER = (j.logged && j.user) ? j.user : null;
+    if(!CURRENT_USER){ autoLoginFromCookie(); }
     updateUserArea();
     applyAdminVisibility();
   }catch(_){ CURRENT_USER = null; updateUserArea(); }
@@ -730,14 +829,15 @@ function updateUserArea(){
       <button id="logoutBtn" class="btn secondary">Sair</button>
     `;
     const logoutBtn = document.getElementById('logoutBtn');
-    if(logoutBtn){ logoutBtn.onclick = async()=>{ try{ await fetch('/api/auth/logout'); CURRENT_USER = null; updateUserArea(); }catch(_){/* ignore */} } }
-  } else {
-    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
-    const loginBtn = document.getElementById('loginBtn');
-    if(loginBtn){ loginBtn.onclick = ()=>{
-      const ret = location.href;
-      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+    if(logoutBtn){ logoutBtn.onclick = async()=>{
+      CURRENT_USER = null; deleteCookie('gouflix_remember'); updateUserArea(); applyAdminVisibility();
+      // Opcional: mostrar gate de autenticação novamente
+      openAuthGate();
     }; }
+  } else {
+    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar</button>`;
+    const loginBtn = document.getElementById('loginBtn');
+    if(loginBtn){ loginBtn.onclick = ()=>{ openAuthGate(); } }
   }
 }
 
@@ -1428,12 +1528,16 @@ if(runBootstrapBtn){
 }
 
 initEnvAndSupabase().then(()=>{
-  loadMovies();
-  fetchCurrentUser();
-  applyAdminVisibility();
-  // Garantir que o modal de pagamento esteja oculto ao carregar
+  bindAuthGate();
+  autoLoginFromCookie();
+  updateUserArea();
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }
+  if(!CURRENT_USER){
+    openAuthGate();
+  } else {
+    loadMovies();
+  }
 });
 
 // ----- Pagamentos (Mercado Pago PIX) -----
