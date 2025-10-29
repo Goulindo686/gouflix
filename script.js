@@ -1373,8 +1373,20 @@ if(saveMpTokenBtn){
       const probe = await fetch(apiUrl('/api/config'));
       const cfgProbe = probe.ok ? await probe.json() : { writable:false, source:'env' };
       if (!cfgProbe.writable) {
-        alert('Configurações gerenciadas por ambiente. Edite no Vercel/variáveis de ambiente.');
-        return;
+        // Fallback local: persistir o link do Discord via cookie e atualizar UI
+        try{
+          const maxAge = 60*60*24*30; // 30 dias
+          document.cookie = `discord_invite_url=${encodeURIComponent(discordInviteUrl||'')}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+          const di = document.getElementById('discordInviteUrl');
+          if(di){ di.value = discordInviteUrl || ''; }
+          const discordBtn = document.getElementById('discordFloatingBtn');
+          if(discordBtn && discordInviteUrl){ discordBtn.href = discordInviteUrl; }
+          alert('Link do Discord salvo localmente para este navegador. Para salvar globalmente, configure admins/variáveis de ambiente.');
+          return;
+        }catch(_){
+          alert('Somente leitura. Configure no Vercel/variáveis de ambiente.');
+          return;
+        }
       }
       const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, mpAccessToken, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
@@ -1407,9 +1419,27 @@ if(saveMpTokenBtn){
       const stat = document.getElementById('mpTokenStatus');
       if(stat){ stat.textContent = cfg.hasMpAccessToken ? 'Token configurado' : 'Token não configurado'; }
       const di = document.getElementById('discordInviteUrl');
-      if(di) di.value = cfg.discordInviteUrl || '';
+      if(di){
+        let discordVal = cfg.discordInviteUrl || '';
+        if(!discordVal){
+          try{
+            const raw = (document.cookie||'').split(';').find(c=>c.trim().startsWith('discord_invite_url='));
+            if(raw){ discordVal = decodeURIComponent(raw.split('=')[1]||''); }
+          }catch(_){ /* ignore */ }
+        }
+        di.value = discordVal;
+      }
       const discordBtn = document.getElementById('discordFloatingBtn');
-      if(discordBtn && cfg.discordInviteUrl){ discordBtn.href = cfg.discordInviteUrl; }
+      if(discordBtn){
+        const href = cfg.discordInviteUrl || (function(){
+          try{
+            const raw = (document.cookie||'').split(';').find(c=>c.trim().startsWith('discord_invite_url='));
+            if(raw){ return decodeURIComponent(raw.split('=')[1]||''); }
+          }catch(_){}
+          return '';
+        })();
+        if(href){ discordBtn.href = href; }
+      }
     }
   }catch(_){/* ignore */}
 })();
