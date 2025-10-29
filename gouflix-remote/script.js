@@ -98,6 +98,96 @@ let CURRENT_USER = null;
   }catch(_){ /* silencioso */ }
 })();
 
+// --- Segurança: bloqueio de DevTools e Inspecionar ---
+(function(){
+  let blocked = false;
+  const overlayId = 'security-devtools-block-overlay';
+
+  function createOverlay(){
+    if(document.getElementById(overlayId)) return;
+    const el = document.createElement('div');
+    el.id = overlayId;
+    el.style.position = 'fixed';
+    el.style.inset = '0';
+    el.style.background = 'rgba(0,0,0,0.9)';
+    el.style.color = '#fff';
+    el.style.zIndex = '2147483647';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.fontFamily = 'system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, sans-serif';
+    el.style.textAlign = 'center';
+    el.style.padding = '24px';
+    el.innerHTML = '<div><h2 style="margin:0 0 12px; font-size:24px;">Acesso restrito</h2><p style="margin:0; font-size:16px; opacity:0.9;">DevTools e Inspecionar estão bloqueados por segurança.</p></div>';
+    document.body.appendChild(el);
+  }
+
+  function blockInteractions(){
+    try{
+      document.body.style.pointerEvents = 'none';
+      document.body.style.userSelect = 'none';
+    }catch{}
+  }
+
+  function hookNetwork(){
+    // Bloqueia novas requisições após detecção
+    try{
+      const origFetch = window.fetch;
+      window.fetch = function(){
+        return Promise.reject(new Error('Blocked by security policy'));
+      };
+      const origOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(){
+        throw new Error('Blocked by security policy');
+      };
+    }catch{}
+  }
+
+  function engageBlock(){
+    if(blocked) return;
+    blocked = true;
+    createOverlay();
+    blockInteractions();
+    hookNetwork();
+  }
+
+  // Detecção por atalhos comuns
+  window.addEventListener('keydown', (e)=>{
+    const isF12 = e.key === 'F12';
+    const isCtrlShiftI = e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'i');
+    const isCtrlShiftJ = e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'j');
+    const isCtrlShiftC = e.ctrlKey && e.shiftKey && (e.key.toLowerCase() === 'c');
+    if(isF12 || isCtrlShiftI || isCtrlShiftJ || isCtrlShiftC){
+      e.preventDefault();
+      e.stopPropagation();
+      engageBlock();
+    }
+  }, true);
+
+  // Bloqueia menu de contexto (botão direito)
+  window.addEventListener('contextmenu', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+
+  // Heurística de dimensão de janela que costuma indicar DevTools abertos
+  function devtoolsLikelyOpen(){
+    const w = window.outerWidth - window.innerWidth;
+    const h = window.outerHeight - window.innerHeight;
+    return (w > 160 || h > 160);
+  }
+
+  // Poll leve para detectar abertura do DevTools
+  const interval = setInterval(()=>{
+    if(blocked) { clearInterval(interval); return; }
+    if(devtoolsLikelyOpen()){
+      engageBlock();
+      clearInterval(interval);
+    }
+    try { debugger; } catch {}
+  }, 1000);
+})();
+
 async function initEnvAndSupabase(){
   try{
     const res = await fetch('/api/env');
