@@ -370,8 +370,8 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 }
 /* Dots de navegação do Hero */
 .hero-dots{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:2}
-.hero-dots .dot{width:8px;height:8px;border-radius:50%;background:#666;border:1px solid #888;opacity:.9;cursor:pointer}
-.hero-dots .dot.active{background:#e50914;border-color:#e50914;opacity:1}
+.hero-dots .dot{width:8px;height:8px;border-radius:50%;background:#6b7a86;border:1px solid #8fa1b2;opacity:.9;cursor:pointer}
+.hero-dots .dot.active{background:var(--accent);border-color:var(--accent);opacity:1;box-shadow:0 0 10px rgba(0,229,255,.45)}
 
 /* Botão flutuante do Discord */
 .floating-discord {
