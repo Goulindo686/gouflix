@@ -1,6 +1,6 @@
 /* Estilo Netflix-like moderno */
 :root{
-  --bg: #0b0e12;
+  --bg: #000000;
   --accent: #00e5ff; /* azul neon */
   --accent-weak: #00b3ff;
   --text: #fff;
@@ -36,9 +36,9 @@ nav a.active{color:var(--text)}
   content:"";position:absolute;inset:0;z-index:1;
   /* Vignette escura nas bordas + degrader no rodapé e leve na esquerda */
   background:
-    radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.65) 100%),
-    linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 35%),
-    linear-gradient(to right, rgba(8,12,16,0.92) 0%, rgba(8,12,16,0.50) 45%, rgba(8,12,16,0.15) 100%);
+    radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.82) 100%),
+    linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 35%),
+    linear-gradient(to right, rgba(8,12,16,0.97) 0%, rgba(8,12,16,0.65) 45%, rgba(8,12,16,0.18) 100%);
 }
 /* brilho leve azul à esquerda para lembrar o exemplo */
 .hero::before{
