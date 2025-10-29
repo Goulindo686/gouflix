@@ -11,6 +11,7 @@ export default async function handler(req, res) {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
     ADMIN_IDS: process.env.ADMIN_IDS || null,
     ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
+    CONFIG_API_BASE_URL: process.env.CONFIG_API_BASE_URL || null,
   };
   const COOKIES = parseCookies(req.headers?.cookie || '');
   const COOKIE_PUBLIC = COOKIES['public_url'] || null;

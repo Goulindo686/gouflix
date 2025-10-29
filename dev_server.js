@@ -243,6 +243,7 @@ const server = http.createServer(async (req, res) => {
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
           ADMIN_IDS: process.env.ADMIN_IDS || null,
           ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
+          CONFIG_API_BASE_URL: process.env.CONFIG_API_BASE_URL || null,
         }));
         return;
       }

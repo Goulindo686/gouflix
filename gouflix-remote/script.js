@@ -1380,6 +1380,8 @@ updateAdminRowEnabled();
 // Admin: salvar token Mercado Pago
 const saveMpTokenBtn = document.getElementById('saveMpTokenBtn');
 if(saveMpTokenBtn){
+  const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || 'https://gouflix.discloud.app';
+  const apiUrl = (p)=> `${API_BASE}${p}`;
   saveMpTokenBtn.addEventListener('click', async ()=>{
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
     const bootstrapMoviesUrl = (document.getElementById('bootstrapMoviesUrl').value||'').trim();
@@ -1387,13 +1389,13 @@ if(saveMpTokenBtn){
     const mpAccessToken = (document.getElementById('mpAccessToken').value||'').trim();
     const discordInviteUrl = (document.getElementById('discordInviteUrl').value||'').trim();
     try{
-      const probe = await fetch('/api/config');
+      const probe = await fetch(apiUrl('/api/config'));
       const cfgProbe = probe.ok ? await probe.json() : { writable:false, source:'env' };
       if (!cfgProbe.writable) {
         alert('Configurações gerenciadas por ambiente. Edite no Vercel/variáveis de ambiente.');
         return;
       }
-      const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, mpAccessToken, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, mpAccessToken, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
       const stat = document.getElementById('mpTokenStatus');
@@ -1407,7 +1409,9 @@ if(saveMpTokenBtn){
 // Prefill token no Admin
 (async ()=>{
   try{
-    const res = await fetch('/api/config');
+    const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || 'https://gouflix.discloud.app';
+    const apiUrl = (p)=> `${API_BASE}${p}`;
+    const res = await fetch(apiUrl('/api/config'));
     if(res.ok){
       const cfg = await res.json();
       const pub = document.getElementById('publicUrl');
