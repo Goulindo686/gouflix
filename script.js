@@ -14,6 +14,81 @@ window.BULK_PAGES = { filme: 0, serie: 0 };
 window.__ENV = {};
 window.supabaseClient = null;
 let CURRENT_USER = null;
+
+// Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
+(function initConsoleSanitizer(){
+  try{
+    const SECRET_KEYS = [
+      'supabase_anon_key','supabase_key','SUPABASE_ANON_KEY','SUPABASE_KEY','mp_access_token','MERCADOPAGO_ACCESS_TOKEN',
+      'MP_ACCESS_TOKEN','TMDB_TOKEN','nextauth_secret','NEXTAUTH_SECRET','NEXTAUTH_URL','token','auth','authorization',
+      'bearer','session','cookie','secret','password','api_key','apikey','key'
+    ];
+    const MASK = '[REDACTED]';
+    const keySet = new Set(SECRET_KEYS.map(k=>k.toLowerCase()));
+
+    function sanitizeString(s){
+      try{
+        let out = String(s);
+        out = out.replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/gi, 'Bearer '+MASK);
+        out = out.replace(/([?&])(token|key|apikey|auth|access_token)=([^&#]+)/gi, `$1$2=${MASK}`);
+        // mascarar sequências longas (possíveis chaves)
+        out = out.replace(/[A-Za-z0-9_\-]{32,}/g, MASK);
+        // mascarar JWTs
+        out = out.replace(/eyJ[A-Za-z0-9._\-]+\.[A-Za-z0-9._\-]+\.[A-Za-z0-9._\-]+/g, MASK);
+        return out;
+      }catch{ return s; }
+    }
+
+    function sanitizeAny(v, seen){
+      if(v == null) return v;
+      const t = typeof v;
+      if(t === 'string') return sanitizeString(v);
+      if(t !== 'object') return v;
+      return deepCloneSanitize(v, seen);
+    }
+
+    function deepCloneSanitize(obj, seen = new WeakMap()){
+      try{
+        if(seen.has(obj)) return '[Circular]';
+        if(Array.isArray(obj)){
+          const arr = [];
+          seen.set(obj, arr);
+          for(const item of obj){ arr.push(sanitizeAny(item, seen)); }
+          return arr;
+        }
+        const out = {};
+        seen.set(obj, out);
+        Object.keys(obj).forEach((k)=>{
+          const lower = k.toLowerCase();
+          if(keySet.has(lower) || /token|key|secret|password|auth|bearer|session|cookie/i.test(lower)){
+            out[k] = MASK;
+          } else {
+            out[k] = sanitizeAny(obj[k], seen);
+          }
+        });
+        return out;
+      }catch{ return obj; }
+    }
+
+    const c = console;
+    const orig = {
+      log: c.log && c.log.bind(c), info: c.info && c.info.bind(c), warn: c.warn && c.warn.bind(c), error: c.error && c.error.bind(c),
+      debug: c.debug && c.debug.bind(c), table: c.table && c.table.bind(c), dir: c.dir && c.dir.bind(c), trace: c.trace && c.trace.bind(c),
+      group: c.group && c.group.bind(c), groupCollapsed: c.groupCollapsed && c.groupCollapsed.bind(c)
+    };
+    function wrap(name){
+      if(!orig[name]) return;
+      console[name] = function(){
+        try{
+          const args = Array.from(arguments).map(a => sanitizeAny(a));
+          orig[name].apply(c, args);
+        }catch{ orig[name].apply(c, arguments); }
+      };
+    }
+    ['log','info','warn','error','debug','table','dir','trace','group','groupCollapsed'].forEach(wrap);
+  }catch(_){ /* silencioso */ }
+})();
+
 async function initEnvAndSupabase(){
   try{
     const res = await fetch('/api/env');

@@ -227,7 +227,9 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('X-Frame-Options', 'DENY');
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+      // Reverter CSP padrão anterior (permitindo CDN e conexões HTTPS gerais)
       res.setHeader('Content-Security-Policy', "default-src 'self' https: data:; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'");
+      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
       const params = new URLSearchParams(queryStr || '');
       // /api/env para local (sem rewrite do Vercel)
       if (urlPath === '/api/env' && req.method === 'GET') {
@@ -455,7 +457,9 @@ const server = http.createServer(async (req, res) => {
       res.setHeader('X-Frame-Options', 'DENY');
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+      // Reverter CSP padrão anterior (permitindo CDN e conexões HTTPS gerais)
       res.setHeader('Content-Security-Policy', "default-src 'self' https: data:; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'");
+      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
       fs.createReadStream(target).pipe(res);
     } else {
       res.statusCode = 404;
