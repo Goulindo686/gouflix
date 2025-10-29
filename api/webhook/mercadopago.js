@@ -41,12 +41,22 @@ export default async function handler(req, res){
       let activated = false;
       if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
         try{
-          const payload = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso, start_at: startIso, end_at: endIso }];
-          const r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
+          // Variante A (status/plan + start_date/end_date)
+          const payloadA = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso }];
+          let r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
             method:'POST',
             headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payloadA)
           });
+          if(!r2.ok){
+            // Fallback: Variante B (active/plan_id + start_at/end_at)
+            const payloadB = [{ user_id: userId, plan_id: plan, active: true, start_at: startIso, end_at: endIso }];
+            r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
+              method:'POST',
+              headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
+              body: JSON.stringify(payloadB)
+            });
+          }
           if(r2.ok){ activated = true; }
           else { console.error('Supabase activation failed', await r2.text()); }
         }catch(err){ console.error('Supabase activation error', err); }
