@@ -163,6 +163,11 @@
             <input id="mpAccessToken" type="password" placeholder="Prod/TEST access_token" />
             <small id="mpTokenStatus" style="display:block;margin-top:4px;color:#888">Token não configurado</small>
           </div>
+          <div class="field-group" style="flex:1;min-width:280px">
+            <label for="discordInviteUrl">Link do Discord (invite)</label>
+            <input id="discordInviteUrl" type="text" placeholder="https://discord.gg/xxxxx" />
+            <small style="display:block;margin-top:4px;color:#888">Este link atualiza o botão flutuante no site.</small>
+          </div>
           <button id="saveMpTokenBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
         </div>
         <p class="panel-tip">O token é armazenado no servidor (Supabase/arquivo local) e não fica no código-fonte.</p>
@@ -222,6 +227,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Botão flutuante do Discord -->
+  <a id="discordFloatingBtn" class="floating-discord" href="#" target="_blank" rel="noopener noreferrer" aria-label="Entrar no Discord" title="Discord">Discord</a>
 
   <footer class="footer">
     <p>© 2025 GouFlix</p>

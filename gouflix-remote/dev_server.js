@@ -53,7 +53,7 @@ function ensureState() {
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0, mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '' } };
+  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0, mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
 }
 function normalizeState(s) {
   const state = s || {};
@@ -66,6 +66,7 @@ function normalizeState(s) {
   if (typeof state.config.bootstrapAuto === 'undefined') state.config.bootstrapAuto = !!(process.env.BOOTSTRAP_AUTO || false);
   if (!state.config.bootstrapDone) state.config.bootstrapDone = 0;
   if (typeof state.config.mpAccessToken === 'undefined') state.config.mpAccessToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
+  if (typeof state.config.discordInviteUrl === 'undefined') state.config.discordInviteUrl = process.env.DISCORD_INVITE_URL || '';
   return state;
 }
 
@@ -252,7 +253,7 @@ const server = http.createServer(async (req, res) => {
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         const isAdmin = ensureIsAdminLocal(req);
         const hasMpAccessToken = !!(cfg.mpAccessToken && String(cfg.mpAccessToken).length);
-        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0, writable: !!isAdmin, hasMpAccessToken }));
+        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0, writable: !!isAdmin, hasMpAccessToken, discordInviteUrl: cfg.discordInviteUrl || '' }));
         return;
       }
       if (urlPath === '/api/config' && req.method === 'POST') {
@@ -264,6 +265,7 @@ const server = http.createServer(async (req, res) => {
         if (body.bootstrapMoviesUrl !== undefined) state.config.bootstrapMoviesUrl = body.bootstrapMoviesUrl || '';
         if (body.bootstrapAuto !== undefined) state.config.bootstrapAuto = !!body.bootstrapAuto;
         if (body.mpAccessToken !== undefined) state.config.mpAccessToken = String(body.mpAccessToken || '');
+        if (body.discordInviteUrl !== undefined) state.config.discordInviteUrl = String(body.discordInviteUrl || '');
         await writeState(state);
         res.end(JSON.stringify({ ok: true, config: { ...state.config, mpAccessToken: undefined } }));
         return;

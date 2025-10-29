@@ -14,6 +14,7 @@ export default async function handler(req, res) {
   };
   const COOKIES = parseCookies(req.headers?.cookie || '');
   const COOKIE_PUBLIC = COOKIES['public_url'] || null;
+  const COOKIE_DISCORD = COOKIES['discord_invite_url'] || null;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     // Sem Supabase: permitir leitura de env/cookies e escrita em cookies
@@ -27,6 +28,7 @@ export default async function handler(req, res) {
         ok: true,
         writable: true,
         publicUrl: COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
+        discordInviteUrl: COOKIE_DISCORD || null,
         ...ENV_EXTRA,
       });
     }
@@ -35,11 +37,13 @@ export default async function handler(req, res) {
       const pub = body?.publicUrl || '';
       const bm = body?.bootstrapMoviesUrl || '';
       const ba = !!body?.bootstrapAuto;
+      const di = body?.discordInviteUrl || '';
       const cookieBase = `Path=/; HttpOnly; SameSite=Lax; Secure`;
       res.setHeader('Set-Cookie', [
         `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `discord_invite_url=${encodeURIComponent(di||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
       ]);
       return res.status(200).json({ ok: true, source: 'cookie' });
     }
@@ -80,6 +84,7 @@ export default async function handler(req, res) {
         bootstrapMoviesUrl: row?.bootstrap_movies_url || null,
         bootstrapAuto: !!row?.bootstrap_auto,
         hasMpAccessToken: !!row?.mp_access_token,
+        discordInviteUrl: row?.discord_invite_url || COOKIE_DISCORD || null,
         ...ENV_EXTRA,
       });
     }
@@ -97,6 +102,7 @@ export default async function handler(req, res) {
           bootstrap_movies_url: body?.bootstrapMoviesUrl || null,
           bootstrap_auto: !!body?.bootstrapAuto,
           mp_access_token: body?.mpAccessToken || null,
+          discord_invite_url: body?.discordInviteUrl || null,
           updated_at: new Date().toISOString(),
         };
         const upsertUrl = `${base}?on_conflict=id`;
@@ -117,10 +123,12 @@ export default async function handler(req, res) {
       const pub = body?.publicUrl || '';
       const bm = body?.bootstrapMoviesUrl || '';
       const ba = !!body?.bootstrapAuto;
+      const di = body?.discordInviteUrl || '';
       res.setHeader('Set-Cookie', [
         `public_url=${encodeURIComponent(pub||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_movies_url=${encodeURIComponent(bm||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
         `bootstrap_auto=${ba?1:0}; Max-Age=${60*60*24*30}; ${cookieBase}`,
+        `discord_invite_url=${encodeURIComponent(di||'')}; Max-Age=${60*60*24*30}; ${cookieBase}`,
       ]);
       return res.status(200).json({ ok: true, source: 'cookie' });
     }
