@@ -218,23 +218,7 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 /* Garantir que o modal permaneça oculto quando tiver a classe .hidden */
 .payment-modal.hidden { display: none; }
 
-/* Formulários de autenticação */
-.auth-form{ display:flex; flex-direction:column; gap:8px; }
-.auth-form label{ color:#ddd; font-size:14px; }
-.auth-form input{ background:#101010; border:1px solid #333; color:#eee; padding:8px 10px; border-radius:6px; }
-.auth-form .remember{ display:flex; align-items:center; gap:8px; color:#bbb; font-size:13px; }
-
-/* Gate de Login/Registro */
-.login-modal{ position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:10000; }
-.login-modal.hidden{ display:none; }
-.login-modal-content{ background:#141414; border:1px solid #2a2a2c; border-radius:12px; width:90%; max-width:420px; overflow:hidden; }
-.login-header{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #2a2a2c; }
-.login-header h3{ margin:0; font-size:18px; color:#fff; }
-.close-login{ background:none; border:none; color:#bbb; font-size:22px; cursor:pointer; }
-.close-login:hover{ color:#fff; }
-.login-body{ padding:16px 18px; }
-.auth-tabs .btn{ padding:8px 12px; }
-.auth-tabs .btn.active{ background:var(--accent); color:#000; }
+/* (Removidos estilos de gate de autenticação local) */
 
 .payment-modal-content {
   background: #1a1a1a;
