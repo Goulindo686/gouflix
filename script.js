@@ -1248,26 +1248,57 @@ function normalizeFromDetails(type, details){
 }
 
 async function fetchBulkFromTmdb(kind){
-  const limit = 12;
+  const limit = 24; // aumenta quantidade por requisição
+  // memória de sessão para evitar repetir itens entre puxadas
+  window.BULK_SEEN = window.BULK_SEEN || { filme: new Set(), serie: new Set() };
+
+  const shuffle = (arr) => {
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
   const makeList = async (type) => {
-    // Avançar página para sempre trazer novos itens
-    const page = (type === 'serie' ? (window.BULK_PAGES.serie = (window.BULK_PAGES.serie||0) + 1) : (window.BULK_PAGES.filme = (window.BULK_PAGES.filme||0) + 1));
-    const url = `/api/tmdb/list?type=${type}&page=${page}`;
-    const r = await fetch(apiUrl(url));
-    if(!r.ok) throw new Error('TMDB lista falhou');
-    const json = await r.json();
-    const base = (json.results||[]).slice(0, limit);
+    const seen = window.BULK_SEEN[type] || new Set();
+    const selected = [];
+    let tries = 0;
+    while(selected.length < limit && tries < 4){
+      // Avançar página para sempre trazer novos itens
+      const page = (type === 'serie' ? (window.BULK_PAGES.serie = (window.BULK_PAGES.serie||0) + 1) : (window.BULK_PAGES.filme = (window.BULK_PAGES.filme||0) + 1));
+      const url = `/api/tmdb/list?type=${type}&page=${page}`;
+      const r = await fetch(apiUrl(url));
+      if(!r.ok) throw new Error('TMDB lista falhou');
+      const json = await r.json();
+      const raw = (json.results||[]);
+      // remove ids já vistos nesta sessão
+      const unseen = raw.filter(it => !seen.has(it.id));
+      // aleatório para variar conteúdos
+      const pick = shuffle(unseen).slice(0, Math.min(limit - selected.length, unseen.length));
+      selected.push(...pick);
+      // marca como visto para próximas puxadas
+      pick.forEach(it => seen.add(it.id));
+      tries++;
+      if(unseen.length === 0) break; // evita loop inútil quando página esgotada
+    }
+
     const out = [];
-    for(const it of base){
+    for(const it of selected){
       try{
         const det = await fetchTmdbDetails(type, it.id);
-        out.push(normalizeFromDetails(type, det));
+        const norm = normalizeFromDetails(type, det);
+        out.push(norm);
+        // reforça marcação com tmdbId normalizado
+        seen.add(norm.tmdbId);
       }catch(_){ /* ignora item com erro */ }
     }
     // Filtrar duplicados já adicionados ao site
     const already = window.ALL_MOVIES || [];
     const filtered = out.filter(it => !already.some(m => m.tmdbId === it.tmdbId && (m.type||'filme') === it.type));
-    return filtered;
+    // persiste set atualizado
+    window.BULK_SEEN[type] = seen;
+    return filtered.slice(0, limit);
   };
   if(kind === 'filme') return await makeList('filme');
   if(kind === 'serie') return await makeList('serie');
@@ -1280,7 +1311,7 @@ async function fetchBulkFromTmdb(kind){
     if(movies[i]) mixed.push(movies[i]);
     if(series[i]) mixed.push(series[i]);
   }
-  return mixed.slice(0, limit);
+  return shuffle(mixed).slice(0, limit);
 }
 
 function renderBulkResults(items){
