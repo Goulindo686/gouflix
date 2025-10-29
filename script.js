@@ -1,6 +1,6 @@
 // script.js - versão moderna estilo Netflix
 let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
-let TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTJkNGMzMzUxMzcwZWI4NjNiNzljYzZkZGE3YmI4MSIsIm5iZiI6MTc2MTU0MTY5NC4zNTMsInN1YiI6IjY4ZmVmZTNlMTU2MThmMDM5OGRhMDIwMCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Raq9U3uybPj034WxjdiVEdbycZ0VBUQRokSgaN5rjlo';
+let TMDB_TOKEN = null;
 let TMDB_BASE = 'https://api.themoviedb.org/3';
 let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 // Base sem tamanho para montar banners responsivos
@@ -14,6 +14,14 @@ window.BULK_PAGES = { filme: 0, serie: 0 };
 window.__ENV = {};
 window.supabaseClient = null;
 let CURRENT_USER = null;
+
+// Helper para construir URL de API suportando base remota (ex.: Vercel)
+function apiUrl(p){
+  try{
+    const base = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || '';
+    return base ? `${base}${p}` : p;
+  }catch(_){ return p; }
+}
 
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
 (function initConsoleSanitizer(){
@@ -187,14 +195,15 @@ async function initEnvAndSupabase(){
       window.__ENV = env || {};
       TMDB_BASE = env.TMDB_BASE || TMDB_BASE;
       TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
-      TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
-      window.ADMIN_IDS = String(env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
-      window.ADMIN_USERNAMES = String(env.ADMIN_USERNAMES||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-      const url = env.SUPABASE_URL;
-      const key = env.SUPABASE_ANON_KEY;
-      if(url && key && window.supabase){
-        window.supabaseClient = window.supabase.createClient(url, key);
-      }
+      // Sanitizado: não carregar Supabase/ADMIN/TMDB_TOKEN no browser
+    }
+  }catch(_){/* ignore */}
+  // Fallback para ambientes estáticos (GitHub Pages): meta tag
+  try{
+    const meta = document.querySelector('meta[name="config-api-base-url"]');
+    if(meta && meta.content){
+      window.__ENV = window.__ENV || {};
+      window.__ENV.CONFIG_API_BASE_URL = meta.content;
     }
   }catch(_){/* ignore */}
 }
@@ -745,11 +754,7 @@ function updateUserArea(){
 }
 
 function isAdminUser(){
-  const ids = window.ADMIN_IDS || [];
-  const names = window.ADMIN_USERNAMES || [];
-  const uid = CURRENT_USER && CURRENT_USER.id ? String(CURRENT_USER.id) : null;
-  const uname = (CURRENT_USER && CURRENT_USER.username ? String(CURRENT_USER.username).toLowerCase() : null);
-  return !!((uid && ids.includes(uid)) || (uname && names.includes(uname)));
+  return !!window.ADMIN_WRITABLE;
 }
 
 function setRobotsMeta(content){
@@ -1099,16 +1104,9 @@ function renderAdminPreview(data){
 }
 
 // ---- Importação em massa (IMDb/SuperFlix via TMDB) ----
-function tmdbHeaders(){
-  return {
-    Authorization: `Bearer ${TMDB_TOKEN}`,
-    'Content-Type': 'application/json;charset=utf-8'
-  };
-}
-
 async function fetchTmdbDetails(type, id){
-  const endpoint = type === 'serie' ? `${TMDB_BASE}/tv/${id}?language=pt-BR&append_to_response=external_ids` : `${TMDB_BASE}/movie/${id}?language=pt-BR&append_to_response=external_ids`;
-  const r = await fetch(endpoint, { headers: tmdbHeaders() });
+  const endpoint = `/api/tmdb/details?type=${type}&id=${encodeURIComponent(id)}`;
+  const r = await fetch(apiUrl(endpoint));
   if(!r.ok) throw new Error('TMDB detalhe falhou');
   return await r.json();
 }
@@ -1130,8 +1128,8 @@ async function fetchBulkFromTmdb(kind){
   const makeList = async (type) => {
     // Avançar página para sempre trazer novos itens
     const page = (type === 'serie' ? (window.BULK_PAGES.serie = (window.BULK_PAGES.serie||0) + 1) : (window.BULK_PAGES.filme = (window.BULK_PAGES.filme||0) + 1));
-    const url = type === 'serie' ? `${TMDB_BASE}/tv/popular?language=pt-BR&page=${page}` : `${TMDB_BASE}/movie/popular?language=pt-BR&page=${page}`;
-    const r = await fetch(url, { headers: tmdbHeaders() });
+    const url = `/api/tmdb/list?type=${type}&page=${page}`;
+    const r = await fetch(apiUrl(url));
     if(!r.ok) throw new Error('TMDB lista falhou');
     const json = await r.json();
     const base = (json.results||[]).slice(0, limit);
@@ -1246,15 +1244,6 @@ async function handleAdminSearch(){
 
 async function fetchTmdbById(type, id){
   // Tenta o endpoint do tipo selecionado; se 404, tenta o tipo alternativo.
-  const endpoints = {
-    filme: `${TMDB_BASE}/movie/${id}?language=pt-BR`,
-    serie: `${TMDB_BASE}/tv/${id}?language=pt-BR`
-  };
-  const headers = {
-    Authorization: `Bearer ${TMDB_TOKEN}`,
-    'Content-Type': 'application/json;charset=utf-8'
-  };
-
   const primary = type === 'serie' ? 'serie' : 'filme';
   const secondary = primary === 'filme' ? 'serie' : 'filme';
 
@@ -1282,23 +1271,21 @@ async function fetchTmdbById(type, id){
     };
   };
 
-  // Primeiro: tentar o tipo primário
-  let res = await fetch(endpoints[primary], { headers });
+  // Primeiro: tentar o tipo primário via proxy
+  let res = await fetch(apiUrl(`/api/tmdb/details?type=${primary}&id=${encodeURIComponent(id)}`));
   if(res.ok){
     const json = await res.json();
     return mapJson(json, primary);
   }
   // Se 404, tenta automaticamente o tipo alternativo
   if(res.status === 404){
-    const res2 = await fetch(endpoints[secondary], { headers });
+    const res2 = await fetch(apiUrl(`/api/tmdb/details?type=${secondary}&id=${encodeURIComponent(id)}`));
     if(res2.ok){
       const json2 = await res2.json();
       return mapJson(json2, secondary);
     }
-    // Mensagem mais clara para 404
     throw new Error(`TMDB erro 404: ID não encontrado para ${primary}. Tente ${secondary}.`);
   }
-  // Outros erros: repassar status
   throw new Error(`TMDB erro ${res.status}`);
 }
 
@@ -1408,6 +1395,8 @@ if(saveMpTokenBtn){
     const res = await fetch(apiUrl('/api/config'));
     if(res.ok){
       const cfg = await res.json();
+      window.ADMIN_WRITABLE = !!cfg.writable;
+      try{ applyAdminVisibility(); }catch(_){}
       const pub = document.getElementById('publicUrl');
       if(pub) pub.value = cfg.publicUrl || 'https://gouflix.discloud.app';
       const bm = document.getElementById('bootstrapMoviesUrl');

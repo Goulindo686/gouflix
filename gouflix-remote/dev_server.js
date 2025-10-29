@@ -235,16 +235,40 @@ const server = http.createServer(async (req, res) => {
       // /api/env para local (sem rewrite do Vercel)
       if (urlPath === '/api/env' && req.method === 'GET') {
         res.end(JSON.stringify({
-          SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
-          SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null,
           TMDB_BASE: process.env.TMDB_BASE || 'https://api.themoviedb.org/3',
           TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
-          TMDB_TOKEN: process.env.TMDB_TOKEN || null,
           NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
-          ADMIN_IDS: process.env.ADMIN_IDS || null,
-          ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
           CONFIG_API_BASE_URL: process.env.CONFIG_API_BASE_URL || null,
         }));
+        return;
+      }
+
+      // ---- TMDB proxy endpoints ----
+      if (urlPath.startsWith('/api/tmdb/details') && req.method === 'GET') {
+        const paramsObj = new URLSearchParams(queryStr || '');
+        const type = paramsObj.get('type') === 'serie' ? 'tv' : 'movie';
+        const id = paramsObj.get('id');
+        if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'missing id' })); return; }
+        const base = process.env.TMDB_BASE || 'https://api.themoviedb.org/3';
+        const token = process.env.TMDB_TOKEN || '';
+        const endpoint = `${base}/${type}/${encodeURIComponent(id)}?language=pt-BR&append_to_response=external_ids`;
+        const r = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json;charset=utf-8' } });
+        if(!r.ok){ res.statusCode = r.status; res.end(JSON.stringify({ ok:false, error:'tmdb', status:r.status })); return; }
+        const json = await r.json();
+        res.end(JSON.stringify(json));
+        return;
+      }
+      if (urlPath.startsWith('/api/tmdb/list') && req.method === 'GET') {
+        const paramsObj = new URLSearchParams(queryStr || '');
+        const type = paramsObj.get('type') === 'serie' ? 'tv' : 'movie';
+        const page = paramsObj.get('page') || '1';
+        const base = process.env.TMDB_BASE || 'https://api.themoviedb.org/3';
+        const token = process.env.TMDB_TOKEN || '';
+        const endpoint = `${base}/${type}/popular?language=pt-BR&page=${encodeURIComponent(page)}`;
+        const r = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json;charset=utf-8' } });
+        if(!r.ok){ res.statusCode = r.status; res.end(JSON.stringify({ ok:false, error:'tmdb', status:r.status })); return; }
+        const json = await r.json();
+        res.end(JSON.stringify(json));
         return;
       }
       // ----- CONFIG -----

@@ -2,15 +2,11 @@ export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const ENV_PUBLIC_URL = process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`;
+  // Sanitizado: nunca expor segredos ao frontend
   const ENV_EXTRA = {
-    SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null,
     TMDB_BASE: process.env.TMDB_BASE || 'https://api.themoviedb.org/3',
     TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
-    TMDB_TOKEN: process.env.TMDB_TOKEN || null,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
-    ADMIN_IDS: process.env.ADMIN_IDS || null,
-    ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
     CONFIG_API_BASE_URL: process.env.CONFIG_API_BASE_URL || null,
   };
   const COOKIES = parseCookies(req.headers?.cookie || '');
@@ -20,7 +16,7 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     // Sem Supabase: permitir leitura de env/cookies e escrita em cookies
     if (req.method === 'GET') {
-      // Se solicitado como /api/env via rewrite, retornar apenas os envs esperados
+      // Se solicitado como /api/env via rewrite, retornar apenas envs não sensíveis
       if (String(req.query?.env || '').length) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(ENV_EXTRA);
