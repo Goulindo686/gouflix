@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "public": true,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/env", "destination": "/api/config?env=1" },
+    { "source": "/api/state/add", "destination": "/api/state?action=add" },
+    { "source": "/api/state/remove", "destination": "/api/state?action=remove" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

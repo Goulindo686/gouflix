@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="index, follow" />
+  <title>GouFlix — Explore Filmes e Séries</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="navbar">
+    <h1 class="logo">Gou<span>Flix</span></h1>
+    <nav>
+      <a href="#" id="navHome">Início</a>
+      <a href="#" id="navFilmes">Filmes</a>
+      <a href="#" id="navSeries">Séries</a>
+      <a href="#" id="navLista">Minha Lista</a>
+      <a href="#" id="navPlans">Planos</a>
+      <a href="#" id="navAdmin" rel="nofollow">Admin</a>
+    </nav>
+    <div class="navbar-right">
+      <div class="search-box">
+        <input id="search" type="text" placeholder="Buscar..." />
+      </div>
+      <div id="userArea" class="user-area">
+        <button id="loginBtn" class="btn secondary">Entrar com Discord</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <!-- Slides dinâmicos do topo -->
+    <div class="hero-slides" id="heroSlides"></div>
+    <div class="hero-content">
+      <h2>Descubra o melhor do cinema</h2>
+      <p>Filmes e séries incríveis te esperam. Explore agora mesmo.</p>
+      <button class="btn primary">Explorar</button>
+    </div>
+  </section>
+
+  <main id="mainContent" class="content">
+    <div id="sections"></div>
+  </main>
+
+  <!-- Página de Planos -->
+  <section id="plansPage" class="plans hidden">
+    <div class="plans-header">
+      <h2>Escolha seu plano</h2>
+      <p>Assine para liberar acesso imediato aos filmes e séries.</p>
+    </div>
+    <div class="plans-grid">
+      <div class="plan-card" data-plan="mensal">
+        <h3>Mensal</h3>
+        <div class="price">R$ 19,90</div>
+        <ul class="benefits">
+          <li>Acesso ilimitado</li>
+          <li>Sem anúncios</li>
+          <li>Suporte rápido</li>
+        </ul>
+        <button class="btn primary plan-buy" data-plan="mensal">Assinar Mensal</button>
+      </div>
+      <div class="plan-card popular" data-plan="trimestral">
+        <div class="badge">Mais vantajoso</div>
+        <h3>Trimestral</h3>
+        <div class="price">R$ 49,90</div>
+        <ul class="benefits">
+          <li>Acesso ilimitado</li>
+          <li>Sem anúncios</li>
+          <li>Economia por mês</li>
+        </ul>
+        <button class="btn primary plan-buy" data-plan="trimestral">Assinar Trimestral</button>
+      </div>
+      <div class="plan-card" data-plan="anual">
+        <h3>Anual</h3>
+        <div class="price">R$ 147,90</div>
+        <ul class="benefits">
+          <li>Acesso ilimitado</li>
+          <li>Sem anúncios</li>
+          <li>Melhor custo-benefício</li>
+        </ul>
+        <button class="btn primary plan-buy" data-plan="anual">Assinar Anual</button>
+      </div>
+    </div>
+    <p class="plans-tip">Pagamento via Mercado Pago (Pix): QR Code e copiar e colar.</p>
+  </section>
+
+  
+
+  <section id="adminPanel" class="admin hidden">
+    <div class="admin-header">
+      <h2>Adicionar Novo Conteúdo</h2>
+    </div>
+    <div class="admin-form panel">
+      <div class="panel-inner">
+        <div class="field-group">
+          <label>Tipo de Conteúdo</label>
+          <div class="radio-group">
+            <label><input type="radio" name="adminType" value="filme" checked /> Filme</label>
+            <label><input type="radio" name="adminType" value="serie" /> Série</label>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Destino de exibição</label>
+          <div class="radio-group">
+            <label><input type="radio" name="adminTarget" value="home" checked /> Home (fileira)</label>
+            <label><input type="radio" name="adminTarget" value="filmes" /> Apenas aba Filmes</label>
+            <label><input type="radio" name="adminTarget" value="series" /> Apenas aba Séries</label>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="adminRow">Fileira na Home</label>
+          <select id="adminRow">
+            <option value="recomendados" selected>Recomendados</option>
+            <option value="mais-assistidos">Mais assistidos</option>
+            <option value="ultimos-lancamentos">Últimos lançamentos</option>
+          </select>
+        </div>
+        <div class="field-group" style="flex:1;min-width:280px">
+          <label for="adminTmdbId">ID do TMDB</label>
+          <input id="adminTmdbId" type="text" placeholder="Ex.: 603 (Matrix)" />
+        </div>
+        <button id="adminSearchBtn" class="btn primary">Buscar</button>
+      </div>
+      <p class="panel-tip">Digite o ID, escolha o tipo e clique em Buscar. Você poderá adicionar ao site ou remover itens na lista abaixo.</p>
+      
+      <div class="panel" style="margin-top:12px">
+        <h3 class="section-title">Importação em massa</h3>
+        <p class="panel-tip">Puxar vários títulos de uma vez e adicionar à fileira escolhida.</p>
+        <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="bulkMoviesBtn" class="btn secondary">Puxar só filmes</button>
+          <button id="bulkSeriesBtn" class="btn secondary">Puxar séries</button>
+          <button id="bulkMixedBtn" class="btn secondary">Puxar misturado</button>
+          <button id="bulkAddAllBtn" class="btn primary" style="margin-left:auto" disabled>Adicionar todos</button>
+        </div>
+        <div id="bulkResults" class="admin-results" style="margin-top:10px"></div>
+      </div>
+
+      <div class="panel-inner" style="margin-top:12px">
+        <div class="field-group" style="flex:1;min-width:280px">
+          <label for="bootstrapMoviesUrl">Bootstrap Movies URL</label>
+          <input id="bootstrapMoviesUrl" type="text" placeholder="https://.../movies.json" />
+        </div>
+      </div>
+      <div class="panel-inner" style="margin-top:8px;align-items:center">
+        <label style="display:flex;gap:8px;align-items:center"><input id="bootstrapAuto" type="checkbox"/> Executar automaticamente ao iniciar (Discloud)</label>
+        <button id="runBootstrapBtn" class="btn primary" style="margin-left:auto">Executar bootstrap agora</button>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <h3 class="section-title">Configurações do Site</h3>
+        <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="field-group" style="flex:1;min-width:280px">
+            <label for="publicUrl">URL pública do site</label>
+            <input id="publicUrl" type="text" placeholder="https://seu-dominio.com" />
+          </div>
+          <div class="field-group" style="flex:1;min-width:280px">
+            <label for="mpAccessToken">Mercado Pago Access Token</label>
+            <input id="mpAccessToken" type="password" placeholder="Prod/TEST access_token" />
+            <small id="mpTokenStatus" style="display:block;margin-top:4px;color:#888">Token não configurado</small>
+          </div>
+          <button id="saveMpTokenBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
+        </div>
+        <p class="panel-tip">O token é armazenado no servidor (Supabase/arquivo local) e não fica no código-fonte.</p>
+      </div>
+    </div>
+
+    <div id="adminResults" class="admin-results"></div>
+
+  <div class="admin-list panel">
+    <h3 class="section-title">Conteúdos no Site</h3>
+    <div class="panel-inner" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input id="adminSearchInput" type="text" placeholder="Buscar por título para remover..." style="flex:1;min-width:240px" />
+    </div>
+    <div id="adminItems" class="items"></div>
+  </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h3 class="section-title">Assinaturas</h3>
+      <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="radio-group" style="display:flex;gap:12px">
+          <label><input type="radio" name="subsFilter" value="all" checked /> Todas</label>
+          <label><input type="radio" name="subsFilter" value="active" /> Ativas</label>
+          <label><input type="radio" name="subsFilter" value="inactive" /> Inativas</label>
+        </div>
+        <button id="refreshSubsBtn" class="btn secondary" style="margin-left:auto">Atualizar</button>
+      </div>
+      <div id="subsTable" class="admin-results" style="margin-top:10px"></div>
+    </div>
+
+    
+  </section>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-inner">
+      <button id="closeModal" class="close">&times;</button>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal de Pagamento -->
+  <div id="paymentModal" class="payment-modal hidden">
+    <div class="payment-modal-content">
+      <div class="payment-header">
+        <h3>Pagamento Pix (Mercado Pago)</h3>
+        <button id="closePayment" class="close-payment">&times;</button>
+      </div>
+      <div class="payment-body">
+        <div id="qrCodeContainer">
+          <img id="qrCodeImage" src="" alt="QR Code Pix" />
+        </div>
+        <div class="payment-instructions">
+          Escaneie o QR Code ou use o Pix copiar e colar.
+        </div>
+        <div class="payment-status" id="paymentStatus">Aguardando pagamento...</div>
+        <div id="pixCode" style="color:#ddd;font-size:12px;word-break:break-all;margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>© 2025 GouFlix — Site de demonstração</p>
+  </footer>
+
+  
+  <!-- Supabase JS (UMD CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="script.js"></script>
+  
+  
+</body>
+</html>

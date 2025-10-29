@@ -7,6 +7,17 @@ let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 function tmdbImgBase(){
   try{ return String(TMDB_IMG||'').replace(/\/w\d+$/, ''); }catch(_){ return 'https://image.tmdb.org/t/p'; }
 }
+// Construir URL robusta de poster mesmo que TMDB_IMG venha sem tamanho
+function tmdbPosterUrl(path){
+  try{
+    if(!path) return '';
+    const base = tmdbImgBase();
+    let size = 'w500';
+    const m = String(TMDB_IMG||'').match(/\/(w\d+|original)$/);
+    if(m) size = m[1];
+    return `${base}/${size}${path}`;
+  }catch(_){ return ''; }
+}
 // Paginação dos lotes para sempre trazer conteúdos novos
 window.BULK_PAGES = { filme: 0, serie: 0 };
 
@@ -904,7 +915,7 @@ function normalizeFromDetails(type, details){
   const title = type === 'serie' ? (details.name || details.original_name) : (details.title || details.original_title);
   const year = (type === 'serie' ? (details.first_air_date||'') : (details.release_date||'')).slice(0,4);
   const genres = Array.isArray(details.genres) ? details.genres.map(g=>g.name) : [];
-  const poster = details.poster_path ? `${TMDB_IMG}${details.poster_path}` : '';
+  const poster = details.poster_path ? tmdbPosterUrl(details.poster_path) : '';
   const description = details.overview || '';
   const bannerPath = details.backdrop_path || '';
   return { type, tmdbId, imdbId, title, year, genres, poster, description, bannerPath };
@@ -1052,7 +1063,7 @@ async function fetchTmdbById(type, id){
         title: json.name,
         year: (json.first_air_date||'').slice(0,4),
         description: json.overview,
-        poster: json.poster_path ? `${TMDB_IMG}${json.poster_path}` : '',
+        poster: json.poster_path ? tmdbPosterUrl(json.poster_path) : '',
         genres: (json.genres||[]).map(g=>g.name)
       };
     }
@@ -1062,7 +1073,7 @@ async function fetchTmdbById(type, id){
       title: json.title,
       year: (json.release_date||'').slice(0,4),
       description: json.overview,
-      poster: json.poster_path ? `${TMDB_IMG}${json.poster_path}` : '',
+      poster: json.poster_path ? tmdbPosterUrl(json.poster_path) : '',
       genres: (json.genres||[]).map(g=>g.name)
     };
   };

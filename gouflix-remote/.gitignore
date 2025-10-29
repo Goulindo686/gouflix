@@ -1,0 +1,11 @@
+# Node/JS
+node_modules/
+.env
+*.log
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+
+# Dados sensíveis
+data/state.json
