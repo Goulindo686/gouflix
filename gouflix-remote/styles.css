@@ -151,14 +151,17 @@ nav a.active{color:var(--text)}
 
 /* Mobile refinements (sem alterar desktop) */
 @media (max-width: 480px){
-  .navbar{padding:14px 16px;flex-wrap:wrap;gap:8px;background:rgba(0,0,0,0.9)}
-  .logo{font-size:22px;flex:1}
-  .navbar-right{flex:1;justify-content:flex-end}
-  .search-box input{max-width:56vw}
-  .navbar nav{order:3;width:100%;display:flex;gap:10px;overflow-x:auto;white-space:nowrap;padding:4px 0;-webkit-overflow-scrolling:touch}
-  .navbar nav a{margin:0 8px;font-size:14px}
+  .navbar{padding:14px 16px;background:rgba(0,0,0,0.9);
+    display:grid;grid-template-columns:1fr auto;grid-template-areas:
+    'logo right'
+    'nav nav';gap:8px;align-items:center}
+  .logo{grid-area:logo;font-size:clamp(18px,4.5vw,24px)}
+  .navbar-right{grid-area:right;display:flex;gap:8px;justify-content:flex-end}
+  .search-box input{width:clamp(140px,48vw,240px);height:clamp(30px,7vw,36px)}
+  .navbar nav{grid-area:nav;display:flex;gap:10px;overflow-x:auto;white-space:nowrap;padding:4px 0;-webkit-overflow-scrolling:touch}
+  .navbar nav a{margin:0 8px;font-size:clamp(12px,3.5vw,14px);padding:6px 0}
 
-  .hero{height:64vh;padding-left:16px;justify-content:center;margin-top:74px}
+  .hero{height:64vh;padding-left:16px;justify-content:center;margin-top:clamp(56px,12vw,88px)}
   .hero-content{max-width:92%;margin:0 auto}
   .hero-content h2{font-size:32px;line-height:1.1}
   .hero-content p{font-size:15px;max-width:92%}
