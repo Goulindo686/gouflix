@@ -1434,6 +1434,8 @@ initEnvAndSupabase().then(async()=>{
   await fetchCurrentUser();
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }
+  const searchEl = document.getElementById('search');
+  if(searchEl){ searchEl.value = ''; }
   loadMovies();
 });
 
