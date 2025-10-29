@@ -1361,7 +1361,7 @@ updateAdminRowEnabled();
 // Admin: salvar token Mercado Pago
 const saveMpTokenBtn = document.getElementById('saveMpTokenBtn');
 if(saveMpTokenBtn){
-  const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || 'https://gouflix.discloud.app';
+  const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || (window.location && window.location.origin) || '';
   const apiUrl = (p)=> `${API_BASE}${p}`;
   saveMpTokenBtn.addEventListener('click', async ()=>{
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
@@ -1390,7 +1390,7 @@ if(saveMpTokenBtn){
 // Prefill token no Admin
 (async ()=>{
   try{
-    const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || 'https://gouflix.discloud.app';
+    const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || (window.location && window.location.origin) || '';
     const apiUrl = (p)=> `${API_BASE}${p}`;
     const res = await fetch(apiUrl('/api/config'));
     if(res.ok){
@@ -1398,7 +1398,7 @@ if(saveMpTokenBtn){
       window.ADMIN_WRITABLE = !!cfg.writable;
       try{ applyAdminVisibility(); }catch(_){}
       const pub = document.getElementById('publicUrl');
-      if(pub) pub.value = cfg.publicUrl || 'https://gouflix.discloud.app';
+      if(pub) pub.value = cfg.publicUrl || (window.location && window.location.origin) || 'https://gouflix.discloud.app';
       const bm = document.getElementById('bootstrapMoviesUrl');
       if(bm) bm.value = cfg.bootstrapMoviesUrl || '';
       const ba = document.getElementById('bootstrapAuto');
