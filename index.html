@@ -171,6 +171,19 @@
       <div id="adminItems" class="items"></div>
     </div>
 
+    <div class="panel" style="margin-top:16px">
+      <h3 class="section-title">Assinaturas</h3>
+      <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="radio-group" style="display:flex;gap:12px">
+          <label><input type="radio" name="subsFilter" value="all" checked /> Todas</label>
+          <label><input type="radio" name="subsFilter" value="active" /> Ativas</label>
+          <label><input type="radio" name="subsFilter" value="inactive" /> Inativas</label>
+        </div>
+        <button id="refreshSubsBtn" class="btn secondary" style="margin-left:auto">Atualizar</button>
+      </div>
+      <div id="subsTable" class="admin-results" style="margin-top:10px"></div>
+    </div>
+
     
   </section>
 

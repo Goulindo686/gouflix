@@ -252,6 +252,102 @@ function updateHeroSlides(items){
   startHeroSlideshow();
 }
 
+// =====================
+// Admin: Assinaturas
+// =====================
+async function fetchSubscriptions(status){
+  try{
+    const q = status && status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
+    const r = await fetch(`/api/subscription/list${q}`);
+    if(!r.ok){
+      const tx = await r.text();
+      return { ok:false, error: tx };
+    }
+    return await r.json();
+  }catch(err){ return { ok:false, error: err.message }; }
+}
+
+function renderSubscriptionsTable(items){
+  const wrap = document.getElementById('subsTable');
+  if(!wrap) return;
+  const arr = Array.isArray(items) ? items : [];
+  if(!arr.length){
+    wrap.innerHTML = '<p style="opacity:.8">Nenhuma assinatura encontrada para o filtro atual.</p>';
+    return;
+  }
+  const headers = ['Usuário','Plano','Status','Ativa?','Início','Fim','Atualizado','Ações'];
+  let html = '<table class="admin-table"><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  html += arr.map(row=>{
+    const id = row.id || '';
+    const uid = row.user_id || '';
+    const plan = row.plan || '';
+    const status = row.status || (row.active ? 'active' : 'inactive');
+    const active = row.active ? 'Sim' : 'Não';
+    const start = row.start || '';
+    const end = row.end || '';
+    const updated = row.updated_at || '';
+    const actionBtn = row.active ? `<button class="btn danger" data-action="deactivate" data-id="${id}" data-user="${uid}">Desativar</button>` : '<span style="opacity:.6">—</span>';
+    return `<tr>
+      <td title="${uid}">${String(uid).slice(0,8)}…</td>
+      <td>${plan}</td>
+      <td>${status}</td>
+      <td>${active}</td>
+      <td>${start||''}</td>
+      <td>${end||''}</td>
+      <td>${updated||''}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  }).join('');
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function refreshSubscriptions(){
+  const radios = Array.from(document.querySelectorAll('input[name="subsFilter"]'));
+  const checked = radios.find(r=>r.checked);
+  const status = checked ? checked.value : 'all';
+  const res = await fetchSubscriptions(status);
+  if(res.ok){ renderSubscriptionsTable(res.items || []); }
+  else {
+    const wrap = document.getElementById('subsTable');
+    if(wrap) wrap.innerHTML = `<p style="color:#f88">Erro: ${res.error||'Falha ao buscar assinaturas'}</p>`;
+  }
+}
+
+function initSubscriptionsPanel(){
+  const btn = document.getElementById('refreshSubsBtn');
+  if(btn){ btn.addEventListener('click', refreshSubscriptions); }
+  const radios = Array.from(document.querySelectorAll('input[name="subsFilter"]'));
+  radios.forEach(r=> r.addEventListener('change', refreshSubscriptions));
+  const tableWrap = document.getElementById('subsTable');
+  if(tableWrap){
+    tableWrap.addEventListener('click', async (e)=>{
+      const tgt = e.target;
+      if(!(tgt && tgt.matches('button[data-action="deactivate"]'))) return;
+      if(!isAdminUser()){ alert('Apenas admin pode desativar assinaturas.'); return; }
+      const id = tgt.getAttribute('data-id');
+      const user = tgt.getAttribute('data-user');
+      if(!confirm('Confirmar desativação desta assinatura?')) return;
+      try{
+        const r = await fetch('/api/subscription/deactivate',{
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ id, userId: user })
+        });
+        if(!r.ok){ const tx = await r.text(); alert('Falha ao desativar: '+tx); return; }
+        const js = await r.json();
+        if(js && js.ok){
+          await refreshSubscriptions();
+        } else {
+          alert('Erro: '+(js && js.error || 'Falha desconhecida'));
+        }
+      }catch(err){ alert('Erro: '+err.message); }
+    });
+  }
+  // Carrega inicialmente
+  refreshSubscriptions();
+}
+
 function heroUpdateContent(item){
   const titleEl = document.querySelector('.hero-content h2');
   const descEl = document.querySelector('.hero-content p');
