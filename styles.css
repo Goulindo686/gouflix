@@ -68,11 +68,12 @@ nav a.active{color:var(--text)}
 .hero-chips{display:flex;gap:10px;align-items:center;margin:-6px 0 14px}
 .chip{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);color:#ddd;padding:6px 10px;border-radius:999px;font-size:13px}
 .chip .icon{opacity:.85}
-.chip.red{background:#3a1f1f;color:#ffb3b3;border-color:#5a2b2b}
+.chip.red{background:rgba(0,229,255,.10);color:var(--accent);border-color:rgba(0,229,255,.25)}
 .chip.green{background:#123b2a;color:#b6f3d8;border-color:#1e5e44}
 .hero-content p{font-size:18px;margin-bottom:22px;color:#cfe6ff;max-width:540px}
 .hero-actions{display:flex;gap:12px;align-items:center}
-.hero .btn.watch{background:#e50914;color:#fff;box-shadow:0 0 14px rgba(229,9,20,0.35)}
+.hero .btn.watch{background:var(--accent);color:var(--text);box-shadow:0 0 14px rgba(0,229,255,.35)}
+.hero .btn.watch:hover{background:var(--accent-weak)}
 .hero .btn.watch:hover{background:#f6121d}
 .hero .btn.secondary.info{background:#2a2a2a;color:#eee}
 .hero .btn.secondary.info:hover{background:#3a3a3a}
@@ -112,7 +113,8 @@ nav a.active{color:var(--text)}
 .admin-card{background:#161618;border:1px solid #2a2a2c;border-radius:var(--radius);padding:12px}
 .admin-card h4{font-size:14px;margin-bottom:6px}
 .admin-card .meta{color:#999;font-size:12px;margin-bottom:8px}
-.btn.remove{background:#2b1a1a;color:#ffb3b3}
+.btn.remove{background:rgba(0,229,255,.08);color:var(--accent)}
+.btn.remove:hover{background:rgba(0,229,255,.12)}
 .btn.remove:hover{background:#3a1f1f}
 .admin-purchases .table-wrap{overflow:auto}
 .table{width:100%;border-collapse:collapse;margin-top:12px}
@@ -221,7 +223,7 @@ nav a.active{color:var(--text)}
 .card .fav-btn{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;
   background:rgba(0,0,0,0.55);border:1px solid #2a2a2c;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .card .fav-btn:hover{background:rgba(0,0,0,0.7)}
-.card .fav-btn.active{background:#3a1f1f;border-color:#5a2b2b;color:#ff6b86;box-shadow:0 0 10px rgba(255,0,80,0.35)}
+.card .fav-btn.active{background:rgba(0,229,255,.10);border-color:rgba(0,229,255,.25);color:var(--accent);box-shadow:0 0 10px rgba(0,229,255,.35)}
 .card .fav-btn.disabled{opacity:.6;cursor:not-allowed}
 .card h3{font-size:16px;font-weight:600}
 .card p{font-size:13px;color:var(--muted)}
@@ -382,7 +384,7 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 .user-menu .menu-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#161618;border:1px solid #222;margin-bottom:6px;border-radius:8px;color:#ddd;cursor:pointer}
 .user-menu .menu-item:hover{background:#1c1c1f}
 .user-menu .menu-item.highlight{color:#ffd166;border-color:#34322a;background:#181614}
-.user-menu .menu-item.danger{color:#ff6b6b;border-color:#3a2222;background:#181212}
+.user-menu .menu-item.danger{color:var(--accent);border-color:#1f2a38;background:rgba(0,229,255,.06)}
 .user-avatar { width:28px; height:28px; border-radius:50%; overflow:hidden; border:1px solid #333 }
 .user-name { font-size:13px; color:#ddd }
 /* Emblema de assinatura ativa no topo */
