@@ -231,16 +231,62 @@ const server = http.createServer(async (req, res) => {
       const params = new URLSearchParams(queryStr || '');
       // /api/env para local (sem rewrite do Vercel)
       if (urlPath === '/api/env' && req.method === 'GET') {
+        const state = await readState();
+        const cfg = state.config || {};
         res.end(JSON.stringify({
-          SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
-          SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || null,
+          ok: true,
+          writable: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+          publicUrl: cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app',
+          bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '',
+          bootstrapAuto: !!cfg.bootstrapAuto,
+          hasAccessToken: !!(process.env.TMDB_TOKEN),
           TMDB_BASE: process.env.TMDB_BASE || 'https://api.themoviedb.org/3',
-          TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500',
-          TMDB_TOKEN: process.env.TMDB_TOKEN || null,
-          NEXTAUTH_URL: process.env.NEXTAUTH_URL || null,
-          ADMIN_IDS: process.env.ADMIN_IDS || null,
-          ADMIN_USERNAMES: process.env.ADMIN_USERNAMES || null,
+          TMDB_IMG: process.env.TMDB_IMG || 'https://image.tmdb.org/t/p/w500'
         }));
+        return;
+      }
+      // Proxy local: TMDB detalhes
+      if (urlPath === '/api/tmdb/details' && req.method === 'GET') {
+        try{
+          const type = String(params.get('type')||'').toLowerCase();
+          const id = String(params.get('id')||'').trim();
+          const language = String(params.get('language')||'pt-BR');
+          if(!id || !['filme','serie'].includes(type)){
+            res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Parâmetros inválidos' })); return;
+          }
+          const part = type === 'serie' ? `tv/${encodeURIComponent(id)}` : `movie/${encodeURIComponent(id)}`;
+          const url = `https://api.themoviedb.org/3/${part}?language=${encodeURIComponent(language)}&append_to_response=external_ids`;
+          const token = process.env.TMDB_TOKEN || '';
+          const mod = url.startsWith('https') ? https : http;
+          const req2 = mod.get(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} }, (r2) => {
+            let data = '';
+            r2.on('data', (c) => (data += c));
+            r2.on('end', () => { res.statusCode = r2.statusCode; res.end(data); });
+          });
+          req2.on('error', () => { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Falha TMDB' })); });
+        }catch(_){ res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Erro interno' })); }
+        return;
+      }
+      // Proxy local: TMDB listas populares
+      if (urlPath === '/api/tmdb/bulk' && req.method === 'GET') {
+        try{
+          const type = String(params.get('type')||'').toLowerCase();
+          const page = parseInt(String(params.get('page')||'1'),10) || 1;
+          const language = String(params.get('language')||'pt-BR');
+          if(!['filme','serie'].includes(type)){
+            res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Parâmetro type inválido' })); return;
+          }
+          const part = type === 'serie' ? 'tv/popular' : 'movie/popular';
+          const url = `https://api.themoviedb.org/3/${part}?language=${encodeURIComponent(language)}&page=${page}`;
+          const token = process.env.TMDB_TOKEN || '';
+          const mod = url.startsWith('https') ? https : http;
+          const req2 = mod.get(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} }, (r2) => {
+            let data = '';
+            r2.on('data', (c) => (data += c));
+            r2.on('end', () => { res.statusCode = r2.statusCode; res.end(data); });
+          });
+          req2.on('error', () => { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Falha TMDB' })); });
+        }catch(_){ res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Erro interno' })); }
         return;
       }
       // ----- CONFIG -----

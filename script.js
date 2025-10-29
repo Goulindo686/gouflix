@@ -1,6 +1,6 @@
 // script.js - versão moderna estilo Netflix
-let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
-let TMDB_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTJkNGMzMzUxMzcwZWI4NjNiNzljYzZkZGE3YmI4MSIsIm5iZiI6MTc2MTU0MTY5NC4zNTMsInN1YiI6IjY4ZmVmZTNlMTU2MThmMDM5OGRhMDIwMCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Raq9U3uybPj034WxjdiVEdbycZ0VBUQRokSgaN5rjlo';
+let TMDB_API_KEY = '';
+let TMDB_TOKEN = '';
 let TMDB_BASE = 'https://api.themoviedb.org/3';
 let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 // Base sem tamanho para montar banners responsivos
@@ -33,14 +33,7 @@ async function initEnvAndSupabase(){
       window.__ENV = env || {};
       TMDB_BASE = env.TMDB_BASE || TMDB_BASE;
       TMDB_IMG = env.TMDB_IMG || TMDB_IMG;
-      TMDB_TOKEN = env.TMDB_TOKEN || TMDB_TOKEN;
-      window.ADMIN_IDS = String(env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
-      window.ADMIN_USERNAMES = String(env.ADMIN_USERNAMES||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-      const url = env.SUPABASE_URL;
-      const key = env.SUPABASE_ANON_KEY;
-      if(url && key && window.supabase){
-        window.supabaseClient = window.supabase.createClient(url, key);
-      }
+      window.IS_ADMIN_WRITABLE = !!env.writable;
     }
   }catch(_){/* ignore */}
 }
@@ -558,7 +551,7 @@ function setRobotsMeta(content){
 
 function applyAdminVisibility(){
   const navAdmin = document.getElementById('navAdmin');
-  const isAdmin = isAdminUser();
+  const isAdmin = !!window.IS_ADMIN_WRITABLE;
   if(navAdmin){ navAdmin.style.display = isAdmin ? '' : 'none'; navAdmin.setAttribute('rel','nofollow'); }
   if((window.CURRENT_ROUTE||'home') === 'admin' && !isAdmin){
     setRoute('home');
@@ -895,16 +888,11 @@ function renderAdminPreview(data){
 }
 
 // ---- Importação em massa (IMDb/SuperFlix via TMDB) ----
-function tmdbHeaders(){
-  return {
-    Authorization: `Bearer ${TMDB_TOKEN}`,
-    'Content-Type': 'application/json;charset=utf-8'
-  };
-}
+function tmdbHeaders(){ return {}; }
 
 async function fetchTmdbDetails(type, id){
-  const endpoint = type === 'serie' ? `${TMDB_BASE}/tv/${id}?language=pt-BR&append_to_response=external_ids` : `${TMDB_BASE}/movie/${id}?language=pt-BR&append_to_response=external_ids`;
-  const r = await fetch(endpoint, { headers: tmdbHeaders() });
+  const endpoint = `/api/tmdb/details?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&language=pt-BR`;
+  const r = await fetch(endpoint);
   if(!r.ok) throw new Error('TMDB detalhe falhou');
   return await r.json();
 }
@@ -926,8 +914,8 @@ async function fetchBulkFromTmdb(kind){
   const makeList = async (type) => {
     // Avançar página para sempre trazer novos itens
     const page = (type === 'serie' ? (window.BULK_PAGES.serie = (window.BULK_PAGES.serie||0) + 1) : (window.BULK_PAGES.filme = (window.BULK_PAGES.filme||0) + 1));
-    const url = type === 'serie' ? `${TMDB_BASE}/tv/popular?language=pt-BR&page=${page}` : `${TMDB_BASE}/movie/popular?language=pt-BR&page=${page}`;
-    const r = await fetch(url, { headers: tmdbHeaders() });
+    const url = `/api/tmdb/bulk?type=${encodeURIComponent(type)}&page=${page}&language=pt-BR`;
+    const r = await fetch(url);
     if(!r.ok) throw new Error('TMDB lista falhou');
     const json = await r.json();
     const base = (json.results||[]).slice(0, limit);
@@ -1043,12 +1031,8 @@ async function handleAdminSearch(){
 async function fetchTmdbById(type, id){
   // Tenta o endpoint do tipo selecionado; se 404, tenta o tipo alternativo.
   const endpoints = {
-    filme: `${TMDB_BASE}/movie/${id}?language=pt-BR`,
-    serie: `${TMDB_BASE}/tv/${id}?language=pt-BR`
-  };
-  const headers = {
-    Authorization: `Bearer ${TMDB_TOKEN}`,
-    'Content-Type': 'application/json;charset=utf-8'
+    filme: `/api/tmdb/details?type=filme&id=${encodeURIComponent(id)}&language=pt-BR`,
+    serie: `/api/tmdb/details?type=serie&id=${encodeURIComponent(id)}&language=pt-BR`
   };
 
   const primary = type === 'serie' ? 'serie' : 'filme';
@@ -1079,14 +1063,14 @@ async function fetchTmdbById(type, id){
   };
 
   // Primeiro: tentar o tipo primário
-  let res = await fetch(endpoints[primary], { headers });
+  let res = await fetch(endpoints[primary]);
   if(res.ok){
     const json = await res.json();
     return mapJson(json, primary);
   }
   // Se 404, tenta automaticamente o tipo alternativo
   if(res.status === 404){
-    const res2 = await fetch(endpoints[secondary], { headers });
+    const res2 = await fetch(endpoints[secondary]);
     if(res2.ok){
       const json2 = await res2.json();
       return mapJson(json2, secondary);
