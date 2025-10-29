@@ -169,6 +169,7 @@ nav a.active{color:var(--text)}
   .hero .btn{width:100%}
 
   .content{padding:84px 16px 40px}
+  .row{overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
   .row-wrap{padding:0 12px}
   .row-title{margin-left:0}
 
