@@ -225,6 +225,8 @@ display:flex;align-items:center;justify-content:center;z-index:200}
 
 /* Footer */
 .footer{text-align:center;padding:30px 10px;background:#000;color:var(--muted)}
+.legal-disclaimer{margin-top:10px;color:#9aa7b8;font-size:12px;line-height:1.5}
+@media (max-width:480px){.legal-disclaimer{font-size:11px;padding:0 12px}}
 
 /* Plans Page */
 .plans{padding:100px 40px 60px}
