@@ -389,16 +389,34 @@ async function ensureBannerPath(item){
   return null;
 }
 
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
 async function prepareHeroItems(items){
-  const base = (items||[])
-    .filter(m => ['recomendados','mais-assistidos','ultimos-lancamentos'].includes(m.row) || true)
-    .slice(0, 12);
-  // Prepara banners para os itens, quando possível
+  const pool = shuffle((items||[]));
+  const limit = 12;
+  const maxTries = Math.min(pool.length, 60);
   const out = [];
-  for(const m of base){
+  const used = new Set();
+  let tries = 0;
+  for(const m of pool){
+    if(tries++ >= maxTries) break;
+    // Precisa ter uma referência para buscar banner
+    const hasRef = Boolean(m.tmdbId || m.imdbId);
+    if(!hasRef) continue;
     try{ await ensureBannerPath(m); }catch(_){/* ignore */}
-    // Apenas itens com backdrop para garantir imagem horizontal retangular
-    if(m.bannerPath){ out.push(m); }
+    if(!m.bannerPath) continue;
+    const key = getItemKey(m);
+    if(used.has(key)) continue;
+    out.push(m);
+    used.add(key);
+    if(out.length >= limit) break;
   }
   return out;
 }
