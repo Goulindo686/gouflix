@@ -46,6 +46,53 @@
     <div id="heroDots" class="hero-dots"></div>
   </section>
 
+  <!-- Overlay de Autenticação (Cadastro/Login) -->
+  <div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-dialog">
+      <div class="auth-header">
+        <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f31f.svg" alt="logo" class="auth-logo" />
+        <h2>Criar sua conta</h2>
+        <p class="muted">Junte-se à nossa comunidade!</p>
+      </div>
+      <div id="signupCard" class="auth-card">
+        <div class="field-group">
+          <label>Nome completo</label>
+          <input id="authName" type="text" placeholder="Seu nome" />
+        </div>
+        <div class="field-group">
+          <label>Email</label>
+          <input id="authEmail" type="email" placeholder="voce@exemplo.com" />
+        </div>
+        <div class="field-group">
+          <label>Senha</label>
+          <input id="authPassword" type="password" placeholder="••••••••" />
+        </div>
+        <div class="field-group">
+          <label>Confirmar senha</label>
+          <input id="authPasswordConfirm" type="password" placeholder="••••••••" />
+        </div>
+        <label class="checkbox-row"><input id="authTerms" type="checkbox" /> Eu aceito os termos de uso e política de privacidade</label>
+        <button id="authCreateBtn" class="btn primary" style="width:100%">Criar conta</button>
+        <div id="authError" class="form-error"></div>
+        <p class="muted" style="text-align:center;margin-top:12px">Já tem uma conta? <a href="#" id="switchToLogin">Fazer login</a></p>
+      </div>
+
+      <div id="loginCard" class="auth-card hidden">
+        <div class="field-group">
+          <label>Email</label>
+          <input id="loginEmail" type="email" placeholder="voce@exemplo.com" />
+        </div>
+        <div class="field-group">
+          <label>Senha</label>
+          <input id="loginPassword" type="password" placeholder="••••••••" />
+        </div>
+        <button id="authLoginBtn" class="btn primary" style="width:100%">Entrar</button>
+        <div id="loginError" class="form-error"></div>
+        <p class="muted" style="text-align:center;margin-top:12px">Novo por aqui? <a href="#" id="switchToSignup">Criar conta</a></p>
+      </div>
+    </div>
+  </div>
+
   <main id="mainContent" class="content">
     <div id="sections"></div>
   </main>

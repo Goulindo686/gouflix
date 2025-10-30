@@ -480,3 +480,39 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 @media (max-width: 480px) {
   .floating-discord { padding: 8px 12px; font-size: 12px; }
 }
+
+/* Overlay de Autenticação (Cadastro/Login) */
+.auth-overlay{
+  position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
+}
+.auth-overlay.hidden{ display:none; }
+.auth-dialog{
+  width:clamp(320px, 92vw, 420px);
+  border-radius:16px;
+  border:1px solid #1e2633;
+  background: linear-gradient(180deg, #0f1115 0%, #0b0e13 100%);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+  padding:20px;
+  color:#e5e7eb;
+}
+.auth-header{ text-align:center; margin-bottom:12px; }
+.auth-logo{ width:42px; height:42px; display:block; margin:0 auto 8px; }
+.auth-header h2{ font-size:22px; margin:4px 0; }
+.auth-card{ margin-top:8px; display:flex; flex-direction:column; gap:10px; }
+.auth-card .field-group{ gap:6px; }
+.auth-card .field-group input{
+  background:#121214; border:1px solid #2a2a2c; color:#fff; border-radius:10px; padding:10px;
+}
+.checkbox-row{ display:flex; align-items:center; gap:8px; color:#9aa7b8; font-size:13px; }
+.form-error{ color:#ff7b7b; font-size:13px; margin-top:6px; min-height:18px; }
+.auth-dialog .btn.primary{
+  background: linear-gradient(90deg, #5865F2, #a855f7);
+  color:#fff; border:none;
+  box-shadow: 0 0 12px rgba(168,85,247,0.35);
+}
+.auth-dialog .btn.primary:hover{ filter:brightness(1.07); box-shadow:0 0 16px rgba(168,85,247,0.5); }
+
+@media (max-width: 480px){
+  .auth-dialog{ width:92%; padding:16px; border-radius:14px; }
+}
