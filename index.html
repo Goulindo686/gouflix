@@ -6,21 +6,8 @@
   <meta name="robots" content="index, follow" />
   <!-- Base da API para ambientes estáticos (GitHub Pages). Preencha com seu domínio Vercel. -->
   <meta name="config-api-base-url" content="">
-  <meta name="theme-color" content="#0b1623" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icons/gouflix-192.png" />
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
-  <style>
-    .install-popup{position:fixed;bottom:20px;right:20px;background:#0a0e13;color:#cfe6ff;padding:12px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:10000;display:none;border:2px solid #00bcd4;animation:slideUp 0.3s ease-out;width:200px;text-align:center}
-    .install-popup .app-icon{font-size:32px;margin-bottom:8px;color:#00bcd4}
-    .install-popup .app-text{font-size:12px;margin-bottom:12px;color:#cfe6ff}
-    .install-popup .install-btn{background:#00bcd4;color:#0a0e13;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:bold;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;transition:all 0.2s}
-    .install-popup .install-btn:hover{background:#00d4e6;transform:translateY(-1px)}
-    .install-popup .close-btn{position:absolute;top:4px;right:8px;background:none;border:none;color:#cfe6ff;cursor:pointer;font-size:16px;opacity:0.7}
-    .install-popup .close-btn:hover{opacity:1}
-    @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-  </style>
 </head>
 <body>
   <header class="navbar">
@@ -43,15 +30,6 @@
       </div>
     </div>
   </header>
-
-  <div id="installPopup" class="install-popup" role="dialog" aria-live="polite">
-    <button id="installClose" class="close-btn">×</button>
-    <div class="app-icon">📱</div>
-    <div class="app-text">App</div>
-    <button id="installBtn" class="install-btn">
-      <span>⬇</span> Instalar
-    </button>
-  </div>
 
   <section class="hero">
     <!-- Slides dinâmicos do topo -->
@@ -294,7 +272,8 @@
   </div>
 
 
-  
+  <!-- Botão flutuante do Discord -->
+  <a id="discordFloatingBtn" class="floating-discord" href="#" target="_blank" rel="noopener noreferrer" aria-label="Entrar no Discord" title="Discord">Discord</a>
 
   <footer class="footer">
     <p>© 2025 GouFlix — Site de demonstração</p>
@@ -310,98 +289,6 @@
   <!-- Supabase JS (UMD CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="script.js"></script>
-  <script>
-    console.log('Script iniciado');
-    
-    // Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(console.error);
-        // Recarrega uma vez quando o SW estiver pronto para garantir controle da página
-        navigator.serviceWorker.ready.then(() => {
-          if (!localStorage.getItem('pwa_sw_ready')) {
-            localStorage.setItem('pwa_sw_ready', '1');
-            setTimeout(() => { try { location.reload(); } catch(_){} }, 250);
-          }
-        }).catch(()=>{});
-      });
-    }
-
-    // Install Prompt (Chrome/Android) — capture cedo para não perder o evento
-    let deferredPrompt = null;
-    let pwaEligible = false;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      console.log('beforeinstallprompt capturado (global)');
-      e.preventDefault();
-      deferredPrompt = e;
-      pwaEligible = true;
-      // Se o popup já existe na página, mantenha-o visível
-      try{
-        const el = document.getElementById('installPopup');
-        if(el) el.style.display = 'block';
-      }catch(_){}
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('Script PWA iniciado');
-      
-      const popupEl = document.getElementById('installPopup');
-      const installBtn = document.getElementById('installBtn');
-      const installClose = document.getElementById('installClose');
-      
-      console.log('Elementos encontrados:', { popupEl, installBtn, installClose });
-
-      // Sempre mostrar o popup em todo refresh
-      if (popupEl) {
-        popupEl.style.display = 'block';
-      }
-
-      // Botão de instalação
-      installBtn?.addEventListener('click', async (e) => {
-        e.preventDefault();
-        console.log('Botão instalar clicado');
-        
-        if (deferredPrompt) {
-          // Chrome/Android - usar prompt nativo
-          try {
-            console.log('Usando prompt nativo');
-            popupEl.style.display = 'none';
-            await deferredPrompt.prompt();
-            const choice = await deferredPrompt.userChoice;
-            console.log('Escolha do usuário:', choice.outcome);
-            deferredPrompt = null;
-          } catch (err) {
-            console.error('Erro ao instalar:', err);
-          }
-        } else {
-          // iOS/Safari - mostrar instruções
-          const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-          const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-          
-          if (isIOS && isSafari) {
-            alert('Para instalar no iPhone:\n1. Toque no botão Compartilhar (⬆️)\n2. Selecione "Adicionar à Tela de Início"');
-          } else {
-            alert('Para instalar no desktop, aguarde o prompt nativo. Se não aparecer, atualize a página e tente novamente.');
-          }
-          popupEl.style.display = 'none';
-        }
-      });
-
-      // Botão fechar
-      installClose?.addEventListener('click', () => {
-        popupEl.style.display = 'none';
-      });
-
-      // Removido gating; popup já é mostrado sempre no refresh
-
-      // Fechar popup quando app for instalado
-      window.addEventListener('appinstalled', () => {
-        try{
-          if(popupEl) popupEl.style.display = 'none';
-        }catch(_){}
-      });
-    });
-  </script>
   
   
 </body>
