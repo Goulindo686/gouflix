@@ -7,8 +7,6 @@
     "start": "node dev_server.js"
   },
   "dependencies": {
-    "mongodb": "^6.10.0",
-    "bcryptjs": "^2.4.3",
-    "@supabase/supabase-js": "^2.39.0"
+    "mongodb": "^6.10.0"
   }
 }

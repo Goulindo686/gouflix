@@ -703,24 +703,13 @@ function updateUserArea(){
   if(CURRENT_USER){
     const sub = window.SUBSCRIPTION || null;
     const badge = (sub && sub.active) ? `<span class="user-badge" title="${sub.plan ? `Plano ${sub.plan}` : 'Plano ativo'}${sub.until ? ` até ${new Date(sub.until).toLocaleDateString('pt-BR')}` : ''}">Plano ativo</span>` : '';
-    
-    // Determinar URL do avatar baseado no tipo de autenticação
-    let avatarUrl = '';
-    if (CURRENT_USER.avatar) {
-      if (CURRENT_USER.auth_type === 'discord' && CURRENT_USER.id) {
-        avatarUrl = `https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png`;
-      } else {
-        avatarUrl = CURRENT_USER.avatar; // URL direta para usuários tradicionais
-      }
-    }
-    
     area.innerHTML = `
-      <div class="user-avatar">${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
+      <div class="user-avatar">${CURRENT_USER.avatar ? `<img src="https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
       <button id="userMenuToggle" class="user-toggle"><span class="user-name">${CURRENT_USER.username}</span><span class="caret">▾</span></button>
       ${badge}
       <div id="userMenu" class="user-menu hidden">
         <div class="user-menu-header">
-          <div class="user-avatar small">${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
+          <div class="user-avatar small">${CURRENT_USER.avatar ? `<img src="https://cdn.discordapp.com/avatars/${CURRENT_USER.id}/${CURRENT_USER.avatar}.png" style="width:100%;height:100%;object-fit:cover"/>` : ''}</div>
           <div class="user-ident">
             <div class="user-title">${CURRENT_USER.username}</div>
             <div class="user-email">${CURRENT_USER.email || ''}</div>
@@ -752,9 +741,12 @@ function updateUserArea(){
       CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
   } else {
-    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar</button>`;
+    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
     const loginBtn = document.getElementById('loginBtn');
-    if(loginBtn){ loginBtn.onclick = ()=>{ window.location.href = '/auth.html'; }; }
+    if(loginBtn){ loginBtn.onclick = ()=>{
+      const ret = location.href;
+      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+    }; }
   }
 }
 
@@ -1592,11 +1584,6 @@ if(saveMpTokenBtn){
 
 initEnvAndSupabase().then(async()=>{
   await fetchCurrentUser();
-  // Se não estiver logado, redirecionar para a tela de autenticação
-  if(!CURRENT_USER){
-    window.location.href = '/auth.html';
-    return;
-  }
   await loadSubscriptionStatus();
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }
