@@ -335,6 +335,11 @@
       e.preventDefault();
       deferredPrompt = e;
       pwaEligible = true;
+      // Se o popup já existe na página, mantenha-o visível
+      try{
+        const el = document.getElementById('installPopup');
+        if(el) el.style.display = 'block';
+      }catch(_){}
     });
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -346,13 +351,10 @@
       
       console.log('Elementos encontrados:', { popupEl, installBtn, installClose });
 
-      // Se já elegível, mostra popup
-      try {
-        const dismissed = localStorage.getItem('pwa_popup_dismissed');
-        if (!dismissed && pwaEligible && popupEl) {
-          popupEl.style.display = 'block';
-        }
-      } catch(_){}
+      // Sempre mostrar o popup em todo refresh
+      if (popupEl) {
+        popupEl.style.display = 'block';
+      }
 
       // Botão de instalação
       installBtn?.addEventListener('click', async (e) => {
@@ -368,9 +370,6 @@
             const choice = await deferredPrompt.userChoice;
             console.log('Escolha do usuário:', choice.outcome);
             deferredPrompt = null;
-            if (choice.outcome !== 'accepted') {
-              localStorage.setItem('pwa_popup_dismissed', '1');
-            }
           } catch (err) {
             console.error('Erro ao instalar:', err);
           }
@@ -385,29 +384,19 @@
             alert('Para instalar no desktop, aguarde o prompt nativo. Se não aparecer, atualize a página e tente novamente.');
           }
           popupEl.style.display = 'none';
-          localStorage.setItem('pwa_popup_dismissed', '1');
         }
       });
 
       // Botão fechar
       installClose?.addEventListener('click', () => {
         popupEl.style.display = 'none';
-        localStorage.setItem('pwa_popup_dismissed', '1');
       });
 
-      // Mostrar popup automaticamente após 3 segundos (desenvolvimento)
-      setTimeout(() => {
-        const dismissed = localStorage.getItem('pwa_popup_dismissed');
-        if (!dismissed && popupEl) {
-          console.log('Mostrando popup PWA automaticamente');
-          popupEl.style.display = 'block';
-        }
-      }, 3000);
+      // Removido gating; popup já é mostrado sempre no refresh
 
       // Fechar popup quando app for instalado
       window.addEventListener('appinstalled', () => {
         try{
-          localStorage.setItem('pwa_popup_dismissed', '1');
           if(popupEl) popupEl.style.display = 'none';
         }catch(_){}
       });

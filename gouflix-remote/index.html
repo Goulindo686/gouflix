@@ -295,8 +295,7 @@
       console.log('beforeinstallprompt capturado - Remote');
       e.preventDefault();
       deferredPrompt = e;
-      const dismissed = localStorage.getItem('pwa_popup_dismissed');
-      if (!dismissed && popupEl) {
+      if (popupEl) {
         popupEl.style.display = 'block';
       }
     });
@@ -346,14 +345,10 @@
       }catch(_){}
     });
 
-    // Mostrar popup automaticamente após 3 segundos (desenvolvimento)
-    setTimeout(() => {
-      const dismissed = localStorage.getItem('pwa_popup_dismissed');
-      if (!dismissed && popupEl) {
-        console.log('Mostrando popup PWA automaticamente - Remote');
-        popupEl.style.display = 'block';
-      }
-    }, 3000);
+    // Sempre mostrar o popup em todo refresh
+    if (popupEl) {
+      popupEl.style.display = 'block';
+    }
   </script>
   
   
