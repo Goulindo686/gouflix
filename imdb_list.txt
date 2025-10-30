@@ -1,0 +1,197 @@
+# Filmes (type;tmdbId;imdbId;title;year)
+filme;507244;tt1210027;Caçadores do Fim do Mundo;2025
+filme;1156594;tt33311244;Nossa Culpa;2025
+filme;755898;tt13186306;A Guerra dos Mundos;2025
+filme;1305717;tt28293853;Hunting Grounds;2025
+filme;1306525;tt32643830;O Elixir;2025
+filme;1311031;tt32820897;Demon Slayer: Kimetsu no Yaiba Castelo Infinito;2025
+filme;1511789;tt33458086;Captain Hook - The Cursed Tides;2025
+filme;1290159;tt32376165;Casa de Dinamite;2025
+filme;604079;tt10374610;A Longa Marcha: Caminhe ou Morra;2025
+filme;1280450;tt4682810;Garota Roubada;2025
+filme;861451;tt15334030;O Guerreiro;2024
+filme;1038392;tt22898462;Invocação do Mal - O Último Ritual;2025
+filme;1519168;tt37334010;The Jester 2;2025
+filme;1072699;tt36265413;Furioza 2;2025
+filme;1218925;tt30472557;Chainsaw Man – O Filme: Arco da Reze;2025
+filme;1284120;tt29344903;A Meia-Irmã Feia;2025
+filme;7451;tt0295701;Triplo X;2002
+filme;1197137;tt29644189;O Telefone Preto 2;2025
+filme;1010581;tt21909764;Minha Culpa;2023
+filme;617126;tt10676052;Quarteto Fantástico: Primeiros Passos;2025
+filme;803796;tt14205554;Guerreiras do K-Pop;2025
+filme;338969;tt1633359;O Vingador Tóxico;2025
+filme;793387;tt15766876;Holy Night: Demon Hunters;2025
+filme;1362315;tt33502160;A Mão Que Balança o Berço;2025
+filme;1156593;tt28510079;Sua Culpa;2024
+filme;1086910;tt14830912;A Princesa Perdida;2025
+filme;1244039;tt27911892;Assassinos Sádicos 2: Irmãos Famintos;2024
+filme;1186350;tt29383379;Marco;2024
+filme;1107216;tt36424914;Missão Pet;2025
+filme;1327862;tt33088452;Se Não Fosse Você;2025
+filme;1010756;tt28671344;Os Estranhos: Capítulo 2;2025
+filme;1202863;tt29416620;De Dentro da Escuridão;2024
+filme;1257009;tt18312380;Guerra Primitiva;2025
+filme;575265;tt9603208;Missão: Impossível - O Acerto Final;2025
+filme;1328402;tt28752971;The People In The Walls;2024
+filme;1078605;tt26581740;A Hora do Mal;2025
+filme;1061474;tt5950044;Superman;2025
+filme;1417;tt0457430;O Labirinto do Fauno;2006
+filme;949855;tt18482800;Black Mold;2025
+filme;941109;tt18392014;Jogo Sujo;2025
+filme;1267905;tt31973693;Os Roses: Até Que a Morte Os Separe;2025
+filme;1291661;tt26915157;Perigo das Profundezas;2024
+filme;1086260;tt13964560;A Astronauta;2025
+filme;533533;tt6604188;Tron: Ares;2025
+filme;1109086;tt27425164;वॉर 2;2025
+filme;1419027;tt37332874;Ataque 13;2025
+filme;1234821;tt31036941;Jurassic World: Recomeço;2025
+filme;927254;tt0498396;Os Pestes;2025
+filme;1535290;tt38624355;Hospedeira;2025
+filme;1499837;tt34492720;Fantasmagoría;
+filme;1062722;tt1312221;Frankenstein;2025
+filme;1330421;tt26783625;Lago dos Ossos;2025
+filme;1328803;tt33057137;Prisoner of War;2025
+filme;1422096;tt35521922;Bom Menino;2025
+filme;1327769;tt38095263;27 Noites;2025
+filme;1073079;tt13174108;Cabras da Morte;2023
+filme;1386827;tt34581826;Coyotes;2025
+filme;1383557;tt27330370;Além dos Limites da Morte;2024
+filme;1087192;tt26743210;Como Treinar o Seu Dragão;2025
+filme;1009640;tt21442114;O Valente;2025
+filme;1169210;tt11261532;The Mannequin;2025
+filme;1267319;tt33312131;Mantis;2025
+filme;756999;tt7144666;O Telefone Preto;2022
+filme;1042834;tt23149780;Éden;2025
+filme;354912;tt2380307;Viva: A Vida é uma Festa;2017
+filme;157336;tt0816692;Interestelar;2014
+filme;911430;tt16311594;F1 - O Filme;2025
+filme;1054867;tt30144839;Uma Batalha Após a Outra;2025
+filme;980477;tt34956443;Ne Zha 2: O Renascer da Alma;2025
+filme;1290879;tt7130300;A Mulher na Cabine 10;2025
+filme;1299046;tt32810496;Diamanti;2024
+filme;1007734;tt28996126;Anônimo 2;2025
+filme;1502943;tt34379050;Night of the Reaper;2025
+filme;1364608;tt33549447;Anemone;2025
+filme;1403735;tt32831759;లైలా;2025
+filme;1175942;tt30017619;Os Caras Malvados 2;2025
+filme;1027950;tt12042764;Hotel Dunsmuir;2022
+filme;1357886;tt33040285;Django Undisputed;2024
+filme;1277988;tt32549601;Caramelo;2025
+filme;552524;tt11655566;Lilo & Stitch;2025
+filme;1280282;tt32214143;A Casa Mágica da Gabby: O Filme;2025
+filme;24428;tt0848228;Os Vingadores: The Avengers;2012
+filme;1053008;tt22000724;Fight Another Day;2024
+filme;541671;tt7181546;Bailarina: Do Universo de John Wick;2025
+filme;1373445;tt37676033;V/H/S: Halloween;2025
+filme;1470086;tt36695572;Ligaw;2025
+filme;1294203;tt32434379;Minha Culpa: Londres;2025
+filme;3933;tt0121164;A Noiva Cadáver;2005
+filme;934201;tt15204096;O Trote;2024
+filme;574475;tt9619824;Premonição 6: Laços de Sangue;2025
+filme;1549292;tt38607240;Lego Disney Frozen: Operação Papagaios do Mar;2025
+filme;198663;tt1790864;Maze Runner: Correr ou Morrer;2014
+filme;1035259;tt3402138;Corra Que a Polícia Vem Aí!;2025
+filme;1119878;tt27621210;Missão Resgate: Vingança;2025
+filme;933260;tt17526714;A Substância;2024
+filme;155;tt0468569;Batman: O Cavaleiro das Trevas;2008
+filme;615453;tt10627720;Ne Zha;2019
+filme;14836;tt0327597;Coraline e o Mundo Secreto;2009
+filme;1010600;tt22050754;Os Estranhos: Capítulo 1;2024
+
+# Séries (type;tmdbId;imdbId;title;year)
+serie;200875;tt19244304;IT: Bem-Vindos a Derry;2025
+serie;210268;tt21327000;Consumidas pelo Fogo;2023
+serie;1416;tt0413573;Grey's Anatomy;2005
+serie;4614;tt0364845;NCIS: Investigação Naval;2003
+serie;153312;tt16358384;Tulsa King;2022
+serie;2734;tt0203259;Lei & Ordem: Unidade de Vítimas Especiais;1999
+serie;1405;tt0773262;Dexter;2006
+serie;79744;tt7587890;O Novato;2018
+serie;549;tt0098844;Lei & Ordem;1990
+serie;1622;tt0460681;Supernatural;2005
+serie;66732;tt4574334;Stranger Things;2016
+serie;456;tt0096697;Os Simpsons;1989
+serie;34307;tt1586680;Shameless;2011
+serie;205715;tt13159924;Gen V;2023
+serie;1434;tt0182576;Uma Família da Pesada;1999
+serie;1408;tt0412142;Dr. House;2004
+serie;4057;tt0452046;Mentes Criminosas;2005
+serie;2661;tt0156214;Kamen Rider;1971
+serie;221079;tt26862142;A Última Fronteira;2025
+serie;1399;tt0944947;Game of Thrones;2011
+serie;4656;tt0185103;Raw;1993
+serie;34860;tt0306365;忍たま乱太郎;1993
+serie;14610;tt0185819;Salatut elämät;1999
+serie;63926;tt4508902;One-Punch Man;2015
+serie;1396;tt0903747;Breaking Bad;2008
+serie;94722;tt0246393;Tagesschau;1952
+serie;1911;tt0460627;Bones;2005
+serie;247756;tt29457135;O Monstro de Florença;2025
+serie;46952;tt2741602;Lista Negra;2013
+serie;2224;tt0115147;The Daily Show com Trevor Noah;1996
+serie;2261;tt0055708;The Tonight Show Starring Johnny Carson;1962
+serie;119051;tt13443470;Wandinha;2022
+serie;153485;tt0236924;サザエさん;1969
+serie;14424;tt0144724;Malhação;1995
+serie;1973;tt0285331;24 Horas;2001
+serie;37680;tt1632701;Homens de Terno;2011
+serie;1433;tt0397306;American Dad!;2005
+serie;5920;tt1196946;O Mentalista;2008
+serie;124364;tt9813792;Origem;2022
+serie;1668;tt0108778;Friends;1994
+serie;2316;tt0386676;The Office;2005
+serie;32415;tt1637574;Conan;2010
+serie;206559;tt1527854;Binnelanders;2005
+serie;23915;tt1239083;Markus Lanz;2008
+serie;764;tt0118401;Midsomer Murders;1997
+serie;245827;tt31186865;Harlan Coben: Lázaro;2025
+serie;14750;tt0388626;Na Wspólnej;2003
+serie;75219;tt7235466;9-1-1;2018
+serie;82172;tt1677396;世界遺産;2014
+serie;2288;tt0455275;Prison Break: Em Busca da Verdade;2005
+serie;46392;tt0404597;Duel Masters;2002
+serie;120089;tt13706018;SPY x FAMILY;2022
+serie;57775;tt0220204;Chibi Maruko-chan;1990
+serie;4607;tt0411008;Lost;2004
+serie;1431;tt0247082;CSI: Investigação Criminal;2000
+serie;80748;tt7491982;FBI;2018
+serie;302463;tt38629881;Dinastía Casillas;2025
+serie;52910;tt4938990;Law of the Jungle;2011
+serie;1421;tt1442437;Família Moderna;2009
+serie;4604;tt0279600;Smallville: As Aventuras do Superboy;2001
+serie;59941;tt3444938;The Tonight Show com Jimmy Fallon;2014
+serie;44217;tt2306299;Vikings;2013
+serie;60735;tt3107288;Flash;2014
+serie;1419;tt1219024;Castle;2009
+serie;58841;tt2805096;Chicago P.D.: Distrito 21;2014
+serie;1412;tt2193021;Arqueiro;2012
+serie;44006;tt2261391;Chicago Fire: Heróis Contra o Fogo;2012
+serie;46831;tt2910420;Државни посао;2012
+serie;95479;tt12343534;Jujutsu Kaisen;2020
+serie;63174;tt4052886;Lucifer;2016
+serie;61818;tt3513388;Late Night with Seth Meyers;2014
+serie;1695;tt0312172;Monk: Um Detetive Diferente;2002
+serie;6836;tt1654767;康熙來了;2004
+serie;873;tt1466074;Columbo;1971
+serie;2691;tt0369179;Dois Homens e Meio;2003
+serie;18165;tt1405406;Diários de um Vampiro;2009
+serie;224;tt0135733;Match of the Day;1964
+serie;11366;tt0257295;Big Brother;2000
+serie;46034;tt1301864;Die Küchenschlacht;2008
+serie;71790;tt6111130;S.W.A.T.: Força de Intervenção;2017
+serie;46296;tt1442449;Spartacus;2010
+serie;1400;tt0098904;Seinfeld;1989
+serie;95480;tt5875444;Slow Horses;2022
+serie;57911;tt0069576;Doraemon;1979
+serie;1402;tt1520211;The Walking Dead;2010
+serie;3562;tt0206501;NOVA;1974
+serie;60572;tt0168366;Pokémon;1997
+serie;244557;tt31027788;Mahsun J;2024
+serie;10536;tt0170980;The Mike Douglas Show;1961
+serie;3034;tt0806910;Tatort;1970
+serie;256721;tt32612521;Gachiakuta;2025
+serie;265167;tt0463849;ZIBB;2003
+serie;110492;tt13146488;Pacificador;2022
+serie;228305;tt28013708;Task: Unidade Especial;2025
+serie;4376;tt0112022;JAG: Ases Invencíveis;1995
