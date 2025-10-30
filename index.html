@@ -8,8 +8,13 @@
   <meta name="config-api-base-url" content="">
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth-styles.css">
 </head>
 <body>
+  <!-- Sistema de Autenticação -->
+  <div id="authContainer" class="auth-container">
+    <!-- Conteúdo será carregado dinamicamente pelo auth.js -->
+  </div>
   <header class="navbar">
     <h1 class="logo">Gou<span>Flix</span></h1>
     <nav>
@@ -315,6 +320,7 @@
   
   <!-- Supabase JS (UMD CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="auth.js"></script>
   <script src="script.js"></script>
   
   

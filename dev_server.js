@@ -26,6 +26,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 // Removido: integração Mercado Pago
 
 const root = process.cwd();
@@ -403,6 +404,39 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: true }));
         return;
       }
+      // ----- Auth endpoints (file-based routing) -----
+      if (urlPath.startsWith('/api/auth/')) {
+        try {
+          if (req.method === 'POST') {
+            req.body = await parseBody(req);
+          }
+          const rel = urlPath.replace(/^\/api\//, 'api/');
+          const file = path.join(root, `${rel}.js`);
+          if (!fs.existsSync(file)) {
+            res.statusCode = 404;
+            res.end(JSON.stringify({ ok: false, error: 'Not Found' }));
+            return;
+          }
+          const mod = await import(pathToFileURL(file).href);
+          const handler = mod && (mod.default || mod.handler || mod.module?.default);
+          if (typeof handler !== 'function') {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ ok: false, error: 'Invalid handler' }));
+            return;
+          }
+          // Express-like helpers
+          res.status = (code) => { try { res.statusCode = code; } catch (_) {} return res; };
+          res.json = (obj) => { try { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(obj)); } catch (_) { try { res.end(''); } catch (_e) {} } };
+          await handler(req, res);
+          return;
+        } catch (err) {
+          console.error('Auth route error:', err);
+          res.statusCode = 500;
+          res.end(JSON.stringify({ ok: false, error: 'Internal Error' }));
+          return;
+        }
+      }
+
       res.statusCode = 404;
       res.end(JSON.stringify({ ok: false, error: 'Not Found' }));
       return;
