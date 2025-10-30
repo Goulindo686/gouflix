@@ -1097,168 +1097,6 @@ async function fetchBulkFromTmdb(kind){
   return shuffle(mixed).slice(0, limit);
 }
 
-function renderBulkResults(items){
-  const container = document.getElementById('bulkResults');
-  const addAllBtn = document.getElementById('bulkAddAllBtn');
-  if(!container) return;
-  if(!items || !items.length){
-    container.innerHTML = '<div class="missing-id">Nenhum resultado encontrado para o critério.</div>';
-    if(addAllBtn) addAllBtn.disabled = true;
-    return;
-  }
-  window.BULK_BUFFER = items;
-  container.innerHTML = '';
-  items.forEach((data, idx) => {
-    const card = document.createElement('div');
-    card.className = 'bulk-card';
-    const superflixUrl = buildSuperflixUrl(data.type, data.imdbId || data.tmdbId);
-    card.innerHTML = `
-      <img src="${data.poster}" alt="poster">
-      <div class="meta">
-        <h4>${data.title} <span style="color:#666;font-size:12px">(${data.year||'N/A'})</span></h4>
-        <p>${(data.type==='serie'?'Série':'Filme')} • SuperFlix: ${superflixUrl ? 'OK' : 'N/A'}</p>
-        <div class="actions">
-          <button class="btn secondary" data-idx="${idx}">Adicionar</button>
-        </div>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-  // Ligar botões individuais
-  container.querySelectorAll('button[data-idx]').forEach(btn => {
-    btn.addEventListener('click', ()=>{
-      const idx = Number(btn.getAttribute('data-idx'));
-      const data = window.BULK_BUFFER[idx];
-      if(data) addFromTmdbData(data);
-    });
-  });
-  if(addAllBtn) addAllBtn.disabled = false;
-}
-
-async function handleBulk(kind){
-  const container = document.getElementById('bulkResults');
-  const addAllBtn = document.getElementById('bulkAddAllBtn');
-  try{
-    if(container) container.innerHTML = '<div class="missing-id">Carregando lista...</div>';
-    if(addAllBtn) addAllBtn.disabled = true;
-    const items = await fetchBulkFromTmdb(kind);
-    renderBulkResults(items);
-  }catch(err){
-    if(container) container.innerHTML = `<div class="missing-id">Erro ao importar: ${err.message}</div>`;
-    if(addAllBtn) addAllBtn.disabled = true;
-  }
-}
-
-function bindBulkImportButtons(){
-  const bMovies = document.getElementById('bulkMoviesBtn');
-  const bSeries = document.getElementById('bulkSeriesBtn');
-  const bMixed = document.getElementById('bulkMixedBtn');
-  const addAllBtn = document.getElementById('bulkAddAllBtn');
-  if(bMovies) bMovies.addEventListener('click', ()=> handleBulk('filme'));
-  if(bSeries) bSeries.addEventListener('click', ()=> handleBulk('serie'));
-  if(bMixed) bMixed.addEventListener('click', ()=> handleBulk('mixed'));
-  if(addAllBtn) addAllBtn.addEventListener('click', async ()=>{
-    const buffer = window.BULK_BUFFER || [];
-    for(const data of buffer){
-      // Adicionar em sequência para evitar condições de corrida
-      await addFromTmdbData(data);
-    }
-    alert('Todos os itens foram adicionados à fileira selecionada.');
-    renderAdminList();
-  });
-}
-
-// ---- Importar por IDs (até 200) ----
-function parseBulkIdsInput(){
-  const input = document.getElementById('bulkIdsInput');
-  const raw = (input && input.value ? input.value : '').trim();
-  if(!raw) return [];
-  const parts = raw.split(/\s+|,|;|\|/).map(s=>s.trim()).filter(Boolean);
-  const onlyNums = parts.map(p=> p.replace(/[^0-9]/g,'')).filter(p=> p.length>0);
-  const unique = Array.from(new Set(onlyNums));
-  return unique.slice(0, 200);
-}
-
-function renderBulkIdsResults(items){
-  const container = document.getElementById('bulkIdsResults');
-  const addAllBtn = document.getElementById('bulkIdsAddAllBtn');
-  if(!container) return;
-  if(!items || !items.length){
-    container.innerHTML = '<div class="missing-id">Nenhum resultado válido para os IDs informados.</div>';
-    if(addAllBtn) addAllBtn.disabled = true;
-    return;
-  }
-  window.BULK_IDS_BUFFER = items;
-  container.innerHTML = '';
-  items.forEach((data, idx) => {
-    const card = document.createElement('div');
-    card.className = 'bulk-card';
-    const superflixUrl = buildSuperflixUrl(data.type, data.imdbId || data.tmdbId);
-    card.innerHTML = `
-      <img src="${data.poster}" alt="poster">
-      <div class="meta">
-        <h4>${data.title} <span style="color:#666;font-size:12px">(${data.year||'N/A'})</span></h4>
-        <p>${(data.type==='serie'?'Série':'Filme')} • SuperFlix: ${superflixUrl ? 'OK' : 'N/A'}</p>
-        <div class="actions">
-          <button class="btn secondary" data-idx="${idx}">Adicionar</button>
-        </div>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-  container.querySelectorAll('button[data-idx]').forEach(btn => {
-    btn.addEventListener('click', ()=>{
-      const idx = Number(btn.getAttribute('data-idx'));
-      const data = window.BULK_IDS_BUFFER[idx];
-      if(data) addFromTmdbData(data);
-    });
-  });
-  if(addAllBtn) addAllBtn.disabled = false;
-}
-
-async function handleBulkIdsProcess(){
-  const modeSel = document.getElementById('bulkIdsMode');
-  const addAllBtn = document.getElementById('bulkIdsAddAllBtn');
-  const resContainer = document.getElementById('bulkIdsResults');
-  const ids = parseBulkIdsInput();
-  const mode = modeSel ? modeSel.value : 'auto';
-  if(resContainer) resContainer.innerHTML = '<div class="missing-id">Processando IDs...</div>';
-  if(addAllBtn) addAllBtn.disabled = true;
-  if(ids.length === 0){
-    if(resContainer) resContainer.innerHTML = '<div class="missing-id">Cole IDs válidos do TMDB.</div>';
-    return;
-  }
-  const out = [];
-  let i = 0;
-  const workers = Array.from({length: 6}, () => (async () => {
-    while(i < ids.length){
-      const current = ids[i++];
-      try{
-        const data = await fetchTmdbById(mode === 'auto' ? 'filme' : mode, current);
-        if(mode === 'auto' || (data && data.type === mode)){
-          out.push(data);
-        }
-      }catch(_){ /* ignora IDs inválidos ou erro de rede */ }
-    }
-  })());
-  await Promise.all(workers);
-  // Filtrar duplicados já existentes
-  const already = window.ALL_MOVIES || [];
-  const filtered = out.filter(it => !already.some(m => m.tmdbId === it.tmdbId && (m.type||'filme') === it.type));
-  renderBulkIdsResults(filtered);
-}
-
-function bindBulkIds(){
-  const processBtn = document.getElementById('bulkIdsProcessBtn');
-  const addAllBtn = document.getElementById('bulkIdsAddAllBtn');
-  if(processBtn) processBtn.addEventListener('click', handleBulkIdsProcess);
-  if(addAllBtn) addAllBtn.addEventListener('click', async ()=>{
-    const buffer = window.BULK_IDS_BUFFER || [];
-    for(const data of buffer){ await addFromTmdbData(data); }
-    alert('Todos os itens por ID foram adicionados à fileira selecionada.');
-    renderAdminList();
-  });
-}
 
 async function handleAdminSearch(){
   const type = document.querySelector('input[name="adminType"]:checked').value;
@@ -1379,10 +1217,7 @@ if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch);
 // Bind do campo de busca rápida do Admin
 const adminSearchInput = document.getElementById('adminSearchInput');
 if(adminSearchInput){ adminSearchInput.addEventListener('input', filterAdminItems); }
-// Botões de importação em massa
-bindBulkImportButtons();
-// Botões de importação por IDs
-bindBulkIds();
+// Removidos: botões de importação em massa e por IDs
 // Desabilitar seletor de fileira quando destino não é Home
 const adminRowSel = document.getElementById('adminRow');
 const targetRadios = Array.from(document.querySelectorAll('input[name="adminTarget"]'));
@@ -1408,8 +1243,6 @@ if(saveMpTokenBtn){
   const apiUrl = (p)=> `${API_BASE}${p}`;
   saveMpTokenBtn.addEventListener('click', async ()=>{
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
-    const bootstrapMoviesUrl = (document.getElementById('bootstrapMoviesUrl').value||'').trim();
-    const bootstrapAuto = !!(document.getElementById('bootstrapAuto')?.checked);
     const mpAccessToken = (document.getElementById('mpAccessToken').value||'').trim();
     const discordInviteUrl = (document.getElementById('discordInviteUrl').value||'').trim();
     try{
@@ -1431,7 +1264,7 @@ if(saveMpTokenBtn){
           return;
         }
       }
-      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, mpAccessToken, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, mpAccessToken, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
       const stat = document.getElementById('mpTokenStatus');
@@ -1454,10 +1287,7 @@ if(saveMpTokenBtn){
       try{ applyAdminVisibility(); }catch(_){}
       const pub = document.getElementById('publicUrl');
       if(pub) pub.value = cfg.publicUrl || (window.location && window.location.origin) || 'https://gouflix.discloud.app';
-      const bm = document.getElementById('bootstrapMoviesUrl');
-      if(bm) bm.value = cfg.bootstrapMoviesUrl || '';
-      const ba = document.getElementById('bootstrapAuto');
-      if(ba) ba.checked = !!cfg.bootstrapAuto;
+      // Campos de bootstrap removidos do Admin
       if(!cfg.writable && saveMpTokenBtn){ saveMpTokenBtn.disabled = true; saveMpTokenBtn.title = 'Somente leitura. Gerenciado por variáveis de ambiente.'; }
       const stat = document.getElementById('mpTokenStatus');
       if(stat){ stat.textContent = cfg.hasMpAccessToken ? 'Token configurado' : 'Token não configurado'; }
@@ -1489,19 +1319,7 @@ if(saveMpTokenBtn){
 
 // Import/Export de estado removido do Admin
 
-// Executar bootstrap agora
-const runBootstrapBtn = document.getElementById('runBootstrapBtn');
-if(runBootstrapBtn){
-  runBootstrapBtn.addEventListener('click', async()=>{
-    try{
-      const r = await fetch('/api/bootstrap/run', { method:'POST' });
-      if(!r.ok) throw new Error('Falha ao executar bootstrap');
-      alert('Bootstrap executado. Atualizando conteúdo...');
-      await loadMovies();
-      renderAdminList();
-    }catch(err){ alert(err.message); }
-  });
-}
+// Removido: botão de executar bootstrap
 
 initEnvAndSupabase().then(()=>{
   loadMovies();

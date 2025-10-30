@@ -53,7 +53,7 @@ function ensureState() {
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', bootstrapMoviesUrl: process.env.BOOTSTRAP_MOVIES_URL || '', bootstrapAuto: !!(process.env.BOOTSTRAP_AUTO || false), bootstrapDone: 0, mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
+  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
 }
 function normalizeState(s) {
   const state = s || {};
@@ -62,9 +62,6 @@ function normalizeState(s) {
   state.subscriptions = state.subscriptions || {};
   state.config = state.config || {};
   if (!state.config.publicUrl) state.config.publicUrl = process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
-  if (!state.config.bootstrapMoviesUrl) state.config.bootstrapMoviesUrl = process.env.BOOTSTRAP_MOVIES_URL || '';
-  if (typeof state.config.bootstrapAuto === 'undefined') state.config.bootstrapAuto = !!(process.env.BOOTSTRAP_AUTO || false);
-  if (!state.config.bootstrapDone) state.config.bootstrapDone = 0;
   if (typeof state.config.mpAccessToken === 'undefined') state.config.mpAccessToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
   if (typeof state.config.discordInviteUrl === 'undefined') state.config.discordInviteUrl = process.env.DISCORD_INVITE_URL || '';
   return state;
@@ -164,56 +161,7 @@ function parseBody(req) {
 }
 
 // ---- Util: baixar JSON remoto ----
-function fetchJsonUrl(u) {
-  return new Promise((resolve, reject) => {
-    try {
-      const mod = String(u).startsWith('https') ? https : http;
-      const req = mod.get(u, (res) => {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`status ${res.statusCode}`));
-          return;
-        }
-        let data = '';
-        res.on('data', (c) => (data += c));
-        res.on('end', () => {
-          try { resolve(JSON.parse(data)); } catch (err) { reject(err); }
-        });
-      });
-      req.on('error', (err) => reject(err));
-    } catch (err) { reject(err); }
-  });
-}
-
-
-// ---- Bootstrap automático ao iniciar ----
-async function bootstrapFromConfig(force = false) {
-  try {
-    const state = await readState();
-    const cfg = state.config || {};
-    const shouldRun = force || (cfg.bootstrapAuto && !cfg.bootstrapDone);
-    if (!shouldRun) return;
-
-    // Removido: bootstrap de state.json remoto (somente movies.json)
-
-    // Baixar e substituir movies.json remoto
-    const moviesPath = path.join(root, 'data', 'movies.json');
-    if (cfg.bootstrapMoviesUrl) {
-      try {
-        const movies = await fetchJsonUrl(cfg.bootstrapMoviesUrl);
-        fs.writeFileSync(moviesPath, JSON.stringify(movies, null, 2));
-      } catch (err) {
-        console.error('Bootstrap: falha ao baixar movies.json:', err);
-      }
-    }
-
-    const updated = await readState();
-    updated.config.bootstrapDone = Date.now();
-    await writeState(updated);
-    console.log('Bootstrap concluído.');
-  } catch (err) {
-    console.error('Bootstrap erro:', err);
-  }
-}
+// Removido: funcionalidades de Bootstrap
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -278,7 +226,7 @@ const server = http.createServer(async (req, res) => {
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         const isAdmin = ensureIsAdminLocal(req);
         const hasMpAccessToken = !!(cfg.mpAccessToken && String(cfg.mpAccessToken).length);
-        res.end(JSON.stringify({ publicUrl, bootstrapMoviesUrl: cfg.bootstrapMoviesUrl || '', bootstrapAuto: !!cfg.bootstrapAuto, bootstrapDone: cfg.bootstrapDone || 0, writable: !!isAdmin, hasMpAccessToken, discordInviteUrl: cfg.discordInviteUrl || '' }));
+        res.end(JSON.stringify({ publicUrl, writable: !!isAdmin, hasMpAccessToken, discordInviteUrl: cfg.discordInviteUrl || '' }));
         return;
       }
       if (urlPath === '/api/config' && req.method === 'POST') {
@@ -286,22 +234,13 @@ const server = http.createServer(async (req, res) => {
         const body = await parseBody(req);
         const state = await readState();
         state.config.publicUrl = body.publicUrl || state.config.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
-        // salvar config de bootstrap (sem state)
-        if (body.bootstrapMoviesUrl !== undefined) state.config.bootstrapMoviesUrl = body.bootstrapMoviesUrl || '';
-        if (body.bootstrapAuto !== undefined) state.config.bootstrapAuto = !!body.bootstrapAuto;
         if (body.mpAccessToken !== undefined) state.config.mpAccessToken = String(body.mpAccessToken || '');
         if (body.discordInviteUrl !== undefined) state.config.discordInviteUrl = String(body.discordInviteUrl || '');
         await writeState(state);
         res.end(JSON.stringify({ ok: true, config: { ...state.config, mpAccessToken: undefined } }));
         return;
       }
-      // Disparar bootstrap manualmente
-      if (urlPath === '/api/bootstrap/run' && req.method === 'POST') {
-        if(!ensureIsAdminLocal(req)){ res.statusCode = 403; res.end(JSON.stringify({ ok:false, error:'forbidden' })); return; }
-        await bootstrapFromConfig(true);
-        res.end(JSON.stringify({ ok: true }));
-        return;
-      }
+      // Removido: endpoint manual de bootstrap
       // ----- Pagamentos (Mercado Pago PIX) -----
       if (urlPath === '/api/payment/create' && req.method === 'POST') {
         try {
@@ -500,8 +439,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, () => {
   console.log(`Preview running at http://localhost:${port}/`);
-  // Iniciar bootstrap em background (não bloqueia o servidor)
-  bootstrapFromConfig(false);
+  // Removido: bootstrap automático
 });
 
 // ---- Admin check helpers (local) ----
