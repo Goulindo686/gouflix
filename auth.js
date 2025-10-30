@@ -253,7 +253,8 @@ class AuthSystem {
   }
 
   handleDiscordAuth() {
-    window.location.href = '/api/auth/discord/start';
+    // Fluxo do Discord temporariamente indisponível para reduzir funções no Vercel
+    this.showError('Login via Discord está temporariamente indisponível. Use email e senha.');
   }
 
   async handleLogout() {
