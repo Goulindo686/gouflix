@@ -138,7 +138,6 @@ nav a.active{color:var(--text)}
 .admin-card .meta{color:#94a3b8;font-size:12px;margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pill{display:inline-block;background:#0b0e13;border:1px solid #243140;border-radius:999px;padding:2px 8px;color:#cbd5e1;font-size:12px}
 .card-actions{margin-top:auto;display:flex;gap:8px}
-.btn.edit{background:#0b3a66;color:#a8d8ff;border:1px solid #184e7a}
 .btn.remove{background:#3a1f1f;color:#ffb3b3;border:1px solid #5a2a2a}
 .btn.remove:hover{background:#4a2727}
 .admin-purchases .table-wrap{overflow:auto}

@@ -841,7 +841,6 @@ function renderAdminList(){
           <span>Fileira: ${(m.row || (m.type==='serie'?'series':'filmes'))}</span>
         </div>
         <div class="card-actions">
-          <button class="btn edit" disabled title="Em breve">Editar</button>
           <button class="btn remove" data-key="${key}">Remover</button>
         </div>
       </div>
