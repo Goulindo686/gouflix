@@ -678,9 +678,9 @@ function updateUserArea(){
       CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
   } else {
-    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
+    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar</button>`;
     const loginBtn = document.getElementById('loginBtn');
-    if(loginBtn){ loginBtn.onclick = ()=>{ window.location.href = '/api/auth/login'; }; }
+    if(loginBtn){ loginBtn.onclick = ()=>{ window.location.href = '/auth.html'; }; }
   }
 }
 
