@@ -1198,8 +1198,8 @@ function normalizeFromDetails(type, details){
   return { type, tmdbId, imdbId, title, year, genres, poster, description, bannerPath };
 }
 
-async function fetchBulkFromTmdb(kind){
-  const limit = 24; // aumenta quantidade por requisição
+async function fetchBulkFromTmdb(kind, limit = 24){
+  limit = Math.max(6, Math.min(60, Number(limit)||24)); // controla quantidade
   // memória de sessão para evitar repetir itens entre puxadas
   window.BULK_SEEN = window.BULK_SEEN || { filme: new Set(), serie: new Set() };
 
@@ -1265,7 +1265,86 @@ async function fetchBulkFromTmdb(kind){
   return shuffle(mixed).slice(0, limit);
 }
 
-// Removidos: UI e handlers de importação em massa
+// UI e handlers de importação em massa
+function renderBulkResults(items){
+  const container = document.getElementById('adminResults');
+  if(!container) return;
+  window.ADMIN_BULK = items || [];
+  if(!items || items.length === 0){
+    container.innerHTML = '<p class="muted">Nenhum resultado encontrado para esta busca.</p>';
+    return;
+  }
+  const html = items.map((it, idx)=>{
+    const poster = it.poster || '';
+    const title = `${it.title||''}`;
+    const meta = `${it.type==='serie'?'Série':'Filme'} • ${it.year||'—'}`;
+    const genres = (Array.isArray(it.genres)?it.genres.join(', '):'');
+    return `
+      <div class="bulk-card">
+        ${poster ? `<img src="${poster}" alt="${title}">` : `<div style="width:90px;height:135px;border-radius:8px;background:#222"></div>`}
+        <div class="meta">
+          <h4>${title}</h4>
+          <p>${meta}</p>
+          ${genres?`<small class="muted">${genres}</small>`:''}
+          <div class="actions">
+            <button class="btn primary" data-action="add" data-index="${idx}">Adicionar</button>
+            <button class="btn secondary" data-action="sobre" data-index="${idx}">Sobre</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  container.innerHTML = html;
+}
+
+async function handleBulkFetch(){
+  try{
+    const kind = document.querySelector('input[name="bulkKind"]:checked')?.value || 'misto';
+    const qty = parseInt(document.getElementById('bulkQty')?.value||'24', 10);
+    const items = await fetchBulkFromTmdb(kind, qty);
+    renderBulkResults(items);
+  }catch(err){
+    const container = document.getElementById('adminResults');
+    if(container){ container.innerHTML = `<p class="muted">Erro ao buscar em massa: ${err.message}</p>`; }
+  }
+}
+
+async function addAllBulk(){
+  const list = window.ADMIN_BULK || [];
+  if(!list.length){ return; }
+  let ok = 0;
+  for(const it of list){
+    const res = await addFromTmdbData(it);
+    if(res) ok++;
+  }
+  const container = document.getElementById('adminResults');
+  if(container){
+    const note = document.createElement('p');
+    note.className = 'muted';
+    note.textContent = `Adicionados ${ok} itens ao destino selecionado.`;
+    container.prepend(note);
+  }
+}
+
+function bindBulkCardEvents(){
+  const container = document.getElementById('adminResults');
+  if(!container) return;
+  container.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-action]');
+    if(!btn) return;
+    const action = btn.getAttribute('data-action');
+    const idx = parseInt(btn.getAttribute('data-index')||'-1', 10);
+    const list = window.ADMIN_BULK || [];
+    const item = list[idx];
+    if(!item) return;
+    if(action === 'add'){
+      const res = await addFromTmdbData(item);
+      if(res){ btn.textContent = 'Adicionado'; btn.disabled = true; }
+    }else if(action === 'sobre'){
+      await openModalFromTmdbData(item);
+    }
+  });
+}
 
 
 // Fechar dropdown do usuário ao clicar fora
@@ -1390,9 +1469,14 @@ if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
 const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
 // Bind do campo de busca rápida do Admin
-const adminSearchInput = document.getElementById('adminSearchInput');
-if(adminSearchInput){ adminSearchInput.addEventListener('input', filterAdminItems); }
-// Sistemas de importação em massa e por IDs removidos
+  const adminSearchInput = document.getElementById('adminSearchInput');
+  if(adminSearchInput){ adminSearchInput.addEventListener('input', filterAdminItems); }
+// Importação em massa
+const bulkFetchBtn = document.getElementById('bulkFetchBtn');
+if(bulkFetchBtn){ bulkFetchBtn.addEventListener('click', handleBulkFetch); }
+const bulkAddAllBtn = document.getElementById('bulkAddAllBtn');
+if(bulkAddAllBtn){ bulkAddAllBtn.addEventListener('click', addAllBulk); }
+bindBulkCardEvents();
 // Desabilitar seletor de fileira quando destino não é Home
 const adminRowSel = document.getElementById('adminRow');
 const targetRadios = Array.from(document.querySelectorAll('input[name="adminTarget"]'));

@@ -200,6 +200,27 @@
       
 
       <div class="panel" style="margin-top:16px">
+        <h3 class="section-title">Importação em Massa (TMDB)</h3>
+        <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div class="field-group">
+            <label>Tipo para buscar</label>
+            <div class="radio-group">
+              <label><input type="radio" name="bulkKind" value="misto" checked /> Misturar</label>
+              <label><input type="radio" name="bulkKind" value="filme" /> Só Filmes</label>
+              <label><input type="radio" name="bulkKind" value="serie" /> Só Séries</label>
+            </div>
+          </div>
+          <div class="field-group" style="width:140px">
+            <label for="bulkQty">Quantidade</label>
+            <input id="bulkQty" type="number" min="6" max="60" step="6" value="24" />
+          </div>
+          <button id="bulkFetchBtn" class="btn primary">Buscar em massa</button>
+          <button id="bulkAddAllBtn" class="btn secondary">Adicionar todos ao destino</button>
+        </div>
+        <p class="panel-tip">Usa páginas diferentes do TMDB para variar resultados a cada busca.</p>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
         <h3 class="section-title">Configurações do Site</h3>
         <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap">
           <div class="field-group" style="flex:1;min-width:280px">
