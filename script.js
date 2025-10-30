@@ -1297,6 +1297,98 @@ function bindBulkImportButtons(){
   });
 }
 
+// ---- Importar por IDs (até 200) ----
+function parseBulkIdsInput(){
+  const input = document.getElementById('bulkIdsInput');
+  const raw = (input && input.value ? input.value : '').trim();
+  if(!raw) return [];
+  const parts = raw.split(/\s+|,|;|\|/).map(s=>s.trim()).filter(Boolean);
+  const onlyNums = parts.map(p=> p.replace(/[^0-9]/g,'')).filter(p=> p.length>0);
+  const unique = Array.from(new Set(onlyNums));
+  return unique.slice(0, 200);
+}
+
+function renderBulkIdsResults(items){
+  const container = document.getElementById('bulkIdsResults');
+  const addAllBtn = document.getElementById('bulkIdsAddAllBtn');
+  if(!container) return;
+  if(!items || !items.length){
+    container.innerHTML = '<div class="missing-id">Nenhum resultado válido para os IDs informados.</div>';
+    if(addAllBtn) addAllBtn.disabled = true;
+    return;
+  }
+  window.BULK_IDS_BUFFER = items;
+  container.innerHTML = '';
+  items.forEach((data, idx) => {
+    const card = document.createElement('div');
+    card.className = 'bulk-card';
+    const superflixUrl = buildSuperflixUrl(data.type, data.imdbId || data.tmdbId);
+    card.innerHTML = `
+      <img src="${data.poster}" alt="poster">
+      <div class="meta">
+        <h4>${data.title} <span style="color:#666;font-size:12px">(${data.year||'N/A'})</span></h4>
+        <p>${(data.type==='serie'?'Série':'Filme')} • SuperFlix: ${superflixUrl ? 'OK' : 'N/A'}</p>
+        <div class="actions">
+          <button class="btn secondary" data-idx="${idx}">Adicionar</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  container.querySelectorAll('button[data-idx]').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const idx = Number(btn.getAttribute('data-idx'));
+      const data = window.BULK_IDS_BUFFER[idx];
+      if(data) addFromTmdbData(data);
+    });
+  });
+  if(addAllBtn) addAllBtn.disabled = false;
+}
+
+async function handleBulkIdsProcess(){
+  const modeSel = document.getElementById('bulkIdsMode');
+  const addAllBtn = document.getElementById('bulkIdsAddAllBtn');
+  const resContainer = document.getElementById('bulkIdsResults');
+  const ids = parseBulkIdsInput();
+  const mode = modeSel ? modeSel.value : 'auto';
+  if(resContainer) resContainer.innerHTML = '<div class="missing-id">Processando IDs...</div>';
+  if(addAllBtn) addAllBtn.disabled = true;
+  if(ids.length === 0){
+    if(resContainer) resContainer.innerHTML = '<div class="missing-id">Cole IDs válidos do TMDB.</div>';
+    return;
+  }
+  const out = [];
+  let i = 0;
+  const workers = Array.from({length: 6}, () => (async () => {
+    while(i < ids.length){
+      const current = ids[i++];
+      try{
+        const data = await fetchTmdbById(mode === 'auto' ? 'filme' : mode, current);
+        if(mode === 'auto' || (data && data.type === mode)){
+          out.push(data);
+        }
+      }catch(_){ /* ignora IDs inválidos ou erro de rede */ }
+    }
+  })());
+  await Promise.all(workers);
+  // Filtrar duplicados já existentes
+  const already = window.ALL_MOVIES || [];
+  const filtered = out.filter(it => !already.some(m => m.tmdbId === it.tmdbId && (m.type||'filme') === it.type));
+  renderBulkIdsResults(filtered);
+}
+
+function bindBulkIds(){
+  const processBtn = document.getElementById('bulkIdsProcessBtn');
+  const addAllBtn = document.getElementById('bulkIdsAddAllBtn');
+  if(processBtn) processBtn.addEventListener('click', handleBulkIdsProcess);
+  if(addAllBtn) addAllBtn.addEventListener('click', async ()=>{
+    const buffer = window.BULK_IDS_BUFFER || [];
+    for(const data of buffer){ await addFromTmdbData(data); }
+    alert('Todos os itens por ID foram adicionados à fileira selecionada.');
+    renderAdminList();
+  });
+}
+
 // Fechar dropdown do usuário ao clicar fora
 window.addEventListener('click', (e)=>{
   try{
@@ -1423,6 +1515,8 @@ const adminSearchInput = document.getElementById('adminSearchInput');
 if(adminSearchInput){ adminSearchInput.addEventListener('input', filterAdminItems); }
 // Botões de importação em massa
 bindBulkImportButtons();
+// Botões de importação por IDs
+bindBulkIds();
 // Desabilitar seletor de fileira quando destino não é Home
 const adminRowSel = document.getElementById('adminRow');
 const targetRadios = Array.from(document.querySelectorAll('input[name="adminTarget"]'));
