@@ -94,9 +94,39 @@
   
 
   <section id="adminPanel" class="admin hidden">
-    <div class="admin-header">
-      <h2>Adicionar Novo Conteúdo</h2>
-    </div>
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <nav class="admin-menu">
+          <a href="#" class="menu-item">Dashboard</a>
+          <a href="#" class="menu-item">Usuários</a>
+          <a href="#" class="menu-item active">Conteúdo</a>
+          <a href="#" class="menu-item">Solicitações</a>
+          <a href="#" class="menu-item">Pagamentos</a>
+          <a href="#" class="menu-item">Sincronização</a>
+          <a href="#" class="menu-item">Logs</a>
+        </nav>
+        <div class="admin-user">
+          <div class="avatar-circle"></div>
+          <div class="user-meta">
+            <div class="user-name">Administrador</div>
+            <small class="muted">online</small>
+          </div>
+        </div>
+      </aside>
+      <div class="admin-main">
+        <div class="admin-topbar">
+          <div class="segment">
+            <button class="tab active">Filmes <span id="adminCountMovies" class="count">0</span></button>
+            <button class="tab">Séries <span id="adminCountSeries" class="count">0</span></button>
+          </div>
+          <div class="admin-actions">
+            <button class="btn secondary" id="adminCategoriesBtn">Categorias</button>
+            <button class="btn primary" id="adminAddContentBtn">Adicionar Conteúdo</button>
+          </div>
+        </div>
+        <div class="admin-header">
+          <h2>Adicionar Novo Conteúdo</h2>
+        </div>
     <div class="admin-form panel">
       <div class="panel-inner">
         <div class="field-group">
@@ -180,7 +210,8 @@
       <div id="subsTable" class="admin-results" style="margin-top:10px"></div>
     </div>
 
-    
+      </div>
+    </div>
   </section>
 
   <div id="modal" class="modal hidden">

@@ -916,15 +916,37 @@ function renderAdminList(){
   const container = document.getElementById('adminItems');
   if(!container) return;
   const source = window.ADMIN_FILTERED || window.ALL_MOVIES || window.MOVIES || [];
+  // Atualiza contadores na topbar, se existir
+  try{
+    const moviesCount = source.filter(m=> (m.type||'filme') === 'filme').length;
+    const seriesCount = source.filter(m=> (m.type||'filme') === 'serie').length;
+    const elMov = document.getElementById('adminCountMovies');
+    const elSer = document.getElementById('adminCountSeries');
+    if(elMov) elMov.textContent = String(moviesCount);
+    if(elSer) elSer.textContent = String(seriesCount);
+  }catch(_){}
   container.innerHTML = '';
   source.forEach(m => {
     const div = document.createElement('div');
     div.className = 'admin-card';
     const key = getItemKey(m);
+    const thumb = (m.poster ? `<img class="thumb" src="${m.poster}" alt="${m.title}">`
+      : `<div class="thumb" style="width:110px;height:160px;border-radius:12px;background:linear-gradient(135deg,#1e293b,#0ea5e9)"></div>`);
+    const genre = (Array.isArray(m.genres) && m.genres.length) ? m.genres[0] : ((m.type||'filme')==='filme'?'Filme':'Série');
     div.innerHTML = `
-      <h4>${m.title}</h4>
-      <div class="meta">${(m.type||'filme').toUpperCase()} • ${m.year||''} • Fileira: ${(m.row || (m.type==='serie'?'series':'filmes'))}</div>
-      <button class="btn remove" data-key="${key}">Remover</button>
+      ${thumb}
+      <div class="body">
+        <h4>${m.title}</h4>
+        <div class="meta">
+          <span class="pill">${genre}</span>
+          <span>${m.year||''}</span>
+          <span>Fileira: ${(m.row || (m.type==='serie'?'series':'filmes'))}</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn edit" disabled title="Em breve">Editar</button>
+          <button class="btn remove" data-key="${key}">Remover</button>
+        </div>
+      </div>
     `;
     container.appendChild(div);
   });
