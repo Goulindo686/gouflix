@@ -294,8 +294,7 @@
   </div>
 
 
-  <!-- Botão flutuante do Discord -->
-  <a id="discordFloatingBtn" class="floating-discord" href="#" target="_blank" rel="noopener noreferrer" aria-label="Entrar no Discord" title="Discord">Discord</a>
+  
 
   <footer class="footer">
     <p>© 2025 GouFlix — Site de demonstração</p>
@@ -318,32 +317,42 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(console.error);
+        // Recarrega uma vez quando o SW estiver pronto para garantir controle da página
+        navigator.serviceWorker.ready.then(() => {
+          if (!localStorage.getItem('pwa_sw_ready')) {
+            localStorage.setItem('pwa_sw_ready', '1');
+            setTimeout(() => { try { location.reload(); } catch(_){} }, 250);
+          }
+        }).catch(()=>{});
       });
     }
 
-    // Install Prompt (Chrome/Android)
+    // Install Prompt (Chrome/Android) — capture cedo para não perder o evento
     let deferredPrompt = null;
-    
+    let pwaEligible = false;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('beforeinstallprompt capturado (global)');
+      e.preventDefault();
+      deferredPrompt = e;
+      pwaEligible = true;
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       console.log('Script PWA iniciado');
       
-      let deferredPrompt;
       const popupEl = document.getElementById('installPopup');
       const installBtn = document.getElementById('installBtn');
       const installClose = document.getElementById('installClose');
       
       console.log('Elementos encontrados:', { popupEl, installBtn, installClose });
 
-      // Captura o evento beforeinstallprompt (Chrome/Android)
-      window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('beforeinstallprompt capturado');
-        e.preventDefault();
-        deferredPrompt = e;
+      // Se já elegível, mostra popup
+      try {
         const dismissed = localStorage.getItem('pwa_popup_dismissed');
-        if (!dismissed && popupEl) {
+        if (!dismissed && pwaEligible && popupEl) {
           popupEl.style.display = 'block';
         }
-      });
+      } catch(_){}
 
       // Botão de instalação
       installBtn?.addEventListener('click', async (e) => {
@@ -373,7 +382,7 @@
           if (isIOS && isSafari) {
             alert('Para instalar no iPhone:\n1. Toque no botão Compartilhar (⬆️)\n2. Selecione "Adicionar à Tela de Início"');
           } else {
-            alert('Para instalar:\n- Chrome/Android: aguarde o prompt de instalação\n- iPhone: use Safari e "Adicionar à Tela de Início"');
+            alert('Para instalar no desktop, aguarde o prompt nativo. Se não aparecer, atualize a página e tente novamente.');
           }
           popupEl.style.display = 'none';
           localStorage.setItem('pwa_popup_dismissed', '1');
@@ -394,6 +403,14 @@
           popupEl.style.display = 'block';
         }
       }, 3000);
+
+      // Fechar popup quando app for instalado
+      window.addEventListener('appinstalled', () => {
+        try{
+          localStorage.setItem('pwa_popup_dismissed', '1');
+          if(popupEl) popupEl.style.display = 'none';
+        }catch(_){}
+      });
     });
   </script>
   

@@ -252,8 +252,7 @@
     </div>
   </div>
 
-  <!-- Botão flutuante do Discord -->
-  <a id="discordFloatingBtn" class="floating-discord" href="#" target="_blank" rel="noopener noreferrer" aria-label="Entrar no Discord" title="Discord">Discord</a>
+  
 
   <footer class="footer">
     <p>© 2025 GouFlix</p>
@@ -274,6 +273,13 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/gouflix-remote/sw.js').catch(console.error);
+        // Recarrega uma vez quando o SW estiver pronto para garantir controle da página
+        navigator.serviceWorker.ready.then(() => {
+          if (!localStorage.getItem('pwa_sw_ready_remote')) {
+            localStorage.setItem('pwa_sw_ready_remote', '1');
+            setTimeout(() => { try { location.reload(); } catch(_){} }, 250);
+          }
+        }).catch(()=>{});
       });
     }
 
@@ -313,23 +319,31 @@
         } catch (err) {
           console.error('Erro ao instalar - Remote:', err);
         }
-      } else {
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        
-        if (isIOS && isSafari) {
-          alert('Para instalar no iPhone:\n1. Toque no botão Compartilhar (⬆️)\n2. Selecione "Adicionar à Tela de Início"');
         } else {
-          alert('Para instalar:\n- Chrome/Android: aguarde o prompt de instalação\n- iPhone: use Safari e "Adicionar à Tela de Início"');
+          const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+          const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+          
+          if (isIOS && isSafari) {
+            alert('Para instalar no iPhone:\n1. Toque no botão Compartilhar (⬆️)\n2. Selecione "Adicionar à Tela de Início"');
+          } else {
+          alert('Para instalar no desktop, aguarde o prompt nativo. Se não aparecer, atualize a página e tente novamente.');
+          }
+          popupEl.style.display = 'none';
+          localStorage.setItem('pwa_popup_dismissed', '1');
         }
-        popupEl.style.display = 'none';
-        localStorage.setItem('pwa_popup_dismissed', '1');
-      }
-    });
+      });
 
     installClose?.addEventListener('click', () => {
       popupEl.style.display = 'none';
       localStorage.setItem('pwa_popup_dismissed', '1');
+    });
+
+    // Ocultar popup após instalação
+    window.addEventListener('appinstalled', () => {
+      try{
+        localStorage.setItem('pwa_popup_dismissed', '1');
+        if(popupEl) popupEl.style.display = 'none';
+      }catch(_){}
     });
 
     // Mostrar popup automaticamente após 3 segundos (desenvolvimento)

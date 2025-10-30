@@ -1,13 +1,13 @@
 const CACHE_NAME = 'gouflix-v1';
+const ROOT = '/';
 const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/script.js',
-  '/data/movies.json',
-  '/manifest.json',
-  '/icons/gouflix-192.png',
-  '/icons/gouflix-512.png'
+  `${ROOT}`,
+  `${ROOT}index.html`,
+  `${ROOT}styles.css`,
+  `${ROOT}script.js`,
+  `${ROOT}manifest.json`,
+  `${ROOT}icons/gouflix-192.png`,
+  `${ROOT}icons/gouflix-512.png`
 ];
 
 self.addEventListener('install', (event) => {
