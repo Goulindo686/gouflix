@@ -18,8 +18,12 @@ export default async function handler(req, res) {
     const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     const nowIso = new Date().toISOString();
-    const crypto = await import('crypto');
-    const sha256 = (s)=>crypto.createHash('sha256').update(String(s)).digest('hex');
+    async function safeSha256(s){
+      try{
+        const crypto = await import('crypto');
+        return crypto.createHash('sha256').update(String(s)).digest('hex');
+      }catch(_){ return null; }
+    }
     const headers = {
       'Content-Type': 'application/json',
       'apikey': SUPABASE_SERVICE_ROLE_KEY,
@@ -45,7 +49,8 @@ export default async function handler(req, res) {
           username = row.username || username;
           avatar = row.avatar || '';
           const stored = String(row.password_hash || '');
-          const expected = `sha256:${sha256(password)}`;
+          const hash = await safeSha256(password);
+          const expected = hash ? `sha256:${hash}` : `plain:${password}`;
           if (stored && stored !== expected) {
             return res.status(401).json({ success: false, error: 'Credenciais inválidas' });
           }

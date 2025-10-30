@@ -22,9 +22,13 @@ export default async function handler(req, res) {
     const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     const nowIso = new Date().toISOString();
-    const crypto = await import('crypto');
-    const sha256 = (s)=>crypto.createHash('sha256').update(String(s)).digest('hex');
-    const uid = 'u_' + sha256(email).slice(0, 24);
+    async function safeSha256(s){
+      try{
+        const crypto = await import('crypto');
+        return crypto.createHash('sha256').update(String(s)).digest('hex');
+      }catch(_){ return null; }
+    }
+    const uid = 'u_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     const sid = 's_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const maxAge = 30 * 24 * 60 * 60;
@@ -41,7 +45,8 @@ export default async function handler(req, res) {
           'Prefer': 'resolution=merge-duplicates',
           'Accept': 'application/json',
         };
-        const userPayload = [{ id: uid, email, username: finalUsername, password_hash: `sha256:${sha256(password)}`, auth_type: 'traditional', updated_at: nowIso }];
+        const hash = await safeSha256(password);
+        const userPayload = [{ id: uid, email, username: finalUsername, password_hash: (hash? `sha256:${hash}` : `plain:${password}`), auth_type: 'traditional', updated_at: nowIso }];
         const rUser = await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=id`, { method:'POST', headers, body: JSON.stringify(userPayload) });
         if (rUser.ok) {
           const sessPayload = [{ id: sid, user_id: uid, email, username: finalUsername, created_at: nowIso, expires_at: expiresAt }];
