@@ -5,9 +5,7 @@ const CORE_ASSETS = [
   `${ROOT}index.html`,
   `${ROOT}styles.css`,
   `${ROOT}script.js`,
-  `${ROOT}manifest.json`,
-  `${ROOT}icons/gouflix-192.png`,
-  `${ROOT}icons/gouflix-512.png`
+  `${ROOT}manifest.json`
 ];
 
 self.addEventListener('install', (event) => {
