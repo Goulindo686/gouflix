@@ -738,7 +738,9 @@ function updateUserArea(){
     if(menuPlans){ menuPlans.onclick = ()=>{ setRoute('plans'); if(menu) menu.classList.add('hidden'); }; }
     if(menuLogout){ menuLogout.onclick = async()=>{
       try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
-      CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
+      CURRENT_USER = null; 
+      // Redirecionar para a página de auth após logout
+      window.location.href = 'auth.html';
     }; }
   } else {
     area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
@@ -1582,7 +1584,37 @@ if(saveMpTokenBtn){
 // Executar bootstrap agora
 // Botão de executar bootstrap removido
 
+// Função para verificar se precisa redirecionar para login
+async function checkAuthAndRedirect() {
+  try {
+    const response = await fetch('/api/auth/me');
+    if (response.ok) {
+      const data = await response.json();
+      if (!data.logged || !data.user) {
+        // Usuário não está logado, redirecionar para auth.html
+        window.location.href = 'auth.html';
+        return false;
+      }
+      return true;
+    } else {
+      // Erro na API, redirecionar para auth.html
+      window.location.href = 'auth.html';
+      return false;
+    }
+  } catch (error) {
+    // Erro de rede, redirecionar para auth.html
+    window.location.href = 'auth.html';
+    return false;
+  }
+}
+
 initEnvAndSupabase().then(async()=>{
+  // Verificar autenticação antes de carregar a aplicação
+  const isAuthenticated = await checkAuthAndRedirect();
+  if (!isAuthenticated) {
+    return; // Para a execução se não estiver autenticado
+  }
+  
   await fetchCurrentUser();
   await loadSubscriptionStatus();
   const pm = document.getElementById('paymentModal');
