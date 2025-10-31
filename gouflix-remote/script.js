@@ -1330,7 +1330,14 @@ if(navSeries){ navSeries.addEventListener('click', ()=> setRoute('series')); }
 const navLista = document.getElementById('navLista');
 if(navLista){ navLista.addEventListener('click', ()=> setRoute('minha-lista')); }
 const navPlans = document.getElementById('navPlans');
-if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
+  if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
+  // Efeito de sombra na navbar ao rolar
+  const navbar = document.querySelector('.navbar');
+  function updateNavbarShadow(){
+    if(!navbar) return; if(window.scrollY > 2) navbar.classList.add('scrolled'); else navbar.classList.remove('scrolled');
+  }
+  window.addEventListener('scroll', updateNavbarShadow, { passive: true });
+  updateNavbarShadow();
 const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
 // Bind do campo de busca rápida do Admin

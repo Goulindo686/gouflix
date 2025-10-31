@@ -13,8 +13,11 @@ body{font-family: 'Inter', sans-serif;background:var(--bg);color:var(--text);ove
 /* Navbar */
 .navbar{
   display:flex;justify-content:space-between;align-items:center;
-  padding:18px 40px;background:rgba(0,0,0,0.8);position:fixed;width:100%;z-index:100;
+  padding:18px 40px;background:#000;position:sticky;top:0;width:100%;z-index:100;color:#fff;
 }
+.navbar.scrolled{box-shadow:0 6px 16px rgba(0,0,0,0.35)}
+.navbar nav a{color:#fff}
+.navbar nav a:hover{opacity:.85}
 .navbar-right{display:flex;align-items:center;gap:12px}
 .logo{font-size:26px;font-weight:700;}
 .logo span{color:var(--accent);text-shadow:0 0 8px rgba(0,229,255,.6)}
@@ -480,3 +483,5 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 @media (max-width: 480px) {
   .floating-discord { padding: 8px 12px; font-size: 12px; }
 }
+/* Garantir que o conteúdo abaixo não fique sob a navbar */
+.content{padding-top:90px}
