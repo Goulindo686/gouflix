@@ -1603,21 +1603,24 @@ if(saveMpTokenBtn){
 // Função para verificar se precisa redirecionar para login
 async function checkAuthAndRedirect() {
   try {
-    // Checar sessão local criada via registro/login
-    try{
-      const localSession = localStorage.getItem('gouflix_session');
-      if(localSession){ return true; }
-    }catch(_){}
-
-    const response = await fetch('/api/auth/me');
+    const response = await fetch('/api/auth/me', {
+      method: 'GET',
+      credentials: 'include', // Importante: incluir cookies na requisição
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
     if (response.ok) {
       const data = await response.json();
-      if (!data.logged || !data.user) {
+      if (data.ok && data.logged && data.user) {
+        // Usuário está logado
+        return true;
+      } else {
         // Usuário não está logado, redirecionar para auth.html
         window.location.href = 'auth.html';
         return false;
       }
-      return true;
     } else {
       // Erro na API, redirecionar para auth.html
       window.location.href = 'auth.html';
@@ -1625,6 +1628,7 @@ async function checkAuthAndRedirect() {
     }
   } catch (error) {
     // Erro de rede, redirecionar para auth.html
+    console.error('Erro ao verificar autenticação:', error);
     window.location.href = 'auth.html';
     return false;
   }

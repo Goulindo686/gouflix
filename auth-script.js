@@ -187,6 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
             const r = await fetch('/api/auth/register',{
               method:'POST',
+              credentials: 'include',
               headers:{ 'Content-Type':'application/json' },
               body: JSON.stringify({ fullName, email, password })
             });
@@ -211,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
             const r = await fetch('/api/auth/login',{
               method:'POST',
+              credentials: 'include',
               headers:{ 'Content-Type':'application/json' },
               body: JSON.stringify({ email, password })
             });
@@ -233,10 +235,13 @@ document.addEventListener('DOMContentLoaded', function() {
     async function checkAuthStatus() {
         // Verificar sessão no backend (Discord ou email)
         try {
-            const response = await fetch('/api/auth/me');
+            const response = await fetch('/api/auth/me', {
+                method: 'GET',
+                credentials: 'include'
+            });
             if (response.ok) {
                 const data = await response.json();
-                if (data.logged && data.user) {
+                if (data.ok && data.logged && data.user) {
                     window.location.href = 'index.html';
                 }
             }
