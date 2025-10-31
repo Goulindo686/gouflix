@@ -689,12 +689,27 @@ async function openModal(id){
 async function fetchCurrentUser(){
   try{
     const res = await fetch('/api/auth/me');
-    if(!res.ok){ CURRENT_USER = null; updateUserArea(); return; }
-    const j = await res.json();
-    CURRENT_USER = (j.logged && j.user) ? j.user : null;
-    updateUserArea();
-    applyAdminVisibility();
-  }catch(_){ CURRENT_USER = null; updateUserArea(); }
+    if(res.ok){
+      const j = await res.json();
+      CURRENT_USER = (j.logged && j.user) ? j.user : null;
+    } else {
+      CURRENT_USER = null;
+    }
+  }catch(_){
+    CURRENT_USER = null;
+  }
+  // Fallback para sessão local criada via registro/login
+  if(!CURRENT_USER){
+    try{
+      const localRaw = localStorage.getItem('gouflix_session');
+      if(localRaw){
+        const ls = JSON.parse(localRaw);
+        CURRENT_USER = { username: ls.username || (ls.email || 'Usuário'), email: ls.email || '', id: 'local', avatar: null };
+      }
+    }catch(_){}
+  }
+  updateUserArea();
+  applyAdminVisibility();
 }
 
 function updateUserArea(){
@@ -738,6 +753,7 @@ function updateUserArea(){
     if(menuPlans){ menuPlans.onclick = ()=>{ setRoute('plans'); if(menu) menu.classList.add('hidden'); }; }
     if(menuLogout){ menuLogout.onclick = async()=>{
       try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
+      try{ localStorage.removeItem('gouflix_session'); }catch(_){/* ignore */}
       CURRENT_USER = null; 
       // Redirecionar para a página de auth após logout
       window.location.href = 'auth.html';
@@ -1587,6 +1603,12 @@ if(saveMpTokenBtn){
 // Função para verificar se precisa redirecionar para login
 async function checkAuthAndRedirect() {
   try {
+    // Checar sessão local criada via registro/login
+    try{
+      const localSession = localStorage.getItem('gouflix_session');
+      if(localSession){ return true; }
+    }catch(_){}
+
     const response = await fetch('/api/auth/me');
     if (response.ok) {
       const data = await response.json();

@@ -185,18 +185,23 @@ document.addEventListener('DOMContentLoaded', function() {
         setButtonLoading(submitBtn, true);
 
         try {
-            // Aqui você faria a chamada para sua API de registro
-            // Por enquanto, vamos simular um delay e sucesso
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            showSuccess('Conta criada com sucesso! Redirecionando...');
-            
-            // Simular redirecionamento após sucesso
-            setTimeout(() => {
-                // Aqui você poderia fazer login automático ou redirecionar
-                window.location.href = 'index.html';
-            }, 2000);
-            
+            // Simular demora de processamento
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            // Persistir usuário localmente (apenas para demo)
+            const users = JSON.parse(localStorage.getItem('gouflix_users') || '[]');
+            // Se já existir, substituir senha/nome
+            const existingIdx = users.findIndex(u => u.email === email);
+            if (existingIdx >= 0) {
+                users[existingIdx] = { name: fullName, email, password };
+            } else {
+                users.push({ name: fullName, email, password });
+            }
+            localStorage.setItem('gouflix_users', JSON.stringify(users));
+
+            // Mostrar mensagem e ficar na tela de registro para o usuário clicar em "Fazer login"
+            showSuccess('Conta criada com sucesso! Agora clique em "Fazer login" para entrar.');
+
         } catch (error) {
             showError('Erro ao criar conta. Tente novamente.');
         } finally {
@@ -210,19 +215,30 @@ document.addEventListener('DOMContentLoaded', function() {
         setButtonLoading(submitBtn, true);
 
         try {
-            // Aqui você faria a chamada para sua API de login
-            // Por enquanto, vamos simular um delay e sucesso
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const users = JSON.parse(localStorage.getItem('gouflix_users') || '[]');
+            const user = users.find(u => u.email === email && u.password === password);
+            if (!user) {
+                showError('Email ou senha incorretos.');
+                return;
+            }
+
+            // Criar sessão local para o site reconhecer como logado
+            localStorage.setItem('gouflix_session', JSON.stringify({
+                username: user.name,
+                email: user.email,
+                source: 'local'
+            }));
+
             showSuccess('Login realizado com sucesso! Redirecionando...');
-            
-            // Simular redirecionamento após sucesso
+
             setTimeout(() => {
                 window.location.href = 'index.html';
-            }, 2000);
-            
+            }, 1200);
+
         } catch (error) {
-            showError('Email ou senha incorretos.');
+            showError('Não foi possível realizar o login.');
         } finally {
             setButtonLoading(submitBtn, false);
         }
@@ -232,18 +248,23 @@ document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
 
     async function checkAuthStatus() {
+        // Se houver sessão local, já pode redirecionar para a home
+        const localSession = localStorage.getItem('gouflix_session');
+        if (localSession) {
+            window.location.href = 'index.html';
+            return;
+        }
+        // Caso contrário, verificar a sessão do Discord
         try {
             const response = await fetch('/api/auth/me');
             if (response.ok) {
                 const data = await response.json();
                 if (data.logged && data.user) {
-                    // Usuário já está logado, redirecionar para home
                     window.location.href = 'index.html';
                 }
             }
         } catch (error) {
-            // Ignorar erro, usuário não está logado
-            console.log('Usuário não está logado');
+            // Ignorar erro
         }
     }
 
