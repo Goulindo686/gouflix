@@ -34,7 +34,9 @@ async function hashText(t){
 function setCookie(name, value, days){
   try{
     const exp = new Date(Date.now() + (days||7)*864e5).toUTCString();
-    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Expires=${exp}`;
+    const isHttps = String(location.protocol||'').includes('https');
+    const secure = isHttps ? '; Secure' : '';
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Expires=${exp}${secure}`;
   }catch(_){/* ignore */}
 }
 function openAuthOverlay(){
@@ -65,9 +67,12 @@ async function loginAccount(email, password){
 function applyLoginCookies(user){
   try{
     const expStr = new Date(Date.now()+7*864e5).toISOString();
+    const sid = 's_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    setCookie('sid', sid, 7);
     setCookie('uid', user.id, 7);
     setCookie('uname', user.username||'Usuário', 7);
     setCookie('uemail', user.email||'', 7);
+    setCookie('uavatar', user.avatar||'', 7);
     setCookie('uexp', expStr, 7);
   }catch(_){}
 }
@@ -91,13 +96,18 @@ function initAuthUI(){
     try{
       if(name.length < 3) throw new Error('Informe seu nome completo');
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email inválido');
-      if((pw||'').length < 6) throw new Error('Senha deve ter pelo menos 6 caracteres');
+      if((pw||'').length < 8) throw new Error('Senha deve ter pelo menos 8 caracteres');
       if(pw !== pwc) throw new Error('As senhas não coincidem');
       if(!terms) throw new Error('Aceite os termos para continuar');
       const user = await registerAccount(name, email, pw);
-      applyLoginCookies(user);
-      await fetchCurrentUser();
-      closeAuthOverlay();
+      // Não autenticar automaticamente: voltar para tela de login
+      const loginEmailEl = document.getElementById('loginEmail');
+      if(loginEmailEl){ loginEmailEl.value = email; }
+      const signupCard = document.getElementById('signupCard');
+      const loginCard = document.getElementById('loginCard');
+      if(signupCard && loginCard){ signupCard.classList.add('hidden'); loginCard.classList.remove('hidden'); }
+      const loginErr = document.getElementById('loginError');
+      if(loginErr){ loginErr.textContent = 'Conta criada! Agora faça login.'; }
     }catch(err){ errEl.textContent = err.message || 'Erro ao criar conta'; }
   } }
   if(loginBtn2){ loginBtn2.onclick = async()=>{
@@ -112,6 +122,16 @@ function initAuthUI(){
       closeAuthOverlay();
     }catch(err){ errEl.textContent = err.message || 'Erro ao fazer login'; }
   } }
+
+  // Integração: iniciar fluxo OAuth do Discord
+  function startDiscordAuth(){
+    try{
+      const returnTo = location.pathname || '/';
+      const url = `/api/auth/discord/start?returnTo=${encodeURIComponent(returnTo)}`;
+      location.href = url;
+    }catch(_){ /* navegacao */ }
+  }
+  // Botões Discord ocultados nesta versão para combinar com o layout da imagem
 }
 
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
@@ -1746,3 +1766,6 @@ if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.ge
 bindPlanButtons();
 
 // Admin compras/assinaturas removido
+  // Link "Voltar ao início" fecha o overlay
+  const backHome = document.getElementById('authBackHome');
+  if(backHome){ backHome.onclick = (e)=>{ e.preventDefault(); closeAuthOverlay(); } }

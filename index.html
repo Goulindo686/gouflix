@@ -57,19 +57,19 @@
       <div id="signupCard" class="auth-card">
         <div class="field-group">
           <label>Nome completo</label>
-          <input id="authName" type="text" placeholder="Seu nome" />
+          <input id="authName" type="text" placeholder="Seu nome completo" />
         </div>
         <div class="field-group">
           <label>Email</label>
-          <input id="authEmail" type="email" placeholder="voce@exemplo.com" />
+          <input id="authEmail" type="email" placeholder="seu@email.com" />
         </div>
         <div class="field-group">
           <label>Senha</label>
-          <input id="authPassword" type="password" placeholder="••••••••" />
+          <input id="authPassword" type="password" placeholder="Mínimo 8 caracteres" />
         </div>
         <div class="field-group">
           <label>Confirmar senha</label>
-          <input id="authPasswordConfirm" type="password" placeholder="••••••••" />
+          <input id="authPasswordConfirm" type="password" placeholder="Confirme sua senha" />
         </div>
         <label class="checkbox-row"><input id="authTerms" type="checkbox" /> Eu aceito os termos de uso e política de privacidade</label>
         <button id="authCreateBtn" class="btn primary" style="width:100%">Criar conta</button>
@@ -80,15 +80,19 @@
       <div id="loginCard" class="auth-card hidden">
         <div class="field-group">
           <label>Email</label>
-          <input id="loginEmail" type="email" placeholder="voce@exemplo.com" />
+          <input id="loginEmail" type="email" placeholder="seu@email.com" />
         </div>
         <div class="field-group">
           <label>Senha</label>
-          <input id="loginPassword" type="password" placeholder="••••••••" />
+          <input id="loginPassword" type="password" placeholder="Sua senha" />
         </div>
         <button id="authLoginBtn" class="btn primary" style="width:100%">Entrar</button>
         <div id="loginError" class="form-error"></div>
         <p class="muted" style="text-align:center;margin-top:12px">Novo por aqui? <a href="#" id="switchToSignup">Criar conta</a></p>
+      </div>
+
+      <div class="auth-footer">
+        <a href="#" id="authBackHome" class="auth-back">← Voltar ao início</a>
       </div>
     </div>
   </div>
