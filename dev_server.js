@@ -219,60 +219,6 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify(json));
         return;
       }
-
-      // ---- Auth endpoints (local cookies) ----
-      if (urlPath === '/api/auth/me' && req.method === 'GET') {
-        const cookie = req.headers.cookie || '';
-        const parts = cookie.split(';').map(s=>s.trim());
-        const readCookie = (name)=>{ for(const p of parts){ if(p.startsWith(name+'=')) return decodeURIComponent(p.slice(name.length+1)); } return null; };
-        const sid = readCookie('sid');
-        if(!sid){ res.end(JSON.stringify({ ok:true, logged:false, user:null })); return; }
-        const uid = readCookie('uid');
-        const uname = readCookie('uname') || 'Usuário';
-        const uavatar = readCookie('uavatar') || null;
-        const uemail = readCookie('uemail') || null;
-        const uexp = readCookie('uexp');
-        const expMs = uexp ? (new Date(uexp)).getTime() : Date.now();
-        if(!uid || expMs < Date.now()){ res.end(JSON.stringify({ ok:true, logged:false, user:null })); return; }
-        res.end(JSON.stringify({ ok:true, logged:true, user:{ id: uid, username: uname, avatar: uavatar, email: uemail } }));
-        return;
-      }
-
-      if (urlPath === '/api/auth/logout') {
-        res.setHeader('Set-Cookie', [
-          'sid=; Max-Age=0; Path=/; SameSite=Lax',
-          'uid=; Max-Age=0; Path=/; SameSite=Lax',
-          'uname=; Max-Age=0; Path=/; SameSite=Lax',
-          'uavatar=; Max-Age=0; Path=/; SameSite=Lax',
-          'uemail=; Max-Age=0; Path=/; SameSite=Lax',
-          'uexp=; Max-Age=0; Path=/; SameSite=Lax'
-        ]);
-        res.end(JSON.stringify({ ok:true }));
-        return;
-      }
-
-      if ((urlPath === '/api/auth/register' || urlPath === '/api/auth/login') && req.method === 'POST') {
-        const flags = 'HttpOnly; Path=/; SameSite=Lax';
-        const maxAge = 30*24*60*60; // 30 dias
-        const readBody = async()=> new Promise(resolve=>{ let data=''; req.on('data',c=>data+=c); req.on('end',()=>{ try{ resolve(JSON.parse(data||'{}')); }catch(_){ resolve({}); } }); });
-        const body = await readBody();
-        const email = String((body.email||'')).trim().toLowerCase();
-        const fullName = String((body.fullName||body.name||'')) || email;
-        if(!email){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Email inválido' })); return; }
-        const sid = 's_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-        const uid = `email:${email}`;
-        const expiresAt = new Date(Date.now() + 30*24*60*60*1000).toISOString();
-        res.setHeader('Set-Cookie', [
-          `sid=${sid}; ${flags}; Max-Age=${maxAge}`,
-          `uid=${encodeURIComponent(uid)}; ${flags}; Max-Age=${maxAge}`,
-          `uname=${encodeURIComponent(fullName)}; ${flags}; Max-Age=${maxAge}`,
-          `uavatar=${encodeURIComponent('')}; ${flags}; Max-Age=${maxAge}`,
-          `uemail=${encodeURIComponent(email)}; ${flags}; Max-Age=${maxAge}`,
-          `uexp=${encodeURIComponent(expiresAt)}; ${flags}; Max-Age=${maxAge}`
-        ]);
-        res.end(JSON.stringify({ ok:true, user:{ id: uid, username: fullName, email } }));
-        return;
-      }
       // ----- CONFIG -----
       if (urlPath === '/api/config' && req.method === 'GET') {
         const state = await readState();
@@ -489,7 +435,6 @@ const server = http.createServer(async (req, res) => {
     res.statusCode = 500;
     res.end('Internal Server Error');
   }
-  
 });
 
 server.listen(port, () => {

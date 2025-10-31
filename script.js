@@ -689,27 +689,12 @@ async function openModal(id){
 async function fetchCurrentUser(){
   try{
     const res = await fetch('/api/auth/me');
-    if(res.ok){
-      const j = await res.json();
-      CURRENT_USER = (j.logged && j.user) ? j.user : null;
-    } else {
-      CURRENT_USER = null;
-    }
-  }catch(_){
-    CURRENT_USER = null;
-  }
-  // Fallback para sessão local criada via registro/login
-  if(!CURRENT_USER){
-    try{
-      const localRaw = localStorage.getItem('gouflix_session');
-      if(localRaw){
-        const ls = JSON.parse(localRaw);
-        CURRENT_USER = { username: ls.username || (ls.email || 'Usuário'), email: ls.email || '', id: 'local', avatar: null };
-      }
-    }catch(_){}
-  }
-  updateUserArea();
-  applyAdminVisibility();
+    if(!res.ok){ CURRENT_USER = null; updateUserArea(); return; }
+    const j = await res.json();
+    CURRENT_USER = (j.logged && j.user) ? j.user : null;
+    updateUserArea();
+    applyAdminVisibility();
+  }catch(_){ CURRENT_USER = null; updateUserArea(); }
 }
 
 function updateUserArea(){
@@ -753,10 +738,7 @@ function updateUserArea(){
     if(menuPlans){ menuPlans.onclick = ()=>{ setRoute('plans'); if(menu) menu.classList.add('hidden'); }; }
     if(menuLogout){ menuLogout.onclick = async()=>{
       try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
-      try{ localStorage.removeItem('gouflix_session'); }catch(_){/* ignore */}
-      CURRENT_USER = null; 
-      // Redirecionar para a página de auth após logout
-      window.location.href = 'auth.html';
+      CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
   } else {
     area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
@@ -1600,47 +1582,7 @@ if(saveMpTokenBtn){
 // Executar bootstrap agora
 // Botão de executar bootstrap removido
 
-// Função para verificar se precisa redirecionar para login
-async function checkAuthAndRedirect() {
-  try {
-    const response = await fetch('/api/auth/me', {
-      method: 'GET',
-      credentials: 'include', // Importante: incluir cookies na requisição
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.ok && data.logged && data.user) {
-        // Usuário está logado
-        return true;
-      } else {
-        // Usuário não está logado, redirecionar para auth.html
-        window.location.href = 'auth.html';
-        return false;
-      }
-    } else {
-      // Erro na API, redirecionar para auth.html
-      window.location.href = 'auth.html';
-      return false;
-    }
-  } catch (error) {
-    // Erro de rede, redirecionar para auth.html
-    console.error('Erro ao verificar autenticação:', error);
-    window.location.href = 'auth.html';
-    return false;
-  }
-}
-
 initEnvAndSupabase().then(async()=>{
-  // Verificar autenticação antes de carregar a aplicação
-  const isAuthenticated = await checkAuthAndRedirect();
-  if (!isAuthenticated) {
-    return; // Para a execução se não estiver autenticado
-  }
-  
   await fetchCurrentUser();
   await loadSubscriptionStatus();
   const pm = document.getElementById('paymentModal');
