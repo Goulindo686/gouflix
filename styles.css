@@ -481,132 +481,402 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
   .floating-discord { padding: 8px 12px; font-size: 12px; }
 }
 
-/* Overlay de Autenticação (Cadastro/Login) */
-.auth-overlay{
-  position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center;
-  background:radial-gradient(1200px 600px at 50% 0%, rgba(24, 27, 34, 0.85), rgba(8, 10, 14, 0.92)); backdrop-filter:blur(6px);
+/* ===== SISTEMA DE AUTENTICAÇÃO MODERNO ===== */
+
+/* Overlay principal */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, 
+    rgba(0, 0, 0, 0.95) 0%, 
+    rgba(15, 23, 42, 0.98) 50%, 
+    rgba(0, 0, 0, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
-.auth-overlay.hidden{ display:none; }
-.auth-dialog{
-  width:clamp(380px, 48vw, 540px);
-  border-radius:18px;
-  border:1px solid #2a3342;
-  background: linear-gradient(180deg, #11151d 0%, #0b0f16 100%);
-  box-shadow: 0 22px 52px rgba(0,0,0,0.55);
-  padding:28px;
-  color:#e5e7eb;
-  transform: translateY(10px);
-  animation: authPop .28s ease-out forwards;
+
+.auth-overlay.hidden {
+  display: none;
 }
-.auth-header{ text-align:center; margin-bottom:12px; }
-.auth-logo{ width:42px; height:42px; display:block; margin:0 auto 8px; }
-.auth-header h2{ font-size:26px; margin:6px 0; font-weight:700; }
-.auth-header .muted{ color:#9aa7b8; margin-top:2px; }
-.auth-card{ margin-top:12px; display:flex; flex-direction:column; gap:12px; min-height: 420px; }
-.auth-card .field-group{ gap:6px; }
-.auth-card .field-group label{ display:block; color:#aab4c3; font-size:13px; margin-bottom:6px; }
-.auth-card .field-group input{
-  background:#1b1f27; border:1px solid #323742; color:#e8eaf0; border-radius:12px; padding:12px; height:46px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+
+/* Container principal das telas */
+.auth-container {
+  position: relative;
   width: 100%;
-}
-.auth-card .field-group input::placeholder{ color:#8a94a6; }
-.auth-card .field-group input:focus{
-  outline:none; border-color:#5865F2; box-shadow: 0 0 0 2px rgba(88,101,242,0.25);
-}
-.checkbox-row{ display:flex; align-items:center; gap:8px; color:#9aa7b8; font-size:13px; }
-.form-error{ color:#ff7b7b; font-size:13px; margin-top:6px; min-height:18px; }
-.auth-dialog .btn.primary{
-  background: linear-gradient(90deg, #7b5df0, #a855f7);
-  color:#fff; border:none; height:44px; border-radius:12px;
-  box-shadow: 0 0 12px rgba(168,85,247,0.35);
-  transition: filter .15s ease, box-shadow .15s ease, transform .08s ease;
-}
-.auth-dialog .btn.primary:hover{ filter:brightness(1.07); box-shadow:0 0 16px rgba(168,85,247,0.5); transform: translateY(-1px); }
-
-/* animação sutil ao abrir */
-@keyframes authPop{
-  0%{ opacity:0; transform: translateY(10px) scale(0.98); }
-  100%{ opacity:1; transform: translateY(0) scale(1); }
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-/* Botão Discord */
-.btn.discord {
-  background: #5865f2;
+/* Telas de autenticação */
+.auth-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.auth-screen.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: all;
+}
+
+/* Card principal */
+.auth-card {
+  background: linear-gradient(145deg, 
+    rgba(15, 23, 42, 0.95) 0%, 
+    rgba(30, 41, 59, 0.9) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 24px;
+  padding: 40px 32px;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header da autenticação */
+.auth-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.auth-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-weak));
+  border-radius: 20px;
+  margin: 0 auto 20px;
   color: white;
-  border: none;
+  box-shadow: 0 8px 32px rgba(0, 229, 255, 0.3);
+}
+
+.auth-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.025em;
+}
+
+.auth-header p {
+  font-size: 16px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Formulário */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+}
+
+.form-group input {
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 2px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  color: #f8fafc;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input::placeholder {
+  color: #64748b;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+/* Opções do formulário */
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: -8px 0 8px 0;
+}
+
+.checkbox-group {
+  margin: 8px 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkmark {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  background: transparent;
+  position: relative;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Botões */
+.btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  height: 48px;
-  border-radius: 8px;
+  height: 52px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
-.btn.discord:hover {
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-weak));
+  color: white;
+  box-shadow: 0 4px 20px rgba(0, 229, 255, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 229, 255, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-discord {
+  background: #5865f2;
+  color: white;
+  border: 1px solid rgba(88, 101, 242, 0.3);
+}
+
+.btn-discord:hover {
   background: #4752c4;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(88, 101, 242, 0.3);
 }
 
-.btn.discord svg {
-  flex-shrink: 0;
-}
-
-/* Divisor "ou" */
-.auth-divider {
+/* Divisor */
+.divider {
   display: flex;
   align-items: center;
-  margin: 20px 0;
+  margin: 24px 0;
   text-align: center;
 }
 
-.auth-divider::before,
-.auth-divider::after {
+.divider::before,
+.divider::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(148, 163, 184, 0.2), 
+    transparent);
 }
 
-.auth-divider span {
-  padding: 0 16px;
-  color: rgba(255, 255, 255, 0.6);
+.divider span {
+  padding: 0 20px;
+  color: #64748b;
   font-size: 14px;
   font-weight: 500;
 }
 
-/* Melhorar header do login */
-.auth-card .auth-header {
+/* Links */
+.link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.link:hover {
+  color: var(--accent-weak);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.link-btn:hover {
+  color: var(--accent-weak);
+}
+
+/* Footer da autenticação */
+.auth-footer {
   text-align: center;
-  margin-bottom: 24px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
 
-.auth-card .auth-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.auth-card .auth-header p {
-  margin: 0;
+.auth-footer p {
+  color: #94a3b8;
   font-size: 14px;
-}
-.auth-dialog .btn.discord{
-  background: #23272A;
-  color: #fff;
-  border: 1px solid #2a2a2c;
-  margin-top: 8px; height:42px; border-radius:12px;
-}
-.auth-dialog .btn.discord:hover{ filter:brightness(1.06); border-color:#3a3a3c; }
-
-@media (max-width: 480px){
-  .auth-dialog{ width:92%; padding:20px; border-radius:16px; }
+  margin: 0;
 }
 
-/* Rodapé do modal: voltar ao início */
-.auth-footer{ display:flex; justify-content:center; margin-top:10px; }
-.auth-back{ display:inline-flex; align-items:center; gap:6px; color:#a0a8b7; font-size:12px; text-decoration:none; }
-.auth-back:hover{ color:#cbd2df; }
+/* Botão de fechar */
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: rgba(15, 23, 42, 0.95);
+  color: #f8fafc;
+  transform: scale(1.05);
+}
+
+/* Mensagens de erro */
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  display: none;
+}
+
+.error-message.show {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsividade */
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 16px;
+  }
+  
+  .auth-card {
+    padding: 32px 24px;
+    border-radius: 20px;
+  }
+  
+  .auth-header h1 {
+    font-size: 24px;
+  }
+  
+  .form-group input,
+  .btn {
+    height: 48px;
+    font-size: 15px;
+  }
+  
+  .close-btn {
+    width: 40px;
+    height: 40px;
+    top: 16px;
+    right: 16px;
+  }
+}
+
+/* --- Correção de centralização da autenticação --- */
+.auth-screen { position: static; display: none; opacity: 0; transform: translateX(30px); pointer-events: none; }
+.auth-screen.active { display: block; opacity: 1; transform: translateX(0); pointer-events: all; }
+.auth-container { display: block; }

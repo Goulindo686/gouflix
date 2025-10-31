@@ -77,21 +77,44 @@ function applyLoginCookies(user){
   }catch(_){}
 }
 function initAuthUI(){
-  const signupCard = document.getElementById('signupCard');
-  const loginCard = document.getElementById('loginCard');
+  const signupScreen = document.getElementById('signupScreen');
+  const loginScreen = document.getElementById('loginScreen');
   const toLogin = document.getElementById('switchToLogin');
   const toSignup = document.getElementById('switchToSignup');
-  const createBtn = document.getElementById('authCreateBtn');
-  const loginBtn2 = document.getElementById('authLoginBtn');
-  if(toLogin){ toLogin.onclick = (e)=>{ e.preventDefault(); signupCard.classList.add('hidden'); loginCard.classList.remove('hidden'); } };
-  if(toSignup){ toSignup.onclick = (e)=>{ e.preventDefault(); loginCard.classList.add('hidden'); signupCard.classList.remove('hidden'); } };
-  if(createBtn){ createBtn.onclick = async()=>{
-    const name = document.getElementById('authName').value.trim();
-    const email = document.getElementById('authEmail').value.trim();
-    const pw = document.getElementById('authPassword').value;
-    const pwc = document.getElementById('authPasswordConfirm').value;
-    const terms = document.getElementById('authTerms').checked;
-    const errEl = document.getElementById('authError');
+  const createBtn = document.getElementById('signupBtn');
+  const loginBtn2 = document.getElementById('loginBtn');
+  const closeBtn = document.getElementById('closeAuth');
+  
+  // Função para mostrar tela de registro
+  function showSignupScreen(){
+    if(signupScreen && loginScreen){
+      signupScreen.classList.remove('hidden');
+      loginScreen.classList.add('hidden');
+    }
+  }
+  
+  // Função para mostrar tela de login
+  function showLoginScreen(){
+    if(signupScreen && loginScreen){
+      signupScreen.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+    }
+  }
+  
+  // Eventos de navegação entre telas
+  if(toLogin){ toLogin.onclick = (e)=>{ e.preventDefault(); showLoginScreen(); } };
+  if(toSignup){ toSignup.onclick = (e)=>{ e.preventDefault(); showSignupScreen(); } };
+  if(closeBtn){ closeBtn.onclick = (e)=>{ e.preventDefault(); closeAuthOverlay(); } };
+  
+  // Botão de criar conta
+  if(createBtn){ createBtn.onclick = async(e)=>{
+    e.preventDefault();
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const pw = document.getElementById('signupPassword').value;
+    const pwc = document.getElementById('signupPasswordConfirm').value;
+    const terms = document.getElementById('signupTerms').checked;
+    const errEl = document.getElementById('signupError');
     errEl.textContent = '';
     try{
       if(name.length < 3) throw new Error('Informe seu nome completo');
@@ -100,27 +123,38 @@ function initAuthUI(){
       if(pw !== pwc) throw new Error('As senhas não coincidem');
       if(!terms) throw new Error('Aceite os termos para continuar');
       const user = await registerAccount(name, email, pw);
-      // Não autenticar automaticamente: voltar para tela de login
+      // Preencher email na tela de login e trocar para ela
       const loginEmailEl = document.getElementById('loginEmail');
       if(loginEmailEl){ loginEmailEl.value = email; }
-      const signupCard = document.getElementById('signupCard');
-      const loginCard = document.getElementById('loginCard');
-      if(signupCard && loginCard){ signupCard.classList.add('hidden'); loginCard.classList.remove('hidden'); }
+      showLoginScreen();
       const loginErr = document.getElementById('loginError');
-      if(loginErr){ loginErr.textContent = 'Conta criada! Agora faça login.'; }
-    }catch(err){ errEl.textContent = err.message || 'Erro ao criar conta'; }
+      if(loginErr){ loginErr.textContent = 'Conta criada! Agora faça login.'; loginErr.style.color = '#4ade80'; }
+      // Limpar formulário de registro
+      document.getElementById('signupName').value = '';
+      document.getElementById('signupEmail').value = '';
+      document.getElementById('signupPassword').value = '';
+      document.getElementById('signupPasswordConfirm').value = '';
+      document.getElementById('signupTerms').checked = false;
+    }catch(err){ errEl.textContent = err.message || 'Erro ao criar conta'; errEl.classList.add('show'); }
   } }
-  if(loginBtn2){ loginBtn2.onclick = async()=>{
+  
+  // Botão de fazer login
+  if(loginBtn2){ loginBtn2.onclick = async(e)=>{
+    e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const pw = document.getElementById('loginPassword').value;
     const errEl = document.getElementById('loginError');
     errEl.textContent = '';
+    errEl.style.color = '#ef4444';
     try{
       const user = await loginAccount(email, pw);
       applyLoginCookies(user);
       await fetchCurrentUser();
       closeAuthOverlay();
-    }catch(err){ errEl.textContent = err.message || 'Erro ao fazer login'; }
+      // Limpar formulários
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginPassword').value = '';
+    }catch(err){ errEl.textContent = err.message || 'Erro ao fazer login'; errEl.classList.add('show'); }
   } }
 
   // Integração: iniciar fluxo OAuth do Discord

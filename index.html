@@ -48,80 +48,141 @@
 
   <!-- Overlay de Autenticação (Cadastro/Login) -->
   <div id="authOverlay" class="auth-overlay hidden">
-    <div class="auth-dialog">
-      <div class="auth-header">
-        <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f31f.svg" alt="logo" class="auth-logo" />
-        <h2>Criar sua conta</h2>
-        <p class="muted">Junte-se à nossa comunidade!</p>
-      </div>
-      <div id="signupCard" class="auth-card">
-        <div class="field-group">
-          <label>Nome completo</label>
-          <input id="authName" type="text" placeholder="Seu nome completo" />
+    <div class="auth-container">
+      <!-- Tela de Registro -->
+      <div id="signupScreen" class="auth-screen active">
+        <div class="auth-card">
+          <div class="auth-header">
+            <div class="auth-logo">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h1>Criar Conta</h1>
+            <p>Junte-se à nossa comunidade e explore o melhor do entretenimento</p>
+          </div>
+
+          <form class="auth-form">
+            <div class="form-group">
+              <label for="signupName">Nome Completo</label>
+              <input type="text" id="signupName" placeholder="Digite seu nome completo" required>
+            </div>
+
+            <div class="form-group">
+              <label for="signupEmail">Email</label>
+              <input type="email" id="signupEmail" placeholder="seu@email.com" required>
+            </div>
+
+            <div class="form-group">
+              <label for="signupPassword">Senha</label>
+              <input type="password" id="signupPassword" placeholder="Mínimo 8 caracteres" required>
+            </div>
+
+            <div class="form-group">
+              <label for="signupPasswordConfirm">Confirmar Senha</label>
+              <input type="password" id="signupPasswordConfirm" placeholder="Confirme sua senha" required>
+            </div>
+
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="signupTerms" required>
+                <span class="checkmark"></span>
+                Eu aceito os <a href="#" class="link">termos de uso</a> e <a href="#" class="link">política de privacidade</a>
+              </label>
+            </div>
+
+            <button type="submit" id="signupBtn" class="btn btn-primary">
+              <span>Criar Conta</span>
+            </button>
+
+            <div class="divider">
+              <span>ou</span>
+            </div>
+
+            <button type="button" id="discordSignupBtn" class="btn btn-discord">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+              </svg>
+              Continuar com Discord
+            </button>
+
+            <div id="signupError" class="error-message"></div>
+          </form>
+
+          <div class="auth-footer">
+            <p>Já tem uma conta? <button type="button" id="switchToLogin" class="link-btn">Fazer login</button></p>
+          </div>
         </div>
-        <div class="field-group">
-          <label>Email</label>
-          <input id="authEmail" type="email" placeholder="seu@email.com" />
-        </div>
-        <div class="field-group">
-          <label>Senha</label>
-          <input id="authPassword" type="password" placeholder="Mínimo 8 caracteres" />
-        </div>
-        <div class="field-group">
-          <label>Confirmar senha</label>
-          <input id="authPasswordConfirm" type="password" placeholder="Confirme sua senha" />
-        </div>
-        <label class="checkbox-row"><input id="authTerms" type="checkbox" /> Eu aceito os termos de uso e política de privacidade</label>
-        <button id="authCreateBtn" class="btn primary" style="width:100%">Criar conta</button>
-        
-        <div class="auth-divider">
-          <span>ou</span>
-        </div>
-        
-        <button id="discordSignupBtn" class="btn discord" style="width:100%">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
-          </svg>
-          Continuar com Discord
-        </button>
-        
-        <div id="authError" class="form-error"></div>
-        <p class="muted" style="text-align:center;margin-top:12px">Já tem uma conta? <a href="#" id="switchToLogin">Fazer login</a></p>
       </div>
 
-      <div id="loginCard" class="auth-card hidden">
-        <div class="auth-header">
-          <h2>Fazer login</h2>
-          <p class="muted">Bem-vindo de volta!</p>
+      <!-- Tela de Login -->
+      <div id="loginScreen" class="auth-screen">
+        <div class="auth-card">
+          <div class="auth-header">
+            <div class="auth-logo">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h1>Bem-vindo de volta</h1>
+            <p>Entre na sua conta para continuar assistindo</p>
+          </div>
+
+          <form class="auth-form">
+            <div class="form-group">
+              <label for="loginEmail">Email</label>
+              <input type="email" id="loginEmail" placeholder="seu@email.com" required>
+            </div>
+
+            <div class="form-group">
+              <label for="loginPassword">Senha</label>
+              <input type="password" id="loginPassword" placeholder="Digite sua senha" required>
+            </div>
+
+            <div class="form-options">
+              <label class="checkbox-label">
+                <input type="checkbox" id="rememberMe">
+                <span class="checkmark"></span>
+                Lembrar de mim
+              </label>
+              <a href="#" class="link">Esqueceu a senha?</a>
+            </div>
+
+            <button type="submit" id="loginBtn" class="btn btn-primary">
+              <span>Entrar</span>
+            </button>
+
+            <div class="divider">
+              <span>ou</span>
+            </div>
+
+            <button type="button" id="discordLoginBtn" class="btn btn-discord">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
+              </svg>
+              Entrar com Discord
+            </button>
+
+            <div id="loginError" class="error-message"></div>
+          </form>
+
+          <div class="auth-footer">
+            <p>Novo por aqui? <button type="button" id="switchToSignup" class="link-btn">Criar conta</button></p>
+          </div>
         </div>
-        <div class="field-group">
-          <label>Email</label>
-          <input id="loginEmail" type="email" placeholder="seu@email.com" />
-        </div>
-        <div class="field-group">
-          <label>Senha</label>
-          <input id="loginPassword" type="password" placeholder="Sua senha" />
-        </div>
-        <button id="authLoginBtn" class="btn primary" style="width:100%">Entrar</button>
-        
-        <div class="auth-divider">
-          <span>ou</span>
-        </div>
-        
-        <button id="discordLoginBtn" class="btn discord" style="width:100%">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
-          </svg>
-          Entrar com Discord
-        </button>
-        
-        <div id="loginError" class="form-error"></div>
-        <p class="muted" style="text-align:center;margin-top:12px">Novo por aqui? <a href="#" id="switchToSignup">Criar conta</a></p>
       </div>
 
-      <div class="auth-footer">
-        <a href="#" id="authBackHome" class="auth-back">← Voltar ao início</a>
-      </div>
+      <!-- Botão para fechar -->
+      <button id="closeAuth" class="close-btn" aria-label="Fechar">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
   </div>
 
