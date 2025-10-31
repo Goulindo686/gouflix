@@ -131,7 +131,12 @@ function initAuthUI(){
       location.href = url;
     }catch(_){ /* navegacao */ }
   }
-  // Botões Discord ocultados nesta versão para combinar com o layout da imagem
+  
+  // Conectar botões Discord
+  const discordSignupBtn = document.getElementById('discordSignupBtn');
+  const discordLoginBtn = document.getElementById('discordLoginBtn');
+  if(discordSignupBtn){ discordSignupBtn.onclick = startDiscordAuth; }
+  if(discordLoginBtn){ discordLoginBtn.onclick = startDiscordAuth; }
 }
 
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
