@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Simular criação de conta (aqui você integraria com sua API)
-        handleRegister(fullName, email, password);
+    // Registrar via API (cookies de sessão, igual ao Discord)
+    handleRegister(fullName, email, password);
     });
 
     // Validação de formulário de login
@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Simular login (aqui você integraria com sua API)
-        handleLogin(email, password);
+    // Login via API (cookies de sessão, igual ao Discord)
+    handleLogin(email, password);
     });
 
     // Função para validar email
@@ -179,28 +179,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Simular registro (substitua pela sua API)
+    // Registro via API
     async function handleRegister(fullName, email, password) {
-        const submitBtn = registerForm.querySelector('.btn-primary');
-        setButtonLoading(submitBtn, true);
+      const submitBtn = registerForm.querySelector('.btn-primary');
+      setButtonLoading(submitBtn, true);
 
-        try {
-            // Simular demora de processamento
-            await new Promise(resolve => setTimeout(resolve, 1200));
-
-            // Persistir usuário localmente (apenas para demo)
-            const users = JSON.parse(localStorage.getItem('gouflix_users') || '[]');
-            // Se já existir, substituir senha/nome
-            const existingIdx = users.findIndex(u => u.email === email);
-            if (existingIdx >= 0) {
-                users[existingIdx] = { name: fullName, email, password };
-            } else {
-                users.push({ name: fullName, email, password });
-            }
-            localStorage.setItem('gouflix_users', JSON.stringify(users));
-
-            // Mostrar mensagem e ficar na tela de registro para o usuário clicar em "Fazer login"
-            showSuccess('Conta criada com sucesso! Agora clique em "Fazer login" para entrar.');
+      try {
+            const r = await fetch('/api/auth/register',{
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              body: JSON.stringify({ fullName, email, password })
+            });
+            if(!r.ok){ const tx = await r.text(); throw new Error(tx||'Falha ao registrar'); }
+            const js = await r.json();
+            if(!(js && js.ok)) throw new Error(js && js.error || 'Erro ao registrar');
+            showSuccess('Conta criada! Redirecionando...');
+            setTimeout(()=>{ window.location.href = 'index.html'; }, 900);
 
         } catch (error) {
             showError('Erro ao criar conta. Tente novamente.');
@@ -209,33 +203,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Simular login (substitua pela sua API)
+    // Login via API
     async function handleLogin(email, password) {
-        const submitBtn = loginForm.querySelector('.btn-primary');
-        setButtonLoading(submitBtn, true);
+      const submitBtn = loginForm.querySelector('.btn-primary');
+      setButtonLoading(submitBtn, true);
 
-        try {
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            const users = JSON.parse(localStorage.getItem('gouflix_users') || '[]');
-            const user = users.find(u => u.email === email && u.password === password);
-            if (!user) {
-                showError('Email ou senha incorretos.');
-                return;
-            }
-
-            // Criar sessão local para o site reconhecer como logado
-            localStorage.setItem('gouflix_session', JSON.stringify({
-                username: user.name,
-                email: user.email,
-                source: 'local'
-            }));
-
-            showSuccess('Login realizado com sucesso! Redirecionando...');
-
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 1200);
+      try {
+            const r = await fetch('/api/auth/login',{
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              body: JSON.stringify({ email, password })
+            });
+            if(!r.ok){ const tx = await r.text(); throw new Error(tx||'Falha no login'); }
+            const js = await r.json();
+            if(!(js && js.ok)) throw new Error(js && js.error || 'Credenciais inválidas');
+            showSuccess('Login realizado! Redirecionando...');
+            setTimeout(()=>{ window.location.href = 'index.html'; }, 900);
 
         } catch (error) {
             showError('Não foi possível realizar o login.');
@@ -248,13 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
 
     async function checkAuthStatus() {
-        // Se houver sessão local, já pode redirecionar para a home
-        const localSession = localStorage.getItem('gouflix_session');
-        if (localSession) {
-            window.location.href = 'index.html';
-            return;
-        }
-        // Caso contrário, verificar a sessão do Discord
+        // Verificar sessão no backend (Discord ou email)
         try {
             const response = await fetch('/api/auth/me');
             if (response.ok) {
