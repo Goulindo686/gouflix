@@ -20,8 +20,11 @@ function newSessionId(){
 
 function cookieFlags(req){
   const currentHost = req.headers.host||'';
-  const isHttps = String(req.headers['x-forwarded-proto']||'').includes('https') || !String(currentHost||'').startsWith('localhost');
-  return `HttpOnly; Path=/; SameSite=Lax${isHttps ? '; Secure' : ''}`;
+  const isLocalhost = String(currentHost||'').startsWith('localhost');
+  const isHttps = String(req.headers['x-forwarded-proto']||'').includes('https') || !isLocalhost;
+  const sameSite = isLocalhost ? 'Lax' : 'None';
+  const secure = isHttps ? '; Secure' : '';
+  return `HttpOnly; Path=/; SameSite=${sameSite}${secure}`;
 }
 
 function readCookie(req, name){

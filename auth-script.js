@@ -1,5 +1,13 @@
 // Script para a página de autenticação
 document.addEventListener('DOMContentLoaded', function() {
+    // Helper para construir URL de API suportando base remota (ex.: Vercel)
+    function apiUrl(p){
+        try{
+            const meta = document.querySelector('meta[name="config-api-base-url"]');
+            const base = (meta && (meta.content||'').trim()) || '';
+            return base ? `${base}${p}` : p;
+        }catch(_){ return p; }
+    }
     // Elementos do DOM
     const registerCard = document.querySelector('.auth-card:not(.login-card)');
     const loginCard = document.getElementById('loginCard');
@@ -185,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
       setButtonLoading(submitBtn, true);
 
       try {
-            const r = await fetch('/api/auth/register',{
+            const r = await fetch(apiUrl('/api/auth/register'),{
               method:'POST',
               credentials: 'include',
               headers:{ 'Content-Type':'application/json' },
@@ -210,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
       setButtonLoading(submitBtn, true);
 
       try {
-            const r = await fetch('/api/auth/login',{
+            const r = await fetch(apiUrl('/api/auth/login'),{
               method:'POST',
               credentials: 'include',
               headers:{ 'Content-Type':'application/json' },
@@ -235,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function checkAuthStatus() {
         // Verificar sessão no backend (Discord ou email)
         try {
-            const response = await fetch('/api/auth/me', {
+            const response = await fetch(apiUrl('/api/auth/me'), {
                 method: 'GET',
                 credentials: 'include'
             });
