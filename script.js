@@ -23,156 +23,6 @@ function apiUrl(p){
   }catch(_){ return p; }
 }
 
-// ---------- Autenticação local (Cadastro/Login) ----------
-async function hashText(t){
-  try{
-    const buf = new TextEncoder().encode(String(t||''));
-    const digest = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }catch(_){ return String(t||''); }
-}
-function setCookie(name, value, days){
-  try{
-    const exp = new Date(Date.now() + (days||7)*864e5).toUTCString();
-    const isHttps = String(location.protocol||'').includes('https');
-    const secure = isHttps ? '; Secure' : '';
-    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Expires=${exp}${secure}`;
-  }catch(_){/* ignore */}
-}
-function openAuthOverlay(){
-  try{ const el = document.getElementById('authOverlay'); if(el) el.classList.remove('hidden'); }catch(_){}
-}
-function closeAuthOverlay(){
-  try{ const el = document.getElementById('authOverlay'); if(el) el.classList.add('hidden'); }catch(_){}
-}
-function emailKey(email){ return `user:${String(email||'').trim().toLowerCase()}`; }
-async function registerAccount(name, email, password){
-  const pwhash = await hashText(password||'');
-  const key = emailKey(email);
-  const exists = localStorage.getItem(key);
-  if(exists) throw new Error('Email já cadastrado');
-  const user = { id: 'local-'+(await hashText(email)).slice(0,12), username: name, email, pwhash };
-  localStorage.setItem(key, JSON.stringify(user));
-  return user;
-}
-async function loginAccount(email, password){
-  const key = emailKey(email);
-  const raw = localStorage.getItem(key);
-  if(!raw) throw new Error('Conta não encontrada');
-  const user = JSON.parse(raw);
-  const pwhash = await hashText(password||'');
-  if(String(user.pwhash||'') !== String(pwhash)) throw new Error('Senha incorreta');
-  return user;
-}
-function applyLoginCookies(user){
-  try{
-    const expStr = new Date(Date.now()+7*864e5).toISOString();
-    const sid = 's_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    setCookie('sid', sid, 7);
-    setCookie('uid', user.id, 7);
-    setCookie('uname', user.username||'Usuário', 7);
-    setCookie('uemail', user.email||'', 7);
-    setCookie('uavatar', user.avatar||'', 7);
-    setCookie('uexp', expStr, 7);
-  }catch(_){}
-}
-function initAuthUI(){
-  const signupScreen = document.getElementById('signupScreen');
-  const loginScreen = document.getElementById('loginScreen');
-  const toLogin = document.getElementById('switchToLogin');
-  const toSignup = document.getElementById('switchToSignup');
-  const createBtn = document.getElementById('signupBtn');
-  const loginBtn2 = document.getElementById('loginBtn');
-  const closeBtn = document.getElementById('closeAuth');
-  
-  // Função para mostrar tela de registro
-  function showSignupScreen(){
-    if(signupScreen && loginScreen){
-      signupScreen.classList.remove('hidden');
-      loginScreen.classList.add('hidden');
-    }
-  }
-  
-  // Função para mostrar tela de login
-  function showLoginScreen(){
-    if(signupScreen && loginScreen){
-      signupScreen.classList.add('hidden');
-      loginScreen.classList.remove('hidden');
-    }
-  }
-  
-  // Eventos de navegação entre telas
-  if(toLogin){ toLogin.onclick = (e)=>{ e.preventDefault(); showLoginScreen(); } };
-  if(toSignup){ toSignup.onclick = (e)=>{ e.preventDefault(); showSignupScreen(); } };
-  if(closeBtn){ closeBtn.onclick = (e)=>{ e.preventDefault(); closeAuthOverlay(); } };
-  
-  // Botão de criar conta
-  if(createBtn){ createBtn.onclick = async(e)=>{
-    e.preventDefault();
-    const name = document.getElementById('signupName').value.trim();
-    const email = document.getElementById('signupEmail').value.trim();
-    const pw = document.getElementById('signupPassword').value;
-    const pwc = document.getElementById('signupPasswordConfirm').value;
-    const terms = document.getElementById('signupTerms').checked;
-    const errEl = document.getElementById('signupError');
-    errEl.textContent = '';
-    try{
-      if(name.length < 3) throw new Error('Informe seu nome completo');
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email inválido');
-      if((pw||'').length < 8) throw new Error('Senha deve ter pelo menos 8 caracteres');
-      if(pw !== pwc) throw new Error('As senhas não coincidem');
-      if(!terms) throw new Error('Aceite os termos para continuar');
-      const user = await registerAccount(name, email, pw);
-      // Preencher email na tela de login e trocar para ela
-      const loginEmailEl = document.getElementById('loginEmail');
-      if(loginEmailEl){ loginEmailEl.value = email; }
-      showLoginScreen();
-      const loginErr = document.getElementById('loginError');
-      if(loginErr){ loginErr.textContent = 'Conta criada! Agora faça login.'; loginErr.style.color = '#4ade80'; }
-      // Limpar formulário de registro
-      document.getElementById('signupName').value = '';
-      document.getElementById('signupEmail').value = '';
-      document.getElementById('signupPassword').value = '';
-      document.getElementById('signupPasswordConfirm').value = '';
-      document.getElementById('signupTerms').checked = false;
-    }catch(err){ errEl.textContent = err.message || 'Erro ao criar conta'; errEl.classList.add('show'); }
-  } }
-  
-  // Botão de fazer login
-  if(loginBtn2){ loginBtn2.onclick = async(e)=>{
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value.trim();
-    const pw = document.getElementById('loginPassword').value;
-    const errEl = document.getElementById('loginError');
-    errEl.textContent = '';
-    errEl.style.color = '#ef4444';
-    try{
-      const user = await loginAccount(email, pw);
-      applyLoginCookies(user);
-      await fetchCurrentUser();
-      closeAuthOverlay();
-      // Limpar formulários
-      document.getElementById('loginEmail').value = '';
-      document.getElementById('loginPassword').value = '';
-    }catch(err){ errEl.textContent = err.message || 'Erro ao fazer login'; errEl.classList.add('show'); }
-  } }
-
-  // Integração: iniciar fluxo OAuth do Discord
-  function startDiscordAuth(){
-    try{
-      const returnTo = location.pathname || '/';
-      const url = `/api/auth/discord/start?returnTo=${encodeURIComponent(returnTo)}`;
-      location.href = url;
-    }catch(_){ /* navegacao */ }
-  }
-  
-  // Conectar botões Discord
-  const discordSignupBtn = document.getElementById('discordSignupBtn');
-  const discordLoginBtn = document.getElementById('discordLoginBtn');
-  if(discordSignupBtn){ discordSignupBtn.onclick = startDiscordAuth; }
-  if(discordLoginBtn){ discordLoginBtn.onclick = startDiscordAuth; }
-}
-
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
 (function initConsoleSanitizer(){
   try{
@@ -891,9 +741,12 @@ function updateUserArea(){
       CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
   } else {
-    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar</button>`;
+    area.innerHTML = `<button id="loginBtn" class="btn secondary">Entrar com Discord</button>`;
     const loginBtn = document.getElementById('loginBtn');
-    if(loginBtn){ loginBtn.onclick = ()=>{ openAuthOverlay(); } }
+    if(loginBtn){ loginBtn.onclick = ()=>{
+      const ret = location.href;
+      location.href = `/api/auth/discord/start?returnTo=${encodeURIComponent(ret)}`;
+    }; }
   }
 }
 
@@ -1731,13 +1584,11 @@ if(saveMpTokenBtn){
 
 initEnvAndSupabase().then(async()=>{
   await fetchCurrentUser();
-  initAuthUI();
   await loadSubscriptionStatus();
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }
   const searchEl = document.getElementById('search');
   if(searchEl){ searchEl.value = ''; }
-  if(!CURRENT_USER){ openAuthOverlay(); } else { closeAuthOverlay(); }
   loadMovies();
 });
 
@@ -1805,6 +1656,3 @@ if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.ge
 bindPlanButtons();
 
 // Admin compras/assinaturas removido
-  // Link "Voltar ao início" fecha o overlay
-  const backHome = document.getElementById('authBackHome');
-  if(backHome){ backHome.onclick = (e)=>{ e.preventDefault(); closeAuthOverlay(); } }
