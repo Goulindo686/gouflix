@@ -177,7 +177,7 @@ nav a.active{color:var(--text)}
 
 /* Mobile refinements (sem alterar desktop) */
 @media (max-width: 480px){
-  .navbar{padding:14px 16px;background:rgba(0,0,0,0.9);
+  .navbar{position:sticky;top:0;padding:14px 16px;background:rgba(0,0,0,0.9);
     display:grid;grid-template-columns:1fr auto;grid-template-areas:
     'logo right'
     'nav nav';gap:8px;align-items:center}
