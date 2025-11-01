@@ -87,7 +87,7 @@ function initAuth() {
       }
 
       // Fallback: usar autenticação local
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth?action=register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
