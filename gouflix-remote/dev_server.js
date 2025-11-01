@@ -199,7 +199,7 @@ const server = http.createServer(async (req, res) => {
         if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'missing id' })); return; }
         const base = process.env.TMDB_BASE || 'https://api.themoviedb.org/3';
         const token = process.env.TMDB_TOKEN || '';
-        const endpoint = `${base}/${type}/${encodeURIComponent(id)}?language=pt-BR&append_to_response=external_ids,credits`;
+        const endpoint = `${base}/${type}/${encodeURIComponent(id)}?language=pt-BR&append_to_response=external_ids`;
         const r = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json;charset=utf-8' } });
         if(!r.ok){ res.statusCode = r.status; res.end(JSON.stringify({ ok:false, error:'tmdb', status:r.status })); return; }
         const json = await r.json();

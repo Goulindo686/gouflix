@@ -1,33 +1,4 @@
 // script.js - versão moderna estilo Netflix
-
-// Sistema de Autenticação
-function isUserAuthenticated() {
-  return localStorage.getItem('gouflix_user') !== null;
-}
-
-function saveUserData(userData) {
-  localStorage.setItem('gouflix_user', JSON.stringify(userData));
-}
-
-function getUserData() {
-  const userData = localStorage.getItem('gouflix_user');
-  return userData ? JSON.parse(userData) : null;
-}
-
-function clearUserData() {
-  localStorage.removeItem('gouflix_user');
-}
-
-function showAuthScreen() {
-  document.getElementById('authScreen').style.display = 'flex';
-  document.getElementById('mainContent').style.display = 'none';
-}
-
-function showMainContent() {
-  document.getElementById('authScreen').style.display = 'none';
-  document.getElementById('mainContent').style.display = 'block';
-}
-
 let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
 let TMDB_TOKEN = null;
 let TMDB_BASE = 'https://api.themoviedb.org/3';
@@ -36,8 +7,6 @@ let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 function tmdbImgBase(){
   try{ return String(TMDB_IMG||'').replace(/\/w\d+$/, ''); }catch(_){ return 'https://image.tmdb.org/t/p'; }
 }
-
-// Removido: truncamento de descrições e botão "Ver mais"
 // Construir URL robusta de poster mesmo que TMDB_IMG venha sem tamanho
 function tmdbPosterUrl(path){
   try{
@@ -629,19 +598,7 @@ async function openModal(id){
   const kind = (movie.type === 'serie') ? 'serie' : 'filme';
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
-  
-  // dados extras do TMDB para chips e elenco
-  let tmdb = null;
-  try{
-    if(movie.tmdbId){ tmdb = await fetchTmdbDetails(kind, movie.tmdbId); }
-  }catch(_){ tmdb = null; }
-  
-  const vote = tmdb?.vote_average ? (Math.round(tmdb.vote_average * 10) / 10).toFixed(1) : null;
-  const runtime = (kind==='filme') ? (tmdb?.runtime || null) : (Array.isArray(tmdb?.episode_run_time) && tmdb.episode_run_time[0] ? tmdb.episode_run_time[0] : null);
-  const year = (kind==='serie' ? (tmdb?.first_air_date||movie.year||'') : (tmdb?.release_date||movie.year||'')).slice(0,4);
-  const genres = Array.isArray(movie.genres) && movie.genres.length ? movie.genres : (Array.isArray(tmdb?.genres)? tmdb.genres.map(g=>g.name): []);
-  const cast = Array.isArray(tmdb?.credits?.cast) ? tmdb.credits.cast.slice(0, 12) : [];
-
+  const canWatch = !!superflixUrl;
   // Checar assinatura
   let active = false;
   try{
@@ -650,135 +607,45 @@ async function openModal(id){
       const sub = await r.json();
       active = !!sub?.active;
     }
-  }catch(_){ /* ignore */ }
-
-  // Novo layout estilo Netflix
-  body.innerHTML = `
-    <div class="player-layout">
-      <div class="player-poster">
-        <img src="${movie.poster}" alt="${movie.title} poster">
+  }catch(_){ /* fallback: sem assinatura */ }
+  if(!active){
+    // Bloqueio com link para Planos
+    body.innerHTML = `
+      <img src="${movie.poster}" alt="${movie.title} poster">
+      <div class="modal-info" style="width:100%">
+        <h2>${movie.title} <span style="color:#666;font-size:14px;">(${movie.year})</span></h2>
+        <p>${movie.description}</p>
+        <div class="genres">
+          ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
+        </div>
+        <div class="missing-id" style="margin-top:16px">
+          Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.
+        </div>
+        <div style="margin-top:12px">
+          <button id="goToPlansBtn" class="btn primary">Ver planos</button>
+        </div>
       </div>
-      <div class="player-content">
-        <h1 class="player-title">${movie.title}</h1>
-        
-        <div class="player-meta">
-          ${year ? `<span class="meta-chip">${year}</span>` : ''}
-          ${vote ? `<span class="meta-chip rating">★ ${vote}</span>` : ''}
-          ${runtime ? `<span class="meta-chip">${runtime} min</span>` : ''}
-          <span class="meta-chip type">${kind === 'filme' ? 'Filme' : 'Série'}</span>
-        </div>
-        
-        <p class="player-description">${movie.description || 'Sem descrição disponível.'}</p>
-        
-        ${genres.length ? `
-          <div class="genre-tags">
-            ${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}
-          </div>
-        ` : ''}
-        
-        <div class="player-actions">
-          ${active && superflixUrl ? 
-            `<button id="watchNowBtn" class="action-btn primary">
-              <span class="play-icon">▶</span>
-              Assistir Agora
-            </button>` : 
-            `<button id="goToPlansBtn" class="action-btn primary">
-              <span class="play-icon">▶</span>
-              Ver Planos
-            </button>`
-          }
-          <button id="myListBtn" class="action-btn secondary ${isFavorite && isFavorite(movie.id) ? 'active' : ''}">
-            <span class="list-icon">${isFavorite && isFavorite(movie.id) ? '✓' : '+'}</span>
-            ${isFavorite ? (isFavorite(movie.id) ? 'Na Lista' : 'Minha Lista') : 'Minha Lista'}
-          </button>
-        </div>
-        
-        ${!active ? `
-          <div class="subscription-warning">
-            Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.
-          </div>
-        ` : ''}
-        
-        ${cast.length ? `
-          <div class="cast-section">
-            <h3 class="cast-title">Elenco</h3>
-            <div class="cast-grid">
-              ${cast.map(c => {
-                const img = c.profile_path ? `${tmdbImgBase()}/w185${c.profile_path}` : '';
-                const name = c.name || '';
-                const role = c.character || '';
-                return `
-                  <div class="cast-member">
-                    ${img ? 
-                      `<img src="${img}" alt="${name}">` : 
-                      `<div class="cast-placeholder">Sem foto</div>`
-                    }
-                    <div class="cast-info">
-                      <div class="cast-name">${name}</div>
-                      <div class="cast-role">${role}</div>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        ` : ''}
+    `;
+    modal.classList.remove('hidden');
+    const goBtn = document.getElementById('goToPlansBtn');
+    if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
+    return;
+  }
+  // Assinante: exibir player
+  body.innerHTML = `
+    <img src="${movie.poster}" alt="${movie.title} poster">
+    <div class="modal-info" style="width:100%">
+      <h2>${movie.title} <span style="color:#666;font-size:14px;">(${movie.year})</span></h2>
+      <p>${movie.description}</p>
+      <div class="genres">
+        ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
+      </div>
+      <div class="player" style="margin-top:20px;width:100%">
+        <iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>
       </div>
     </div>
   `;
-  
   modal.classList.remove('hidden');
-
-  // Event listeners
-  const goBtn = document.getElementById('goToPlansBtn');
-  if(goBtn){ 
-    goBtn.onclick = () => { 
-      modal.classList.add('hidden'); 
-      setRoute('plans'); 
-    };
-  }
-  
-  const watchBtn = document.getElementById('watchNowBtn');
-  if(watchBtn){ 
-    watchBtn.onclick = () => {
-      if(active && superflixUrl) {
-        showPlayer(superflixUrl, movie.title);
-      }
-    };
-  }
-  
-  const listBtn = document.getElementById('myListBtn');
-  if(listBtn && typeof toggleFavorite === 'function'){
-    listBtn.onclick = () => { 
-      toggleFavorite(movie.id); 
-      const isInList = isFavorite(movie.id);
-      listBtn.innerHTML = `
-        <span class="list-icon">${isInList ? '✓' : '+'}</span>
-        ${isInList ? 'Na Lista' : 'Minha Lista'}
-      `;
-      listBtn.classList.toggle('active', isInList);
-    };
-  }
-
-  // Removido: comportamento de "Ver mais" na descrição
-}
-
-// Função para mostrar o player em tela cheia
-function showPlayer(url, title) {
-  const modal = document.getElementById('modal');
-  const body = document.getElementById('modalBody');
-  
-  body.innerHTML = `
-    <div class="player-container">
-      <div class="player-header">
-        <button class="back-btn" onclick="history.back()">← Voltar</button>
-        <h2 style="color: #fff; margin: 0;">${title}</h2>
-      </div>
-      <div class="player-wrapper">
-        <iframe src="${url}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
-      </div>
-    </div>
-  `;
 }
 
 // --------- Usuário atual (Discord backend) ---------
@@ -871,7 +738,6 @@ async function openModalFromTmdbData(data){
     modal.classList.remove('hidden');
     const goBtn = document.getElementById('goToPlansBtn');
     if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
-    // Removido: toggle de descrição (branch sem assinatura)
   } else {
     body.innerHTML = baseInfo + `
       <div class="player" style="margin-top:12px;width:100%">
@@ -882,7 +748,6 @@ async function openModalFromTmdbData(data){
       </div>
     </div>`;
     modal.classList.remove('hidden');
-  // Removido: toggle de descrição (branch com assinatura)
   }
 
   const addBtn = document.getElementById('addToSiteBtn');
@@ -1672,120 +1537,10 @@ if(saveMpTokenBtn){
 
 // Removido: botão de executar bootstrap
 
-// ---- Autenticação: handlers e inicialização ----
-function setAuthError(msg){
-  const el = document.getElementById('authError');
-  if(!el) return;
-  if(msg){ el.textContent = msg; el.style.display = 'block'; }
-  else { el.textContent = ''; el.style.display = 'none'; }
-}
-
-function validateEmail(email){
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email||'').trim());
-}
-
-function showRegister(){
-  const r = document.getElementById('registerForm');
-  const l = document.getElementById('loginForm');
-  if(r) r.classList.remove('hidden');
-  if(l) l.classList.add('hidden');
-  setAuthError('');
-}
-
-function showLogin(){
-  const r = document.getElementById('registerForm');
-  const l = document.getElementById('loginForm');
-  if(r) r.classList.add('hidden');
-  if(l) l.classList.remove('hidden');
-  setAuthError('');
-}
-
-async function handleRegister(e){
-  e && e.preventDefault && e.preventDefault();
-  try{
-    const name = document.getElementById('registerName')?.value?.trim()||'';
-    const email = document.getElementById('registerEmail')?.value?.trim()||'';
-    const pass = document.getElementById('registerPassword')?.value||'';
-    const pass2 = document.getElementById('registerConfirmPassword')?.value||'';
-    const terms = document.getElementById('termsAccept')?.checked||false;
-    if(!name || !email || !pass || !pass2){ return setAuthError('Preencha todos os campos.'); }
-    if(!validateEmail(email)) return setAuthError('Email inválido.');
-    if(pass.length < 8) return setAuthError('A senha deve ter pelo menos 8 caracteres.');
-    if(pass !== pass2) return setAuthError('As senhas não coincidem.');
-    if(!terms) return setAuthError('Você precisa aceitar os termos para continuar.');
-    const user = { id: 'local-'+Date.now(), name, email };
-    saveUserData(user);
-    setAuthError('');
-    showMainContent();
-    // Carregar conteúdo ao autenticar
-    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
-  }catch(err){ setAuthError('Erro ao registrar: '+(err?.message||String(err))); }
-}
-
-async function handleLogin(e){
-  e && e.preventDefault && e.preventDefault();
-  try{
-    const email = document.getElementById('loginEmail')?.value?.trim()||'';
-    const pass = document.getElementById('loginPassword')?.value||'';
-    const remember = document.getElementById('rememberMe')?.checked||false;
-    if(!email || !pass) return setAuthError('Informe email e senha.');
-    if(!validateEmail(email)) return setAuthError('Email inválido.');
-    const name = email.split('@')[0];
-    const user = { id: 'local-'+Date.now(), name, email, remember };
-    saveUserData(user);
-    setAuthError('');
-    showMainContent();
-    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
-  }catch(err){ setAuthError('Erro ao entrar: '+(err?.message||String(err))); }
-}
-
-function loginWithDiscord(){
-  try{
-    const user = { id: 'discord-'+Date.now(), name: 'Usuário Discord', email: 'discord@user.local', provider: 'discord' };
-    saveUserData(user);
-    setAuthError('');
-    showMainContent();
-    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
-  }catch(err){ setAuthError('Erro no login com Discord: '+(err?.message||String(err))); }
-}
-
-function logoutUser(){
-  clearUserData();
-  showAuthScreen();
-}
-
-function initAuthEvents(){
-  // Alternância entre telas
-  Array.from(document.querySelectorAll('.show-login')).forEach(el=> el.addEventListener('click', showLogin));
-  Array.from(document.querySelectorAll('.show-register')).forEach(el=> el.addEventListener('click', showRegister));
-  // Discord login
-  Array.from(document.querySelectorAll('.discord-login')).forEach(el=> el.addEventListener('click', loginWithDiscord));
-  // Voltar ao início (mantém tela de auth, apenas navega)
-  const back = document.getElementById('backToHome');
-  if(back){ back.addEventListener('click', ()=>{ try{ setRoute('home'); }catch(_){} }); }
-  // Submits
-  const regForm = document.getElementById('registerFormElement');
-  if(regForm){ regForm.addEventListener('submit', handleRegister); }
-  const logForm = document.getElementById('loginFormElement');
-  if(logForm){ logForm.addEventListener('submit', handleLogin); }
-}
-
-function initAuthSystem(){
-  try{
-    initAuthEvents();
-    if(isUserAuthenticated()){
-      showMainContent();
-    }else{
-      showAuthScreen();
-    }
-  }catch(_){ /* ignore */ }
-}
-
 initEnvAndSupabase().then(()=>{
-  initAuthSystem();
-  if(isUserAuthenticated()){
-    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
-  }
+  loadMovies();
+  fetchCurrentUser();
+  applyAdminVisibility();
   // Garantir que o modal de pagamento esteja oculto ao carregar
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }

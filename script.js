@@ -7,8 +7,6 @@ let TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 function tmdbImgBase(){
   try{ return String(TMDB_IMG||'').replace(/\/w\d+$/, ''); }catch(_){ return 'https://image.tmdb.org/t/p'; }
 }
-
-// Removido: truncamento de descrições e botão "Ver mais"
 // Paginação dos lotes para sempre trazer conteúdos novos
 window.BULK_PAGES = { filme: 0, serie: 0 };
 
@@ -16,68 +14,6 @@ window.BULK_PAGES = { filme: 0, serie: 0 };
 window.__ENV = {};
 window.supabaseClient = null;
 let CURRENT_USER = null;
-
-// Sistema de Autenticação
-let isAuthenticated = false;
-
-// Verificar se o usuário está autenticado
-function checkAuthentication() {
-  const authData = localStorage.getItem('gouflix_auth');
-  if (authData) {
-    try {
-      const parsed = JSON.parse(authData);
-      if (parsed.token && parsed.expiresAt > Date.now()) {
-        isAuthenticated = true;
-        CURRENT_USER = parsed.user;
-        return true;
-      }
-    } catch (e) {
-      console.error('Erro ao verificar autenticação:', e);
-    }
-  }
-  return false;
-}
-
-// Salvar dados de autenticação
-function saveAuthData(user, token, expiresIn = 86400000) { // 24 horas por padrão
-  const authData = {
-    user: user,
-    token: token,
-    expiresAt: Date.now() + expiresIn
-  };
-  localStorage.setItem('gouflix_auth', JSON.stringify(authData));
-  isAuthenticated = true;
-  CURRENT_USER = user;
-}
-
-// Limpar dados de autenticação
-function clearAuthData() {
-  localStorage.removeItem('gouflix_auth');
-  isAuthenticated = false;
-  CURRENT_USER = null;
-}
-
-// Mostrar tela de autenticação
-function showAuthScreen() {
-  const authScreen = document.getElementById('authScreen');
-  const mainContent = document.getElementById('mainContent');
-  
-  if (authScreen && mainContent) {
-    authScreen.style.display = 'flex';
-    mainContent.style.display = 'none';
-  }
-}
-
-// Mostrar conteúdo principal
-function showMainContent() {
-  const authScreen = document.getElementById('authScreen');
-  const mainContent = document.getElementById('mainContent');
-  
-  if (authScreen && mainContent) {
-    authScreen.style.display = 'none';
-    mainContent.style.display = 'block';
-  }
-}
 
 // Helper para construir URL de API suportando base remota (ex.: Vercel)
 function apiUrl(p){
@@ -699,19 +635,7 @@ async function openModal(id){
   const kind = (movie.type === 'serie') ? 'serie' : 'filme';
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
-  
-  // dados extras do TMDB para chips e elenco
-  let tmdb = null;
-  try{
-    if(movie.tmdbId){ tmdb = await fetchTmdbDetails(kind, movie.tmdbId); }
-  }catch(_){ tmdb = null; }
-  
-  const vote = tmdb?.vote_average ? (Math.round(tmdb.vote_average * 10) / 10).toFixed(1) : null;
-  const runtime = (kind==='filme') ? (tmdb?.runtime || null) : (Array.isArray(tmdb?.episode_run_time) && tmdb.episode_run_time[0] ? tmdb.episode_run_time[0] : null);
-  const year = (kind==='serie' ? (tmdb?.first_air_date||movie.year||'') : (tmdb?.release_date||movie.year||'')).slice(0,4);
-  const genres = Array.isArray(movie.genres) && movie.genres.length ? movie.genres : (Array.isArray(tmdb?.genres)? tmdb.genres : []);
-  const cast = Array.isArray(tmdb?.credits?.cast) ? tmdb.credits.cast.slice(0, 10) : [];
-
+  const canWatch = !!superflixUrl;
   // Checar assinatura
   let active = false;
   try{
@@ -720,116 +644,45 @@ async function openModal(id){
       const sub = await r.json();
       active = !!sub?.active;
     }
-  }catch(_){ /* ignore */ }
-
-  // Layout estilo Netflix com pôster à esquerda e informações à direita
-  body.innerHTML = `
-    <div class="player-layout">
-      <div class="player-poster">
-        <img src="${movie.poster}" alt="${movie.title}" />
+  }catch(_){ /* fallback: sem assinatura */ }
+  if(!active){
+    // Bloqueio com link para Planos
+    body.innerHTML = `
+      <img src="${movie.poster}" alt="${movie.title} poster">
+      <div class="modal-info" style="width:100%">
+        <h2>${movie.title} <span style="color:#666;font-size:14px;">(${movie.year})</span></h2>
+        <p>${movie.description}</p>
+        <div class="genres">
+          ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
+        </div>
+        <div class="missing-id" style="margin-top:16px">
+          Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.
+        </div>
+        <div style="margin-top:12px">
+          <button id="goToPlansBtn" class="btn primary">Ver planos</button>
+        </div>
       </div>
-      <div class="player-content">
-        <h1 class="player-title">${movie.title}</h1>
-        <div class="player-meta">
-          ${year ? `<span class="meta-chip">${year}</span>` : ''}
-          ${vote ? `<span class="meta-chip rating">⭐ ${vote}</span>` : ''}
-          ${runtime ? `<span class="meta-chip">${runtime} min</span>` : ''}
-          <span class="meta-chip type">${kind === 'filme' ? 'Filme' : 'Série'}</span>
-        </div>
-        <p class="player-description">${movie.description || 'Sem descrição disponível.'}</p>
-        <div class="genre-tags">
-          ${genres.map(g => `<span class="genre-tag">${g.name || g}</span>`).join('')}
-        </div>
-        <div class="player-actions">
-          ${active && superflixUrl ? 
-            `<button id="watchNowBtn" class="action-btn primary">
-              <span class="play-icon">▶</span>
-              Assistir Agora
-            </button>` : 
-            `<button id="goToPlansBtn" class="action-btn primary">
-              <span class="play-icon">▶</span>
-              Ver planos
-            </button>`
-          }
-          <button id="myListBtn" class="action-btn secondary ${isFavorite(movie.id) ? 'active' : ''}">
-            <span class="list-icon">${isFavorite(movie.id) ? '✓' : '+'}</span>
-            Minha Lista
-          </button>
-        </div>
-        ${cast.length ? `
-          <div class="cast-section">
-            <h3 class="cast-title">Elenco</h3>
-            <div class="cast-grid">
-              ${cast.map(c => {
-                const img = c.profile_path ? `${tmdbImgBase()}/w185${c.profile_path}` : '';
-                const name = c.name || '';
-                const role = c.character || '';
-                return `
-                  <div class="cast-member">
-                    ${img ? `<img src="${img}" alt="${name}" />` : `<div class="cast-placeholder"></div>`}
-                    <div class="cast-info">
-                      <div class="cast-name">${name}</div>
-                      <div class="cast-role">${role}</div>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        ` : ''}
-        ${!active ? `<div class="subscription-warning">Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.</div>` : ''}
+    `;
+    modal.classList.remove('hidden');
+    const goBtn = document.getElementById('goToPlansBtn');
+    if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
+    return;
+  }
+  // Assinante: exibir player
+  body.innerHTML = `
+    <img src="${movie.poster}" alt="${movie.title} poster">
+    <div class="modal-info" style="width:100%">
+      <h2>${movie.title} <span style="color:#666;font-size:14px;">(${movie.year})</span></h2>
+      <p>${movie.description}</p>
+      <div class="genres">
+        ${movie.genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
+      </div>
+      <div class="player" style="margin-top:20px;width:100%">
+        <iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe>
       </div>
     </div>
   `;
-  
   modal.classList.remove('hidden');
-
-  // Event listeners
-  const goBtn = document.getElementById('goToPlansBtn');
-  if(goBtn){ 
-    goBtn.onclick = () => { 
-      modal.classList.add('hidden'); 
-      setRoute('plans'); 
-    }; 
-  }
-  
-  const watchBtn = document.getElementById('watchNowBtn');
-  if(watchBtn){ 
-    watchBtn.onclick = () => {
-      // Criar e mostrar o player quando clicar em "Assistir Agora"
-      showPlayer(superflixUrl, movie.title);
-    }; 
-  }
-  
-  const listBtn = document.getElementById('myListBtn');
-  if(listBtn){ 
-    listBtn.onclick = () => { 
-      toggleFavorite(movie.id); 
-      const isNowFavorite = isFavorite(movie.id);
-      listBtn.classList.toggle('active', isNowFavorite);
-      listBtn.querySelector('.list-icon').textContent = isNowFavorite ? '✓' : '+';
-    }; 
-  }
-
-  // Removido: comportamento de "Ver mais" na descrição
-}
-
-function showPlayer(url, title) {
-  const modal = document.getElementById('modal');
-  const body = document.getElementById('modalBody');
-  
-  // Substituir o conteúdo do modal pelo player
-  body.innerHTML = `
-    <div class="player-container">
-      <div class="player-header">
-        <button class="back-btn" onclick="location.reload()">← Voltar</button>
-        <h2>${title}</h2>
-      </div>
-      <div class="player-wrapper">
-        <iframe src="${url}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
-      </div>
-    </div>
-  `;
 }
 
 // --------- Usuário atual (Discord) ---------
@@ -988,7 +841,6 @@ async function openModalFromTmdbData(data){
     modal.classList.remove('hidden');
     const goBtn = document.getElementById('goToPlansBtn');
     if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
-    // Removido: toggle de descrição (branch sem assinatura)
   } else {
     body.innerHTML = baseInfo + `
       <div class="player" style="margin-top:12px;width:100%">
@@ -999,7 +851,6 @@ async function openModalFromTmdbData(data){
       </div>
     </div>`;
   modal.classList.remove('hidden');
-  // Removido: toggle de descrição (branch com assinatura)
 }
 
   const addBtn = document.getElementById('addToSiteBtn');
@@ -1827,11 +1678,6 @@ if(saveMpTokenBtn){
 // Executar bootstrap agora
 // Botão de executar bootstrap removido
 
-// Inicializar sistema de autenticação primeiro
-document.addEventListener('DOMContentLoaded', () => {
-  initAuthSystem();
-});
-
 initEnvAndSupabase().then(async()=>{
   await fetchCurrentUser();
   await loadSubscriptionStatus();
@@ -1839,11 +1685,7 @@ initEnvAndSupabase().then(async()=>{
   if(pm){ pm.classList.add('hidden'); }
   const searchEl = document.getElementById('search');
   if(searchEl){ searchEl.value = ''; }
-  
-  // Só carregar filmes se o usuário estiver autenticado
-  if (isAuthenticated) {
-    loadMovies();
-  }
+  loadMovies();
 });
 
 // ----- Pagamentos (Mercado Pago PIX) -----
@@ -1906,252 +1748,7 @@ function pollPaymentStatus(id, plan){
 }
 
 const closePaymentBtn = document.getElementById('closePayment');
-if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.getElementById('paymentModal').classList.add('hidden'); }); }
+if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.getElementById('paymentModal').classList.add('hidden'); stopPaymentPoll(); }); }
 bindPlanButtons();
-
-// ----- Sistema de Autenticação - Manipulação de Formulários -----
-
-// Alternar entre formulários de login e registro
-function toggleAuthForm() {
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-  
-  if (loginForm && registerForm) {
-    if (loginForm.style.display === 'none') {
-      loginForm.style.display = 'block';
-      registerForm.style.display = 'none';
-    } else {
-      loginForm.style.display = 'none';
-      registerForm.style.display = 'block';
-    }
-  }
-}
-
-// Validar email
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-// Mostrar mensagem de erro
-function showAuthError(message) {
-  const errorDiv = document.getElementById('authError');
-  if (errorDiv) {
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
-    setTimeout(() => {
-      errorDiv.style.display = 'none';
-    }, 5000);
-  }
-}
-
-// Processar registro
-async function handleRegister(event) {
-  event.preventDefault();
-  
-  const name = document.getElementById('registerName').value.trim();
-  const email = document.getElementById('registerEmail').value.trim();
-  const password = document.getElementById('registerPassword').value;
-  const confirmPassword = document.getElementById('registerConfirmPassword').value;
-  
-  // Validações
-  if (!name) {
-    showAuthError('Por favor, insira seu nome completo.');
-    return;
-  }
-  
-  if (!isValidEmail(email)) {
-    showAuthError('Por favor, insira um email válido.');
-    return;
-  }
-  
-  if (password.length < 6) {
-    showAuthError('A senha deve ter pelo menos 6 caracteres.');
-    return;
-  }
-  
-  if (password !== confirmPassword) {
-    showAuthError('As senhas não coincidem.');
-    return;
-  }
-  
-  try {
-    // Simular registro (aqui você integraria com seu backend)
-    const user = {
-      id: Date.now().toString(),
-      name: name,
-      email: email,
-      createdAt: new Date().toISOString()
-    };
-    
-    const token = 'fake_token_' + Date.now();
-    
-    // Salvar dados de autenticação
-    saveAuthData(user, token);
-    
-    // Mostrar conteúdo principal
-    showMainContent();
-    
-    console.log('Usuário registrado com sucesso:', user);
-  } catch (error) {
-    console.error('Erro no registro:', error);
-    showAuthError('Erro ao criar conta. Tente novamente.');
-  }
-}
-
-// Processar login
-async function handleLogin(event) {
-  event.preventDefault();
-  
-  const email = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  
-  // Validações
-  if (!isValidEmail(email)) {
-    showAuthError('Por favor, insira um email válido.');
-    return;
-  }
-  
-  if (!password) {
-    showAuthError('Por favor, insira sua senha.');
-    return;
-  }
-  
-  try {
-    // Simular login (aqui você integraria com seu backend)
-    const user = {
-      id: Date.now().toString(),
-      name: 'Usuário Teste',
-      email: email,
-      loginAt: new Date().toISOString()
-    };
-    
-    const token = 'fake_token_' + Date.now();
-    
-    // Salvar dados de autenticação
-    saveAuthData(user, token);
-    
-    // Mostrar conteúdo principal
-    showMainContent();
-    
-    console.log('Login realizado com sucesso:', user);
-  } catch (error) {
-    console.error('Erro no login:', error);
-    showAuthError('Email ou senha incorretos.');
-  }
-}
-
-// Login via Discord (simulado)
-async function handleDiscordLogin() {
-  try {
-    // Simular login via Discord (aqui você integraria com a API do Discord)
-    const user = {
-      id: 'discord_' + Date.now().toString(),
-      name: 'Usuário Discord',
-      email: 'usuario@discord.com',
-      provider: 'discord',
-      loginAt: new Date().toISOString()
-    };
-    
-    const token = 'discord_token_' + Date.now();
-    
-    // Salvar dados de autenticação
-    saveAuthData(user, token);
-    
-    // Mostrar conteúdo principal
-    showMainContent();
-    
-    console.log('Login via Discord realizado com sucesso:', user);
-  } catch (error) {
-    console.error('Erro no login via Discord:', error);
-    showAuthError('Erro ao fazer login com Discord. Tente novamente.');
-  }
-}
-
-// Logout
-function handleLogout() {
-  clearAuthData();
-  showAuthScreen();
-}
-
-// Voltar para a página inicial (sem autenticação)
-function backToHome() {
-  // Esta função pode ser usada se você quiser permitir acesso sem login
-  showMainContent();
-}
-
-// Inicializar eventos de autenticação
-function initAuthEvents() {
-  // Botões de alternância entre formulários
-  const showLoginBtns = document.querySelectorAll('.show-login');
-  const showRegisterBtns = document.querySelectorAll('.show-register');
-  
-  showLoginBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      if (loginForm && registerForm) {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-      }
-    });
-  });
-  
-  showRegisterBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      if (loginForm && registerForm) {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-      }
-    });
-  });
-  
-  // Formulários
-  const registerForm = document.getElementById('registerForm');
-  const loginForm = document.getElementById('loginForm');
-  
-  if (registerForm) {
-    registerForm.addEventListener('submit', handleRegister);
-  }
-  
-  if (loginForm) {
-    loginForm.addEventListener('submit', handleLogin);
-  }
-  
-  // Botões Discord
-  const discordBtns = document.querySelectorAll('.discord-login');
-  discordBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      handleDiscordLogin();
-    });
-  });
-  
-  // Botão de voltar (se existir)
-  const backBtn = document.getElementById('backToHome');
-  if (backBtn) {
-    backBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      backToHome();
-    });
-  }
-}
-
-// Inicializar sistema de autenticação
-function initAuthSystem() {
-  // Verificar se o usuário já está autenticado
-  if (checkAuthentication()) {
-    showMainContent();
-  } else {
-    showAuthScreen();
-  }
-  
-  // Inicializar eventos
-  initAuthEvents();
-}
 
 // Admin compras/assinaturas removido
