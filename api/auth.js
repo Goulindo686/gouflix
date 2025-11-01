@@ -4,21 +4,15 @@ import crypto from 'crypto';
 
 // Helper para cookies
 function setCookie(res, name, value, options = {}) {
-  const opts = {
-    path: '/',
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
-    ...options
-  };
-  
-  const cookie = Object.entries(opts).reduce((acc, [key, value]) => {
-    if (value === true) return `${acc}; ${key}`;
-    if (value === false) return acc;
-    return `${acc}; ${key}=${value}`;
-  }, `${name}=${encodeURIComponent(value)}`);
-  
+  const opts = Object.assign({ path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Lax', maxAge: 30 * 24 * 60 * 60 }, options);
+
+  let cookie = `${name}=${encodeURIComponent(value)}`;
+  if (opts.path) cookie += `; Path=${opts.path}`;
+  if (opts.httpOnly) cookie += `; HttpOnly`;
+  if (opts.secure) cookie += `; Secure`;
+  if (opts.sameSite) cookie += `; SameSite=${opts.sameSite}`;
+  if (typeof opts.maxAge === 'number') cookie += `; Max-Age=${Math.floor(opts.maxAge)}`;
+
   // Append Set-Cookie header instead of overwriting
   try{
     const prev = res.getHeader('Set-Cookie');
@@ -30,7 +24,6 @@ function setCookie(res, name, value, options = {}) {
       res.setHeader('Set-Cookie', [prev, cookie]);
     }
   }catch(e){
-    // fallback
     try{ res.setHeader('Set-Cookie', cookie); }catch(_){}
   }
 }

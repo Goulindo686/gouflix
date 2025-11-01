@@ -117,18 +117,20 @@ function initAuth() {
       }
 
       if (!data) {
-        // Server returned success status but non-JSON body — show the text and continue cautiously
+        // Server returned success status but non-JSON body — show the text and ask user to login
         console.warn('Resposta do servidor não é JSON:', raw);
-        alert('Conta criada com sucesso, mas o servidor retornou uma resposta inesperada. Por favor, faça login.');
-        checkAuth();
+        alert('Conta criada com sucesso. Por favor, faça login.');
+        try{ showLoginForm(); }catch(_){ /* ignore */ }
+        // prefill email field in login form
+        try{ document.getElementById('login-email').value = email; }catch(_){ }
         return;
       }
 
-  CURRENT_USER = data.user;
-  // Update UI immediately and apply admin visibility
-  try{ updateUserArea(); }catch(_){ }
-  try{ applyAdminVisibility(); }catch(_){ }
-  checkAuth();
+      // On successful registration, do NOT auto-login — show the login tab so the user can enter credentials
+      alert('Conta criada com sucesso. Por favor, faça login com seu email e senha.');
+      try{ showLoginForm(); }catch(_){ /* ignore */ }
+      try{ document.getElementById('login-email').value = (data.user && data.user.email) ? data.user.email : email; }catch(_){ }
+      return;
     } catch (error) {
       console.error('Erro ao registrar:', error);
       alert(error.message || 'Erro ao criar conta. Por favor, tente novamente mais tarde.');
@@ -1081,10 +1083,8 @@ async function addFromTmdbData(data){
     trailer: '',
     description: data.description || '',
     category: '',
-    row
+    row: row
   };
-  const key = getItemKey(item);
-  // Preferir API de estado (serverless) para evitar condições de corrida
   try{
     const res = await fetch('/api/state', {
       method: 'POST',
