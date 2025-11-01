@@ -18,7 +18,20 @@ function setCookie(res, name, value, options = {}) {
     return `${acc}; ${key}=${value}`;
   }, `${name}=${encodeURIComponent(value)}`);
   
-  res.setHeader('Set-Cookie', cookie);
+  // Append Set-Cookie header instead of overwriting
+  try{
+    const prev = res.getHeader('Set-Cookie');
+    if(!prev){
+      res.setHeader('Set-Cookie', cookie);
+    } else if (Array.isArray(prev)){
+      res.setHeader('Set-Cookie', [...prev, cookie]);
+    } else {
+      res.setHeader('Set-Cookie', [prev, cookie]);
+    }
+  }catch(e){
+    // fallback
+    try{ res.setHeader('Set-Cookie', cookie); }catch(_){}
+  }
 }
 
 function readCookie(req, name) {

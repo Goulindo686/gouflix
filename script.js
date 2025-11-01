@@ -92,6 +92,7 @@ function initAuth() {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
           fullname,
           email,
@@ -123,8 +124,11 @@ function initAuth() {
         return;
       }
 
-      CURRENT_USER = data.user;
-      checkAuth();
+  CURRENT_USER = data.user;
+  // Update UI immediately and apply admin visibility
+  try{ updateUserArea(); }catch(_){ }
+  try{ applyAdminVisibility(); }catch(_){ }
+  checkAuth();
     } catch (error) {
       console.error('Erro ao registrar:', error);
       alert(error.message || 'Erro ao criar conta. Por favor, tente novamente mais tarde.');
@@ -137,6 +141,11 @@ function initAuth() {
   // Event listeners
   if (registerForm) {
     registerForm.addEventListener('submit', handleRegister);
+  }
+  // Link to show login / start OAuth
+  const showLogin = document.getElementById('show-login');
+  if(showLogin){
+    showLogin.addEventListener('click', (e)=>{ e.preventDefault(); window.location.href = '/api/auth?action=discord-start'; });
   }
   
   if (backButton) {
@@ -821,7 +830,7 @@ async function openModal(id){
 // --------- Usuário atual (Discord) ---------
 async function fetchCurrentUser(){
   try{
-    const res = await fetch('/api/auth/me');
+  const res = await fetch('/api/auth?action=me', { credentials: 'include' });
     if(!res.ok){ CURRENT_USER = null; updateUserArea(); return; }
     const j = await res.json();
     CURRENT_USER = (j.logged && j.user) ? j.user : null;
@@ -870,7 +879,7 @@ function updateUserArea(){
     if(menuFavorites){ menuFavorites.onclick = ()=>{ setRoute('minha-lista'); if(menu) menu.classList.add('hidden'); }; }
     if(menuPlans){ menuPlans.onclick = ()=>{ setRoute('plans'); if(menu) menu.classList.add('hidden'); }; }
     if(menuLogout){ menuLogout.onclick = async()=>{
-      try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
+  try{ await fetch('/api/auth?action=logout', { credentials: 'include' }); }catch(_){/* ignore */}
       CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
   } else {
