@@ -632,6 +632,23 @@ async function openModal(id){
       ${active && superflixUrl ? `<button id="watchNowBtn" class="btn btn-watch">Assistir Agora</button>` : `<button id="goToPlansBtn" class="btn btn-watch">Ver planos</button>`}
       <button id="myListBtn" class="btn secondary">${isFavorite ? (isFavorite(movie.id)?'Remover da Lista':'Minha Lista') : 'Minha Lista'}</button>
     </div>`;
+  const playerSectionHtml = (active && superflixUrl) ? `
+    <div id="playerSection" class="player-section hidden">
+      <div class="audio-panel">
+        <div class="audio-title">Selecione um Áudio</div>
+        <div class="audio-options">
+          <button class="audio-btn active" data-audio="dublado">Dublado</button>
+          <button class="audio-btn" data-audio="legendado">Legendado</button>
+        </div>
+        <div class="server-row">
+          <button id="serverPremiumBtn" class="btn tertiary">Servidor Premium</button>
+        </div>
+      </div>
+      <div class="player" style="margin-top:12px;width:100%">
+        <iframe id="superflixPlayer" src="${superflixUrl}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
+      </div>
+    </div>
+  ` : '';
   const castHtml = cast.length ? `
     <div class="cast-section">
       <h3 class="section-title">Elenco</h3>
@@ -653,7 +670,7 @@ async function openModal(id){
       <p>${movie.description}</p>
       ${genresHtml}
       ${actionsHtml}
-      ${active && superflixUrl ? `<div class="player" style="margin-top:20px;width:100%"><iframe id=\"superflixPlayer\" src=\"${superflixUrl}\" frameborder=\"0\" allow=\"autoplay; fullscreen\" allowfullscreen referrerpolicy=\"no-referrer\"></iframe></div>`:''}
+      ${playerSectionHtml}
       ${!active ? `<div class="missing-id" style="margin-top:16px">Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.</div>`:''}
       ${castHtml}
     </div>
@@ -663,11 +680,22 @@ async function openModal(id){
   const goBtn = document.getElementById('goToPlansBtn');
   if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
   const watchBtn = document.getElementById('watchNowBtn');
-  if(watchBtn){ watchBtn.onclick = ()=>{ /* player já renderizado */ }; }
+  if(watchBtn){ watchBtn.onclick = ()=>{
+    const sec = document.getElementById('playerSection');
+    if(sec){ sec.classList.remove('hidden'); sec.scrollIntoView({ behavior:'smooth', block:'center' }); }
+  }; }
   const listBtn = document.getElementById('myListBtn');
   if(listBtn && typeof toggleFavorite === 'function'){
     listBtn.onclick = ()=>{ toggleFavorite(movie.id); listBtn.textContent = isFavorite(movie.id) ? 'Remover da Lista' : 'Minha Lista'; };
   }
+  // Audio options (UI apenas)
+  const audioBtns = Array.from(document.querySelectorAll('.audio-btn'));
+  audioBtns.forEach(btn=>{
+    btn.onclick = ()=>{
+      audioBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+  });
 }
 
 // --------- Usuário atual (Discord backend) ---------

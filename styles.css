@@ -301,6 +301,18 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 .player iframe{width:100%;height:480px;border:none;border-radius:var(--radius);background:#000}
 .missing-id{background:#1f1f1f;border:1px dashed #444;color:#bbb;padding:14px;border-radius:var(--radius)}
 
+/* Player section toggle */
+.player-section.hidden{display:none}
+
+/* Audio panel */
+.audio-panel{background:#141414;border:1px solid #2a2a2c;border-radius:12px;padding:12px}
+.audio-title{font-size:14px;color:#bbb;margin-bottom:8px}
+.audio-options{display:flex;gap:10px;margin-bottom:8px}
+.audio-btn{background:#222;color:#ddd;border:1px solid #2a2a2c;border-radius:999px;padding:8px 12px;cursor:pointer;font-size:12px}
+.audio-btn.active{background:#2a2a2c;color:#fff}
+.server-row{display:flex;align-items:center}
+.btn.tertiary{background:#1a1a1a;color:#ddd;border:1px solid #2a2a2c;border-radius:999px;padding:8px 12px;cursor:pointer}
+
 /* Footer */
 .footer{text-align:center;padding:30px 10px;background:#000;color:var(--muted)}
 .legal-disclaimer{margin-top:10px;color:#9aa7b8;font-size:12px;line-height:1.5}
