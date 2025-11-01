@@ -98,13 +98,31 @@ function initAuth() {
           password
         })
       });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro ao criar conta');
+
+      // Try to parse JSON; if server returns non-JSON (HTML/text), fall back to text
+      const raw = await response.text();
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch (e) {
+        // not JSON
+        data = null;
       }
-      
+
+      if (!response.ok) {
+        const serverMsg = (data && data.message) ? data.message : raw || `HTTP ${response.status}`;
+        console.error('Registro falhou:', { status: response.status, body: raw });
+        throw new Error(serverMsg || 'Erro ao criar conta');
+      }
+
+      if (!data) {
+        // Server returned success status but non-JSON body — show the text and continue cautiously
+        console.warn('Resposta do servidor não é JSON:', raw);
+        alert('Conta criada com sucesso, mas o servidor retornou uma resposta inesperada. Por favor, faça login.');
+        checkAuth();
+        return;
+      }
+
       CURRENT_USER = data.user;
       checkAuth();
     } catch (error) {

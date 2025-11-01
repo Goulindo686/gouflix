@@ -36,6 +36,11 @@ function clearCookie(res, name) {
 export default async function handler(req, res) {
   const { method, query: { action } } = req;
 
+  // When not performing redirects for OAuth, ensure responses are JSON
+  if (action !== 'discord-start' && action !== 'discord-callback') {
+    try { res.setHeader('Content-Type', 'application/json; charset=utf-8'); } catch(_) {}
+  }
+
   // Rotas de autenticação Discord
   if (action === 'discord-start') {
     const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
@@ -94,7 +99,13 @@ export default async function handler(req, res) {
       return res.redirect('/');
     } catch (error) {
       console.error('Erro no callback Discord:', error);
-      return res.redirect('/?error=auth');
+      // If something goes wrong in the callback, return a JSON error when requested by XHR
+      try {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        return res.status(500).json({ message: 'Erro no callback do Discord', error: String(error) });
+      } catch(_) {
+        return res.redirect('/?error=auth');
+      }
     }
   }
 
