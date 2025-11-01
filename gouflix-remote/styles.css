@@ -248,6 +248,27 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 .modal-info .genres{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
 .genre-pill{background:#222;padding:5px 10px;border-radius:20px;font-size:13px;color:var(--muted)}
 
+/* Chips de detalhes (ano, nota, duração, tipo) */
+.detail-chips{display:flex;gap:8px;align-items:center;margin:6px 0 12px}
+.chip{background:#1a1a1a;border:1px solid #2a2a2c;color:#ddd;padding:6px 10px;border-radius:999px;font-size:12px}
+.chip .star{color:#f5c518;margin-right:4px}
+
+/* Ações (Assistir Agora / Minha Lista) */
+.detail-actions{display:flex;gap:10px;align-items:center;margin:12px 0}
+.btn.btn-watch{background:#e50914;color:#fff;border:none;border-radius:999px;padding:10px 16px;cursor:pointer}
+.btn.btn-watch:hover{filter:brightness(1.1)}
+.btn.secondary{background:#222;color:#ddd;border:1px solid #2a2a2c;border-radius:999px;padding:10px 16px;cursor:pointer}
+.btn.secondary:hover{background:#2a2a2c}
+
+/* Carrossel de elenco */
+.cast-section{margin-top:18px}
+.cast-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
+.cast-item{min-width:110px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.cast-item img{width:100px;height:140px;object-fit:cover;border-radius:14px}
+.cast-placeholder{width:100px;height:140px;border-radius:14px;background:linear-gradient(135deg,#1e293b,#0ea5e9)}
+.cast-name{margin-top:6px;font-size:13px}
+.cast-role{color:#9aa7b8;font-size:12px}
+
 /* Player SuperFlix */
 .player iframe{width:100%;height:480px;border:none;border-radius:var(--radius);background:#000}
 .missing-id{background:#1f1f1f;border:1px dashed #444;color:#bbb;padding:14px;border-radius:var(--radius)}
