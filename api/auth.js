@@ -254,6 +254,10 @@ export default async function handler(req, res) {
   if (action === 'me') {
     const sid = readCookie(req, 'sid');
     if (!sid) { 
+      // if debug requested, echo raw cookie header
+      if ((req.query && req.query.debug) === '1') {
+        return res.status(200).json({ ok: true, logged: false, user: null, cookiesRaw: req.headers.cookie || null });
+      }
       return res.status(200).json({ ok: true, logged: false, user: null }); 
     }
 
@@ -268,7 +272,7 @@ export default async function handler(req, res) {
       const uemail = readCookie(req, 'uemail') || null;
       const uexp = readCookie(req, 'uexp');
       
-      return res.status(200).json({
+      const result = {
         ok: true,
         logged: true,
         user: {
@@ -278,7 +282,18 @@ export default async function handler(req, res) {
           avatar: uavatar,
           exp: uexp ? parseInt(uexp, 10) : null
         }
-      });
+      };
+      if ((req.query && req.query.debug) === '1') {
+        result.cookies = {
+          sid: sid,
+          uid: readCookie(req, 'uid'),
+          uname: readCookie(req, 'uname'),
+          uemail: readCookie(req, 'uemail'),
+          upass: readCookie(req, 'upass')
+        };
+        result.cookiesRaw = req.headers.cookie || null;
+      }
+      return res.status(200).json(result);
     }
 
     try {
