@@ -211,6 +211,14 @@ nav a.active{color:var(--text)}
   .row-wrap{padding:0 12px}
   .row-title{margin-left:0}
 
+  /* Ajuste dos banners (cards) em iPhone e mobile:
+     - reduz largura mínima para evitar aspecto “quadrado”/grande
+     - mantém proporção do pôster (2:3) com height automático
+     - melhora snap no carrossel */
+  .card{ min-width: clamp(120px, 36vw, 180px); scroll-snap-align: start; }
+  .card img{ height: auto; aspect-ratio: 2 / 3; }
+  .row{ gap: 12px; }
+
   .player iframe{height:clamp(220px,45vh,360px)}
   .modal-inner{width:94%}
   .modal-body img{width:40vw;max-width:220px}
@@ -220,6 +228,13 @@ nav a.active{color:var(--text)}
 @supports (padding: max(0px)){
   @media (max-width: 480px){
     .navbar{padding-top:calc(14px + env(safe-area-inset-top));padding-left:max(16px, env(safe-area-inset-left));padding-right:max(16px, env(safe-area-inset-right))}
+  }
+}
+
+/* Pequeno ajuste específico para Safari/iOS em telas pequenas */
+@supports (-webkit-touch-callout: none){
+  @media (max-width: 480px){
+    .card img{ image-rendering: -webkit-optimize-contrast; }
   }
 }
 
