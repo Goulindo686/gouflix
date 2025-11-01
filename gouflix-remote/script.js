@@ -929,6 +929,7 @@ function showSection(section){
     main.classList.add('hidden');
     if(plans) plans.classList.add('hidden');
     renderAdminList();
+    renderAdminSuggestions();
     setRobotsMeta('noindex, nofollow');
     
   } else {
@@ -1032,6 +1033,76 @@ function filterAdminItems(){
     window.ADMIN_FILTERED = filtered;
   }catch(_){ window.ADMIN_FILTERED = window.ALL_MOVIES || window.MOVIES || []; }
   renderAdminList();
+}
+
+// Sugestões: enviar e listar
+async function handleSuggestionSubmit(){
+  const btn = document.getElementById('sgSubmitBtn');
+  const title = (document.getElementById('sgTitle')?.value||'').trim();
+  const kind = (document.getElementById('sgKind')?.value||'filme');
+  const tmdbIdRaw = (document.getElementById('sgTmdbId')?.value||'').trim();
+  const details = (document.getElementById('sgDetails')?.value||'').trim();
+  const tmdbId = tmdbIdRaw ? Number(tmdbIdRaw) : undefined;
+  if(!title){ alert('Informe um título para a sugestão.'); return; }
+  try{
+    if(btn){ btn.disabled = true; btn.textContent = 'Enviando...'; }
+    const res = await fetch(apiUrl('/api/suggestions'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, kind, tmdbId, details })
+    });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(t || 'Falha ao enviar sugestão');
+    }
+    try{
+      document.getElementById('sgTitle').value = '';
+      document.getElementById('sgTmdbId').value = '';
+      document.getElementById('sgDetails').value = '';
+      document.getElementById('sgKind').value = 'filme';
+    }catch(_){}
+    alert('Sugestão enviada com sucesso!');
+    renderAdminSuggestions();
+  }catch(err){
+    alert('Erro: ' + (err && err.message ? err.message : String(err)));
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Enviar Sugestão'; }
+  }
+}
+
+async function renderAdminSuggestions(){
+  const box = document.getElementById('adminSuggestions');
+  if(!box) return;
+  try{
+    const res = await fetch(apiUrl('/api/suggestions'));
+    if(!res.ok){ box.innerHTML = '<div class="panel">Falha ao carregar sugestões.</div>'; return; }
+    const list = await res.json();
+    const items = Array.isArray(list) ? list.slice().sort((a,b)=>{
+      const ta = new Date(a.createdAt||0).getTime();
+      const tb = new Date(b.createdAt||0).getTime();
+      return tb - ta;
+    }) : [];
+    if(!items.length){ box.innerHTML = '<div class="panel">Nenhuma sugestão enviada ainda.</div>'; return; }
+    box.innerHTML = '';
+    items.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'admin-card';
+      const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
+      const tmdb = s.tmdbId ? `<span class=\"pill\">TMDB: ${s.tmdbId}</span>` : '';
+      el.innerHTML = `
+        <div class=\"body\">
+          <h4>${s.title||'(sem título)'} <span class=\"pill\">${(s.kind||'filme')==='serie'?'Série':'Filme'}</span></h4>
+          <div class=\"meta\" style=\"gap:8px;display:flex;flex-wrap:wrap\">${tmdb}
+            <span style=\"color:#999\">${when}</span>
+            ${s.author ? `<span style=\"color:#999\">por ${s.author}</span>` : ''}
+          </div>
+          ${s.details ? `<p style=\"margin-top:6px;color:#ddd\">${s.details}</p>` : ''}
+        </div>`;
+      box.appendChild(el);
+    });
+  }catch(err){
+    box.innerHTML = '<div class="panel">Erro ao listar sugestões.</div>';
+  }
 }
 
 function renderAdminPreview(data){
@@ -1340,6 +1411,9 @@ const navPlans = document.getElementById('navPlans');
   updateNavbarShadow();
 const adminSearchBtn = document.getElementById('adminSearchBtn');
 if(adminSearchBtn){ adminSearchBtn.addEventListener('click', handleAdminSearch); }
+// Envio de sugestões
+const sgSubmitBtn = document.getElementById('sgSubmitBtn');
+if(sgSubmitBtn){ sgSubmitBtn.addEventListener('click', handleSuggestionSubmit); }
 // Bind do campo de busca rápida do Admin
 const adminSearchInput = document.getElementById('adminSearchInput');
 if(adminSearchInput){ adminSearchInput.addEventListener('input', filterAdminItems); }

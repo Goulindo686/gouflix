@@ -47,19 +47,20 @@ const statePath = path.join(root, 'data', 'state.json');
 function ensureState() {
   try {
     if (!fs.existsSync(statePath)) {
-      const initial = { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app' } };
+      const initial = { added: [], removed: [], subscriptions: {}, suggestions: [], config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app' } };
       fs.writeFileSync(statePath, JSON.stringify(initial, null, 2));
     }
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
+  return { added: [], removed: [], subscriptions: {}, suggestions: [], config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
 }
 function normalizeState(s) {
   const state = s || {};
   state.added = Array.isArray(state.added) ? state.added : [];
   state.removed = Array.isArray(state.removed) ? state.removed : [];
   state.subscriptions = state.subscriptions || {};
+  state.suggestions = Array.isArray(state.suggestions) ? state.suggestions : [];
   state.config = state.config || {};
   if (!state.config.publicUrl) state.config.publicUrl = process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
   if (typeof state.config.mpAccessToken === 'undefined') state.config.mpAccessToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
@@ -238,6 +239,35 @@ const server = http.createServer(async (req, res) => {
         if (body.discordInviteUrl !== undefined) state.config.discordInviteUrl = String(body.discordInviteUrl || '');
         await writeState(state);
         res.end(JSON.stringify({ ok: true, config: { ...state.config, mpAccessToken: undefined } }));
+        return;
+      }
+      // ----- SUGESTÕES -----
+      if (urlPath === '/api/suggestions' && req.method === 'GET') {
+        const state = await readState();
+        const suggestions = Array.isArray(state.suggestions) ? state.suggestions : [];
+        res.end(JSON.stringify({ ok: true, suggestions }));
+        return;
+      }
+      if (urlPath === '/api/suggestions' && req.method === 'POST') {
+        const body = await parseBody(req);
+        const title = String(body.title || '').trim();
+        const kind = String(body.kind || '').trim();
+        const tmdbId = body.tmdbId ? String(body.tmdbId).trim() : '';
+        const details = String(body.details || '').trim();
+        if (!title) { res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Título é obrigatório' })); return; }
+        const cookies = parseCookieHeader(req.headers['cookie']);
+        const suggestion = {
+          id: `s_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+          title, kind, tmdbId, details,
+          authorId: cookies.uid || null,
+          authorName: cookies.uname || null,
+          createdAt: new Date().toISOString()
+        };
+        const state = await readState();
+        state.suggestions = Array.isArray(state.suggestions) ? state.suggestions : [];
+        state.suggestions.push(suggestion);
+        await writeState(state);
+        res.end(JSON.stringify({ ok:true, suggestion }));
         return;
       }
       // Removido: endpoint manual de bootstrap

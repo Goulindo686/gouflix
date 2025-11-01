@@ -48,6 +48,33 @@
 
   <main id="mainContent" class="content">
     <div id="sections"></div>
+    <!-- Formulário de Sugestões -->
+    <div id="suggestionFormPanel" class="panel" style="margin-top:16px">
+      <h3 class="section-title">Sugira um Filme ou Série</h3>
+      <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div class="field-group" style="flex:1;min-width:240px">
+          <label for="sgTitle">Título</label>
+          <input id="sgTitle" type="text" placeholder="Ex.: O Show de Truman" />
+        </div>
+        <div class="field-group" style="width:160px">
+          <label for="sgKind">Tipo</label>
+          <select id="sgKind">
+            <option value="filme">Filme</option>
+            <option value="serie">Série</option>
+          </select>
+        </div>
+        <div class="field-group" style="width:200px">
+          <label for="sgTmdbId">TMDB ID (opcional)</label>
+          <input id="sgTmdbId" type="text" placeholder="Ex.: 37165" />
+        </div>
+        <div class="field-group" style="flex:2;min-width:280px">
+          <label for="sgDetails">Detalhes (link, ano, comentários)</label>
+          <input id="sgDetails" type="text" placeholder="Cole o link do TMDB, ano, e por que indicar" />
+        </div>
+        <button id="sgSubmitBtn" class="btn primary">Enviar Sugestão</button>
+      </div>
+      <p id="sgStatus" class="panel-tip" style="display:none"></p>
+    </div>
   </main>
 
   <!-- Página Minha Conta -->
@@ -254,6 +281,11 @@
   </div>
 
     <div class="panel" style="margin-top:16px">
+      <h3 class="section-title">Sugestões dos Usuários</h3>
+      <div id="adminSuggestions" class="admin-results" style="margin-top:10px"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
       <h3 class="section-title">Assinaturas</h3>
       <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <div class="radio-group" style="display:flex;gap:12px">
@@ -299,8 +331,7 @@
   </div>
 
 
-  <!-- Botão flutuante do Discord -->
-  <a id="discordFloatingBtn" class="floating-discord" href="#" target="_blank" rel="noopener noreferrer" aria-label="Entrar no Discord" title="Discord">Discord</a>
+  
 
   <footer class="footer">
     <p>© 2025 GouFlix — Site de demonstração</p>

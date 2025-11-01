@@ -415,30 +415,5 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 .hero-dots .dot{width:8px;height:8px;border-radius:50%;background:#6b7a86;border:1px solid #8fa1b2;opacity:.9;cursor:pointer}
 .hero-dots .dot.active{background:var(--accent);border-color:var(--accent);opacity:1;box-shadow:0 0 10px rgba(0,229,255,.45)}
 
-/* Botão flutuante do Discord */
-.floating-discord {
-  position: fixed;
-  bottom: clamp(8px, 2vw, 16px);
-  right: clamp(8px, 2vw, 16px);
-  z-index: 9999;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(8px, 2vw, 10px) clamp(12px, 2.5vw, 16px);
-  border-radius: 999px;
-  background: linear-gradient(135deg, #5865F2, #7289DA);
-  color: #fff;
-  font-weight: 600;
-  font-size: clamp(12px, 2.8vw, 14px);
-  line-height: 1;
-  box-shadow: 0 8px 20px rgba(88,101,242,0.35);
-  text-decoration: none;
-}
-.floating-discord:hover { filter: brightness(1.05); box-shadow: 0 10px 24px rgba(88,101,242,0.45); }
-.floating-discord:active { transform: translateY(1px); }
-
-@media (max-width: 480px) {
-  .floating-discord { padding: 8px 12px; font-size: 12px; }
-}
 /* Garantir que o conteúdo abaixo não fique sob a navbar */
 .content{padding-top:90px}
