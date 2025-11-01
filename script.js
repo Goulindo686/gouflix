@@ -61,11 +61,33 @@ function initAuth() {
       alert('As senhas não conferem.');
       return;
     }
+
+    const registerBtn = document.querySelector('.btn-primary');
+    registerBtn.disabled = true;
+    registerBtn.textContent = 'Criando conta...';
     
     try {
-      // Aqui você pode adicionar sua lógica de registro
-      // Por exemplo, chamando uma API ou serviço de autenticação
-      const response = await fetch(apiUrl('/api/auth/register'), {
+      // Se o Supabase estiver configurado, usar autenticação do Supabase
+      if (window.supabaseClient) {
+        const { data: { user }, error } = await window.supabaseClient.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullname
+            }
+          }
+        });
+
+        if (error) throw error;
+        
+        CURRENT_USER = user;
+        checkAuth();
+        return;
+      }
+
+      // Fallback: usar autenticação local
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -77,17 +99,20 @@ function initAuth() {
         })
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        CURRENT_USER = data.user;
-        checkAuth();
-      } else {
-        const error = await response.json();
-        alert(error.message || 'Erro ao criar conta. Tente novamente.');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao criar conta');
       }
+      
+      CURRENT_USER = data.user;
+      checkAuth();
     } catch (error) {
       console.error('Erro ao registrar:', error);
-      alert('Erro ao criar conta. Tente novamente mais tarde.');
+      alert(error.message || 'Erro ao criar conta. Por favor, tente novamente mais tarde.');
+    } finally {
+      registerBtn.disabled = false;
+      registerBtn.textContent = 'Criar conta';
     }
   }
   
