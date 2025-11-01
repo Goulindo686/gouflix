@@ -8,6 +8,7 @@
   <meta name="config-api-base-url" content="">
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <header class="navbar">
@@ -17,6 +18,7 @@
       <a href="#" id="navFilmes">Filmes</a>
       <a href="#" id="navSeries">Séries</a>
       <a href="#" id="navLista">Minha Lista</a>
+      <a href="#" id="navSuggestions">Sugestões</a>
       <a href="#" id="navAccount">Minha Conta</a>
       <a href="#" id="navPlans">Planos</a>
       <a href="#" id="navAdmin" rel="nofollow">Admin</a>
@@ -48,34 +50,32 @@
 
   <main id="mainContent" class="content">
     <div id="sections"></div>
-    <!-- Formulário de Sugestões -->
-    <div id="suggestionFormPanel" class="panel" style="margin-top:16px">
-      <h3 class="section-title">Sugira um Filme ou Série</h3>
-      <div class="panel-inner" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div class="field-group" style="flex:1;min-width:240px">
-          <label for="sgTitle">Título</label>
-          <input id="sgTitle" type="text" placeholder="Ex.: O Show de Truman" />
+  </main>
+
+  <!-- Página Sugestões -->
+  <section id="suggestionsPage" class="suggestions hidden">
+    <div class="suggestions-hero">
+      <h2>Indique o que você quer ver</h2>
+      <p>Informe o nome e se é filme ou série. Simples assim.</p>
+    </div>
+    <div class="panel suggestion-form">
+      <div class="panel-inner">
+        <div class="field-group" style="flex:2;min-width:260px">
+          <label for="sgTitle">Nome</label>
+          <input id="sgTitle" type="text" placeholder="Ex.: Matrix, Dark, etc." />
         </div>
-        <div class="field-group" style="width:160px">
+        <div class="field-group" style="width:200px">
           <label for="sgKind">Tipo</label>
           <select id="sgKind">
             <option value="filme">Filme</option>
             <option value="serie">Série</option>
           </select>
         </div>
-        <div class="field-group" style="width:200px">
-          <label for="sgTmdbId">TMDB ID (opcional)</label>
-          <input id="sgTmdbId" type="text" placeholder="Ex.: 37165" />
-        </div>
-        <div class="field-group" style="flex:2;min-width:280px">
-          <label for="sgDetails">Detalhes (link, ano, comentários)</label>
-          <input id="sgDetails" type="text" placeholder="Cole o link do TMDB, ano, e por que indicar" />
-        </div>
         <button id="sgSubmitBtn" class="btn primary">Enviar Sugestão</button>
       </div>
       <p id="sgStatus" class="panel-tip" style="display:none"></p>
     </div>
-  </main>
+  </section>
 
   <!-- Página Minha Conta -->
   <section id="accountPage" class="account hidden">

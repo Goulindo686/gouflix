@@ -8,7 +8,7 @@
   --radius: 10px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family: 'Inter', sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+body{font-family: 'Inter', sans-serif;background:radial-gradient(120% 120% at 0% 0%, #0a0f14 0%, #07080a 40%, #000 100%), var(--bg);color:var(--text);overflow-x:hidden}
 
 /* Navbar */
 .navbar{
@@ -19,7 +19,7 @@ body{font-family: 'Inter', sans-serif;background:var(--bg);color:var(--text);ove
 .navbar nav a{color:#fff}
 .navbar nav a:hover{opacity:.85}
 .navbar-right{display:flex;align-items:center;gap:12px}
-.logo{font-size:26px;font-weight:700;}
+.logo{font-size:26px;font-weight:800;font-family:'Orbitron', sans-serif;letter-spacing:1px}
 .logo span{color:var(--accent);text-shadow:0 0 8px rgba(0,229,255,.6)}
 nav a{color:var(--muted);margin:0 10px;text-decoration:none;transition:.3s}
 nav a:hover{color:var(--text)}
@@ -460,3 +460,12 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 
 /* Garantir que o conteúdo abaixo não fique sob a navbar */
 .content{padding-top:90px}
+
+/* Sugestões page futurista */
+.suggestions{padding:100px 40px 60px}
+.suggestions-hero{background:linear-gradient(135deg, rgba(0,229,255,0.12), rgba(0,229,255,0)); border:1px solid #1f2a38; border-radius:16px; padding:20px; margin-bottom:16px; box-shadow:0 0 30px rgba(0,229,255,.08)}
+.suggestions-hero h2{font-size:26px; margin-bottom:6px}
+.suggestions-hero p{color:#9fb3c9}
+.suggestion-form .panel-inner{align-items:flex-end}
+.suggestion-form input, .suggestion-form select{background:#0f1115;border:1px solid #243140}
+.suggestion-form .btn.primary{background:var(--accent);color:#02171d;box-shadow:0 0 14px rgba(0,229,255,.35)}

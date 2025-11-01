@@ -919,6 +919,7 @@ function showSection(section){
   const admin = document.getElementById('adminPanel');
   const main = document.getElementById('mainContent');
   const plans = document.getElementById('plansPage');
+  const suggestions = document.getElementById('suggestionsPage');
   if(section === 'admin'){
     if(!isAdminUser()){
       // Bloqueia acesso direto
@@ -928,6 +929,7 @@ function showSection(section){
     admin.classList.remove('hidden');
     main.classList.add('hidden');
     if(plans) plans.classList.add('hidden');
+    if(suggestions) suggestions.classList.add('hidden');
     renderAdminList();
     renderAdminSuggestions();
     setRobotsMeta('noindex, nofollow');
@@ -936,9 +938,15 @@ function showSection(section){
     admin.classList.add('hidden');
     if(section === 'plans'){
       if(plans) plans.classList.remove('hidden');
+      if(suggestions) suggestions.classList.add('hidden');
+      main.classList.add('hidden');
+    } else if(section === 'suggestions'){
+      if(suggestions) suggestions.classList.remove('hidden');
+      if(plans) plans.classList.add('hidden');
       main.classList.add('hidden');
     } else {
       if(plans) plans.classList.add('hidden');
+      if(suggestions) suggestions.classList.add('hidden');
       main.classList.remove('hidden');
     }
     setRobotsMeta('index, follow');
@@ -946,7 +954,7 @@ function showSection(section){
 }
 
 function updateActiveNav(route){
-  const ids = ['navHome','navFilmes','navSeries','navLista','navPlans','navAdmin'];
+  const ids = ['navHome','navFilmes','navSeries','navLista','navSuggestions','navPlans','navAdmin'];
   ids.forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -957,6 +965,7 @@ function updateActiveNav(route){
     filmes: 'navFilmes',
     series: 'navSeries',
     'minha-lista': 'navLista',
+    suggestions: 'navSuggestions',
     plans: 'navPlans',
     admin: 'navAdmin'
   };
@@ -984,6 +993,11 @@ function setRoute(route){
   if(route === 'plans'){
     showSection('plans');
     updateActiveNav('plans');
+    return;
+  }
+  if(route === 'suggestions'){
+    showSection('suggestions');
+    updateActiveNav('suggestions');
     return;
   }
   showSection('home');
@@ -1040,16 +1054,13 @@ async function handleSuggestionSubmit(){
   const btn = document.getElementById('sgSubmitBtn');
   const title = (document.getElementById('sgTitle')?.value||'').trim();
   const kind = (document.getElementById('sgKind')?.value||'filme');
-  const tmdbIdRaw = (document.getElementById('sgTmdbId')?.value||'').trim();
-  const details = (document.getElementById('sgDetails')?.value||'').trim();
-  const tmdbId = tmdbIdRaw ? Number(tmdbIdRaw) : undefined;
   if(!title){ alert('Informe um título para a sugestão.'); return; }
   try{
     if(btn){ btn.disabled = true; btn.textContent = 'Enviando...'; }
     const res = await fetch(apiUrl('/api/suggestions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, kind, tmdbId, details })
+      body: JSON.stringify({ title, kind })
     });
     if(!res.ok){
       const t = await res.text();
@@ -1057,8 +1068,6 @@ async function handleSuggestionSubmit(){
     }
     try{
       document.getElementById('sgTitle').value = '';
-      document.getElementById('sgTmdbId').value = '';
-      document.getElementById('sgDetails').value = '';
       document.getElementById('sgKind').value = 'filme';
     }catch(_){}
     alert('Sugestão enviada com sucesso!');
@@ -1401,7 +1410,9 @@ if(navSeries){ navSeries.addEventListener('click', ()=> setRoute('series')); }
 const navLista = document.getElementById('navLista');
 if(navLista){ navLista.addEventListener('click', ()=> setRoute('minha-lista')); }
 const navPlans = document.getElementById('navPlans');
-  if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
+const navSuggestions = document.getElementById('navSuggestions');
+if(navPlans){ navPlans.addEventListener('click', ()=> setRoute('plans')); }
+if(navSuggestions){ navSuggestions.addEventListener('click', ()=> setRoute('suggestions')); }
   // Efeito de sombra na navbar ao rolar
   const navbar = document.querySelector('.navbar');
   function updateNavbarShadow(){
