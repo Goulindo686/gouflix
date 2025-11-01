@@ -34,12 +34,13 @@ function clearCookie(res, name) {
 
 // Handlers combinados de autenticação
 export default async function handler(req, res) {
-  const { method, query: { action } } = req;
+  try {
+    const { method, query: { action } = {} } = req;
 
-  // When not performing redirects for OAuth, ensure responses are JSON
-  if (action !== 'discord-start' && action !== 'discord-callback') {
-    try { res.setHeader('Content-Type', 'application/json; charset=utf-8'); } catch(_) {}
-  }
+    // When not performing redirects for OAuth, ensure responses are JSON
+    if (action !== 'discord-start' && action !== 'discord-callback') {
+      try { res.setHeader('Content-Type', 'application/json; charset=utf-8'); } catch(_) {}
+    }
 
   // Rotas de autenticação Discord
   if (action === 'discord-start') {
@@ -256,6 +257,12 @@ export default async function handler(req, res) {
     }
   }
 
-  // Se nenhuma ação corresponder
-  return res.status(404).json({ message: 'Rota não encontrada' });
+    // Se nenhuma ação corresponder
+    return res.status(404).json({ message: 'Rota não encontrada' });
+  } catch (err) {
+    // Catch any unexpected runtime errors and return JSON so client can handle it
+    console.error('Unhandled error in /api/auth:', err && err.stack ? err.stack : String(err));
+    try { res.setHeader('Content-Type', 'application/json; charset=utf-8'); } catch(_) {}
+    return res.status(500).json({ message: 'Internal server error', error: String(err) });
+  }
 }
