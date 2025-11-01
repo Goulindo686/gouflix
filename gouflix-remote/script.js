@@ -598,11 +598,13 @@ async function openModal(id){
   const kind = (movie.type === 'serie') ? 'serie' : 'filme';
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
+  
   // dados extras do TMDB para chips e elenco
   let tmdb = null;
   try{
     if(movie.tmdbId){ tmdb = await fetchTmdbDetails(kind, movie.tmdbId); }
   }catch(_){ tmdb = null; }
+  
   const vote = tmdb?.vote_average ? (Math.round(tmdb.vote_average * 10) / 10).toFixed(1) : null;
   const runtime = (kind==='filme') ? (tmdb?.runtime || null) : (Array.isArray(tmdb?.episode_run_time) && tmdb.episode_run_time[0] ? tmdb.episode_run_time[0] : null);
   const year = (kind==='serie' ? (tmdb?.first_air_date||movie.year||'') : (tmdb?.release_date||movie.year||'')).slice(0,4);
@@ -619,83 +621,131 @@ async function openModal(id){
     }
   }catch(_){ /* ignore */ }
 
-  const chips = `
-    <div class="detail-chips">
-      ${year ? `<span class="chip">${year}</span>`:''}
-      ${vote ? `<span class="chip"><span class="star">★</span> ${vote}</span>`:''}
-      ${runtime ? `<span class="chip">${runtime} min</span>`:''}
-      <span class="chip">${kind==='filme'?'Filme':'Série'}</span>
-    </div>`;
-  const genresHtml = `<div class="genres">${genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}</div>`;
-  const actionsHtml = `
-    <div class="detail-actions">
-      ${active && superflixUrl ? `<button id="watchNowBtn" class="btn btn-watch">Assistir Agora</button>` : `<button id="goToPlansBtn" class="btn btn-watch">Ver planos</button>`}
-      <button id="myListBtn" class="btn secondary">${isFavorite ? (isFavorite(movie.id)?'Remover da Lista':'Minha Lista') : 'Minha Lista'}</button>
-    </div>`;
-  const playerSectionHtml = (active && superflixUrl) ? `
-    <div id="playerSection" class="player-section hidden">
-      <div class="audio-panel">
-        <div class="audio-title">Selecione um Áudio</div>
-        <div class="audio-options">
-          <button class="audio-btn active" data-audio="dublado">Dublado</button>
-          <button class="audio-btn" data-audio="legendado">Legendado</button>
-        </div>
-        <div class="server-row">
-          <button id="serverPremiumBtn" class="btn tertiary">Servidor Premium</button>
-        </div>
-      </div>
-      <div class="player" style="margin-top:12px;width:100%">
-        <iframe id="superflixPlayer" src="${superflixUrl}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
-      </div>
-    </div>
-  ` : '';
-  const castHtml = cast.length ? `
-    <div class="cast-section">
-      <h3 class="section-title">Elenco</h3>
-      <div class="cast-row">
-        ${cast.map(c=>{
-          const img = c.profile_path ? `${tmdbImgBase()}/w185${c.profile_path}` : '';
-          const name = c.name || '';
-          const role = c.character || '';
-          return `<div class="cast-item">${img?`<img src='${img}' alt='${name}'>`:`<div class='cast-placeholder'></div>`}<div class="cast-name">${name}</div><div class="cast-role">${role}</div></div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
-
+  // Novo layout estilo Netflix
   body.innerHTML = `
-    <img src="${movie.poster}" alt="${movie.title} poster">
-    <div class="modal-info" style="width:100%">
-      <h2>${movie.title}</h2>
-      ${chips}
-      <p>${movie.description}</p>
-      ${genresHtml}
-      ${actionsHtml}
-      ${playerSectionHtml}
-      ${!active ? `<div class="missing-id" style="margin-top:16px">Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.</div>`:''}
-      ${castHtml}
+    <div class="player-layout">
+      <div class="player-poster">
+        <img src="${movie.poster}" alt="${movie.title} poster">
+      </div>
+      <div class="player-content">
+        <h1 class="player-title">${movie.title}</h1>
+        
+        <div class="player-meta">
+          ${year ? `<span class="meta-chip">${year}</span>` : ''}
+          ${vote ? `<span class="meta-chip rating">★ ${vote}</span>` : ''}
+          ${runtime ? `<span class="meta-chip">${runtime} min</span>` : ''}
+          <span class="meta-chip type">${kind === 'filme' ? 'Filme' : 'Série'}</span>
+        </div>
+        
+        <p class="player-description">${movie.description}</p>
+        
+        ${genres.length ? `
+          <div class="genre-tags">
+            ${genres.map(g => `<span class="genre-tag">${g}</span>`).join('')}
+          </div>
+        ` : ''}
+        
+        <div class="player-actions">
+          ${active && superflixUrl ? 
+            `<button id="watchNowBtn" class="action-btn primary">
+              <span class="play-icon">▶</span>
+              Assistir Agora
+            </button>` : 
+            `<button id="goToPlansBtn" class="action-btn primary">
+              <span class="play-icon">▶</span>
+              Ver Planos
+            </button>`
+          }
+          <button id="myListBtn" class="action-btn secondary ${isFavorite && isFavorite(movie.id) ? 'active' : ''}">
+            <span class="list-icon">${isFavorite && isFavorite(movie.id) ? '✓' : '+'}</span>
+            ${isFavorite ? (isFavorite(movie.id) ? 'Na Lista' : 'Minha Lista') : 'Minha Lista'}
+          </button>
+        </div>
+        
+        ${!active ? `
+          <div class="subscription-warning">
+            Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.
+          </div>
+        ` : ''}
+        
+        ${cast.length ? `
+          <div class="cast-section">
+            <h3 class="cast-title">Elenco</h3>
+            <div class="cast-grid">
+              ${cast.map(c => {
+                const img = c.profile_path ? `${tmdbImgBase()}/w185${c.profile_path}` : '';
+                const name = c.name || '';
+                const role = c.character || '';
+                return `
+                  <div class="cast-member">
+                    ${img ? 
+                      `<img src="${img}" alt="${name}">` : 
+                      `<div class="cast-placeholder">Sem foto</div>`
+                    }
+                    <div class="cast-info">
+                      <div class="cast-name">${name}</div>
+                      <div class="cast-role">${role}</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
     </div>
   `;
+  
   modal.classList.remove('hidden');
 
+  // Event listeners
   const goBtn = document.getElementById('goToPlansBtn');
-  if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
+  if(goBtn){ 
+    goBtn.onclick = () => { 
+      modal.classList.add('hidden'); 
+      setRoute('plans'); 
+    };
+  }
+  
   const watchBtn = document.getElementById('watchNowBtn');
-  if(watchBtn){ watchBtn.onclick = ()=>{
-    const sec = document.getElementById('playerSection');
-    if(sec){ sec.classList.remove('hidden'); sec.scrollIntoView({ behavior:'smooth', block:'center' }); }
-  }; }
+  if(watchBtn){ 
+    watchBtn.onclick = () => {
+      if(active && superflixUrl) {
+        showPlayer(superflixUrl, movie.title);
+      }
+    };
+  }
+  
   const listBtn = document.getElementById('myListBtn');
   if(listBtn && typeof toggleFavorite === 'function'){
-    listBtn.onclick = ()=>{ toggleFavorite(movie.id); listBtn.textContent = isFavorite(movie.id) ? 'Remover da Lista' : 'Minha Lista'; };
-  }
-  // Audio options (UI apenas)
-  const audioBtns = Array.from(document.querySelectorAll('.audio-btn'));
-  audioBtns.forEach(btn=>{
-    btn.onclick = ()=>{
-      audioBtns.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
+    listBtn.onclick = () => { 
+      toggleFavorite(movie.id); 
+      const isInList = isFavorite(movie.id);
+      listBtn.innerHTML = `
+        <span class="list-icon">${isInList ? '✓' : '+'}</span>
+        ${isInList ? 'Na Lista' : 'Minha Lista'}
+      `;
+      listBtn.classList.toggle('active', isInList);
     };
-  });
+  }
+}
+
+// Função para mostrar o player em tela cheia
+function showPlayer(url, title) {
+  const modal = document.getElementById('modal');
+  const body = document.getElementById('modalBody');
+  
+  body.innerHTML = `
+    <div class="player-container">
+      <div class="player-header">
+        <button class="back-btn" onclick="history.back()">← Voltar</button>
+        <h2 style="color: #fff; margin: 0;">${title}</h2>
+      </div>
+      <div class="player-wrapper">
+        <iframe src="${url}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
+      </div>
+    </div>
+  `;
 }
 
 // --------- Usuário atual (Discord backend) ---------

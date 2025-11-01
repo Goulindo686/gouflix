@@ -635,16 +635,18 @@ async function openModal(id){
   const kind = (movie.type === 'serie') ? 'serie' : 'filme';
   const contentId = movie.tmdbId || movie.imdbId || '';
   const superflixUrl = contentId ? `https://superflixapi.asia/${kind}/${contentId}` : null;
+  
   // dados extras do TMDB para chips e elenco
   let tmdb = null;
   try{
     if(movie.tmdbId){ tmdb = await fetchTmdbDetails(kind, movie.tmdbId); }
   }catch(_){ tmdb = null; }
+  
   const vote = tmdb?.vote_average ? (Math.round(tmdb.vote_average * 10) / 10).toFixed(1) : null;
   const runtime = (kind==='filme') ? (tmdb?.runtime || null) : (Array.isArray(tmdb?.episode_run_time) && tmdb.episode_run_time[0] ? tmdb.episode_run_time[0] : null);
   const year = (kind==='serie' ? (tmdb?.first_air_date||movie.year||'') : (tmdb?.release_date||movie.year||'')).slice(0,4);
-  const genres = Array.isArray(movie.genres) && movie.genres.length ? movie.genres : (Array.isArray(tmdb?.genres)? tmdb.genres.map(g=>g.name): []);
-  const cast = Array.isArray(tmdb?.credits?.cast) ? tmdb.credits.cast.slice(0, 12) : [];
+  const genres = Array.isArray(movie.genres) && movie.genres.length ? movie.genres : (Array.isArray(tmdb?.genres)? tmdb.genres : []);
+  const cast = Array.isArray(tmdb?.credits?.cast) ? tmdb.credits.cast.slice(0, 10) : [];
 
   // Checar assinatura
   let active = false;
@@ -656,82 +658,112 @@ async function openModal(id){
     }
   }catch(_){ /* ignore */ }
 
-  const chips = `
-    <div class="detail-chips">
-      ${year ? `<span class="chip">${year}</span>`:''}
-      ${vote ? `<span class="chip"><span class="star">★</span> ${vote}</span>`:''}
-      ${runtime ? `<span class="chip">${runtime} min</span>`:''}
-      <span class="chip">${kind==='filme'?'Filme':'Série'}</span>
-    </div>`;
-  const genresHtml = `<div class="genres">${genres.map(g=>`<span class='genre-pill'>${g}</span>`).join('')}</div>`;
-  const actionsHtml = `
-    <div class="detail-actions">
-      ${active && superflixUrl ? `<button id="watchNowBtn" class="btn btn-watch">Assistir Agora</button>` : `<button id="goToPlansBtn" class="btn btn-watch">Ver planos</button>`}
-      <button id="myListBtn" class="btn secondary">${isFavorite(movie.id) ? 'Remover da Lista' : 'Minha Lista'}</button>
-    </div>`;
-  const playerSectionHtml = (active && superflixUrl) ? `
-    <div id="playerSection" class="player-section hidden">
-      <div class="audio-panel">
-        <div class="audio-title">Selecione um Áudio</div>
-        <div class="audio-options">
-          <button class="audio-btn active" data-audio="dublado">Dublado</button>
-          <button class="audio-btn" data-audio="legendado">Legendado</button>
-        </div>
-        <div class="server-row">
-          <button id="serverPremiumBtn" class="btn tertiary">Servidor Premium</button>
-        </div>
-      </div>
-      <div class="player" style="margin-top:12px;width:100%">
-        <iframe id="superflixPlayer" src="${superflixUrl}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
-      </div>
-    </div>
-  ` : '';
-  const castHtml = cast.length ? `
-    <div class="cast-section">
-      <h3 class="section-title">Elenco</h3>
-      <div class="cast-row">
-        ${cast.map(c=>{
-          const img = c.profile_path ? `${tmdbImgBase()}/w185${c.profile_path}` : '';
-          const name = c.name || '';
-          const role = c.character || '';
-          return `<div class="cast-item">${img?`<img src='${img}' alt='${name}'>`:`<div class='cast-placeholder'></div>`}<div class="cast-name">${name}</div><div class="cast-role">${role}</div></div>`;
-        }).join('')}
-      </div>
-    </div>` : '';
-
+  // Layout estilo Netflix com pôster à esquerda e informações à direita
   body.innerHTML = `
-    <img src="${movie.poster}" alt="${movie.title} poster">
-    <div class="modal-info" style="width:100%">
-      <h2>${movie.title}</h2>
-      ${chips}
-      <p>${movie.description}</p>
-      ${genresHtml}
-      ${actionsHtml}
-      ${playerSectionHtml}
-      ${!active ? `<div class="missing-id" style="margin-top:16px">Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.</div>`:''}
-      ${castHtml}
+    <div class="player-layout">
+      <div class="player-poster">
+        <img src="${movie.poster}" alt="${movie.title}" />
+      </div>
+      <div class="player-content">
+        <h1 class="player-title">${movie.title}</h1>
+        <div class="player-meta">
+          ${year ? `<span class="meta-chip">${year}</span>` : ''}
+          ${vote ? `<span class="meta-chip rating">⭐ ${vote}</span>` : ''}
+          ${runtime ? `<span class="meta-chip">${runtime} min</span>` : ''}
+          <span class="meta-chip type">${kind === 'filme' ? 'Filme' : 'Série'}</span>
+        </div>
+        <p class="player-description">${movie.description}</p>
+        <div class="genre-tags">
+          ${genres.map(g => `<span class="genre-tag">${g.name || g}</span>`).join('')}
+        </div>
+        <div class="player-actions">
+          ${active && superflixUrl ? 
+            `<button id="watchNowBtn" class="action-btn primary">
+              <span class="play-icon">▶</span>
+              Assistir Agora
+            </button>` : 
+            `<button id="goToPlansBtn" class="action-btn primary">
+              <span class="play-icon">▶</span>
+              Ver planos
+            </button>`
+          }
+          <button id="myListBtn" class="action-btn secondary ${isFavorite(movie.id) ? 'active' : ''}">
+            <span class="list-icon">${isFavorite(movie.id) ? '✓' : '+'}</span>
+            Minha Lista
+          </button>
+        </div>
+        ${cast.length ? `
+          <div class="cast-section">
+            <h3 class="cast-title">Elenco</h3>
+            <div class="cast-grid">
+              ${cast.map(c => {
+                const img = c.profile_path ? `${tmdbImgBase()}/w185${c.profile_path}` : '';
+                const name = c.name || '';
+                const role = c.character || '';
+                return `
+                  <div class="cast-member">
+                    ${img ? `<img src="${img}" alt="${name}" />` : `<div class="cast-placeholder"></div>`}
+                    <div class="cast-info">
+                      <div class="cast-name">${name}</div>
+                      <div class="cast-role">${role}</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+        ${!active ? `<div class="subscription-warning">Assine um plano para assistir. Seu acesso está bloqueado sem assinatura ativa.</div>` : ''}
+      </div>
     </div>
   `;
+  
   modal.classList.remove('hidden');
 
+  // Event listeners
   const goBtn = document.getElementById('goToPlansBtn');
-  if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
+  if(goBtn){ 
+    goBtn.onclick = () => { 
+      modal.classList.add('hidden'); 
+      setRoute('plans'); 
+    }; 
+  }
+  
   const watchBtn = document.getElementById('watchNowBtn');
-  if(watchBtn){ watchBtn.onclick = ()=>{
-    const sec = document.getElementById('playerSection');
-    if(sec){ sec.classList.remove('hidden'); sec.scrollIntoView({ behavior:'smooth', block:'center' }); }
-  }; }
+  if(watchBtn){ 
+    watchBtn.onclick = () => {
+      // Criar e mostrar o player quando clicar em "Assistir Agora"
+      showPlayer(superflixUrl, movie.title);
+    }; 
+  }
+  
   const listBtn = document.getElementById('myListBtn');
-  if(listBtn){ listBtn.onclick = ()=>{ toggleFavorite(movie.id); listBtn.textContent = isFavorite(movie.id) ? 'Remover da Lista' : 'Minha Lista'; }; }
-  // Audio options (UI somente)
-  const audioBtns = Array.from(document.querySelectorAll('.audio-btn'));
-  audioBtns.forEach(btn=>{
-    btn.onclick = ()=>{
-      audioBtns.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      // Mantemos a mesma URL; serve como seleção visual neste momento
-    };
-  });
+  if(listBtn){ 
+    listBtn.onclick = () => { 
+      toggleFavorite(movie.id); 
+      const isNowFavorite = isFavorite(movie.id);
+      listBtn.classList.toggle('active', isNowFavorite);
+      listBtn.querySelector('.list-icon').textContent = isNowFavorite ? '✓' : '+';
+    }; 
+  }
+}
+
+function showPlayer(url, title) {
+  const modal = document.getElementById('modal');
+  const body = document.getElementById('modalBody');
+  
+  // Substituir o conteúdo do modal pelo player
+  body.innerHTML = `
+    <div class="player-container">
+      <div class="player-header">
+        <button class="back-btn" onclick="location.reload()">← Voltar</button>
+        <h2>${title}</h2>
+      </div>
+      <div class="player-wrapper">
+        <iframe src="${url}" frameborder="0" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe>
+      </div>
+    </div>
+  `;
 }
 
 // --------- Usuário atual (Discord) ---------
