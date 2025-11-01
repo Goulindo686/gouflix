@@ -26,18 +26,19 @@ function apiUrl(p){
 // Gerenciamento de autenticação
 function initAuth() {
   const authScreen = document.getElementById('auth-screen');
-  const navbar = document.querySelector('.navbar');
+  const mainContent = document.getElementById('main-content');
   const registerForm = document.getElementById('register-form');
-  const backButton = document.getElementById('back-to-home');
   
   // Verifica se o usuário está autenticado
   function checkAuth() {
     if (!CURRENT_USER) {
       authScreen.style.display = 'flex';
-      navbar.style.display = 'none';
+      mainContent.style.display = 'none';
+      document.body.style.overflow = 'hidden';
     } else {
       authScreen.style.display = 'none';
-      navbar.style.display = 'flex';
+      mainContent.style.display = 'block';
+      document.body.style.overflow = 'auto';
     }
   }
   

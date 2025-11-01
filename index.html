@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
-  <div id="auth-screen" class="auth-screen" style="display: none;">
+<body id="app-body">
+  <div id="auth-screen" class="auth-screen">
     <div class="auth-container">
       <div class="auth-logo">
         <h1 class="logo">Gou<span>Flix</span></h1>
@@ -63,14 +63,11 @@
           </p>
         </form>
       </div>
-      
-      <a href="#" class="back-button" id="back-to-home">
-        <i class="fas fa-arrow-left"></i> Voltar ao início
-      </a>
     </div>
   </div>
 
-  <header class="navbar" style="display: none;">
+  <div id="main-content" style="display: none;">
+    <header class="navbar">
     <h1 class="logo">Gou<span>Flix</span></h1>
     <nav>
       <a href="#" id="navHome">Início</a>
