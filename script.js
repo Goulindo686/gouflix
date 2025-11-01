@@ -17,6 +17,68 @@ window.__ENV = {};
 window.supabaseClient = null;
 let CURRENT_USER = null;
 
+// Sistema de Autenticação
+let isAuthenticated = false;
+
+// Verificar se o usuário está autenticado
+function checkAuthentication() {
+  const authData = localStorage.getItem('gouflix_auth');
+  if (authData) {
+    try {
+      const parsed = JSON.parse(authData);
+      if (parsed.token && parsed.expiresAt > Date.now()) {
+        isAuthenticated = true;
+        CURRENT_USER = parsed.user;
+        return true;
+      }
+    } catch (e) {
+      console.error('Erro ao verificar autenticação:', e);
+    }
+  }
+  return false;
+}
+
+// Salvar dados de autenticação
+function saveAuthData(user, token, expiresIn = 86400000) { // 24 horas por padrão
+  const authData = {
+    user: user,
+    token: token,
+    expiresAt: Date.now() + expiresIn
+  };
+  localStorage.setItem('gouflix_auth', JSON.stringify(authData));
+  isAuthenticated = true;
+  CURRENT_USER = user;
+}
+
+// Limpar dados de autenticação
+function clearAuthData() {
+  localStorage.removeItem('gouflix_auth');
+  isAuthenticated = false;
+  CURRENT_USER = null;
+}
+
+// Mostrar tela de autenticação
+function showAuthScreen() {
+  const authScreen = document.getElementById('authScreen');
+  const mainContent = document.getElementById('mainContent');
+  
+  if (authScreen && mainContent) {
+    authScreen.style.display = 'flex';
+    mainContent.style.display = 'none';
+  }
+}
+
+// Mostrar conteúdo principal
+function showMainContent() {
+  const authScreen = document.getElementById('authScreen');
+  const mainContent = document.getElementById('mainContent');
+  
+  if (authScreen && mainContent) {
+    authScreen.style.display = 'none';
+    mainContent.style.display = 'block';
+  }
+}
+
 // Helper para construir URL de API suportando base remota (ex.: Vercel)
 function apiUrl(p){
   try{
@@ -1765,6 +1827,11 @@ if(saveMpTokenBtn){
 // Executar bootstrap agora
 // Botão de executar bootstrap removido
 
+// Inicializar sistema de autenticação primeiro
+document.addEventListener('DOMContentLoaded', () => {
+  initAuthSystem();
+});
+
 initEnvAndSupabase().then(async()=>{
   await fetchCurrentUser();
   await loadSubscriptionStatus();
@@ -1772,7 +1839,11 @@ initEnvAndSupabase().then(async()=>{
   if(pm){ pm.classList.add('hidden'); }
   const searchEl = document.getElementById('search');
   if(searchEl){ searchEl.value = ''; }
-  loadMovies();
+  
+  // Só carregar filmes se o usuário estiver autenticado
+  if (isAuthenticated) {
+    loadMovies();
+  }
 });
 
 // ----- Pagamentos (Mercado Pago PIX) -----
@@ -1835,7 +1906,252 @@ function pollPaymentStatus(id, plan){
 }
 
 const closePaymentBtn = document.getElementById('closePayment');
-if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.getElementById('paymentModal').classList.add('hidden'); stopPaymentPoll(); }); }
+if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.getElementById('paymentModal').classList.add('hidden'); }); }
 bindPlanButtons();
+
+// ----- Sistema de Autenticação - Manipulação de Formulários -----
+
+// Alternar entre formulários de login e registro
+function toggleAuthForm() {
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  
+  if (loginForm && registerForm) {
+    if (loginForm.style.display === 'none') {
+      loginForm.style.display = 'block';
+      registerForm.style.display = 'none';
+    } else {
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+    }
+  }
+}
+
+// Validar email
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+// Mostrar mensagem de erro
+function showAuthError(message) {
+  const errorDiv = document.getElementById('authError');
+  if (errorDiv) {
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => {
+      errorDiv.style.display = 'none';
+    }, 5000);
+  }
+}
+
+// Processar registro
+async function handleRegister(event) {
+  event.preventDefault();
+  
+  const name = document.getElementById('registerName').value.trim();
+  const email = document.getElementById('registerEmail').value.trim();
+  const password = document.getElementById('registerPassword').value;
+  const confirmPassword = document.getElementById('registerConfirmPassword').value;
+  
+  // Validações
+  if (!name) {
+    showAuthError('Por favor, insira seu nome completo.');
+    return;
+  }
+  
+  if (!isValidEmail(email)) {
+    showAuthError('Por favor, insira um email válido.');
+    return;
+  }
+  
+  if (password.length < 6) {
+    showAuthError('A senha deve ter pelo menos 6 caracteres.');
+    return;
+  }
+  
+  if (password !== confirmPassword) {
+    showAuthError('As senhas não coincidem.');
+    return;
+  }
+  
+  try {
+    // Simular registro (aqui você integraria com seu backend)
+    const user = {
+      id: Date.now().toString(),
+      name: name,
+      email: email,
+      createdAt: new Date().toISOString()
+    };
+    
+    const token = 'fake_token_' + Date.now();
+    
+    // Salvar dados de autenticação
+    saveAuthData(user, token);
+    
+    // Mostrar conteúdo principal
+    showMainContent();
+    
+    console.log('Usuário registrado com sucesso:', user);
+  } catch (error) {
+    console.error('Erro no registro:', error);
+    showAuthError('Erro ao criar conta. Tente novamente.');
+  }
+}
+
+// Processar login
+async function handleLogin(event) {
+  event.preventDefault();
+  
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  
+  // Validações
+  if (!isValidEmail(email)) {
+    showAuthError('Por favor, insira um email válido.');
+    return;
+  }
+  
+  if (!password) {
+    showAuthError('Por favor, insira sua senha.');
+    return;
+  }
+  
+  try {
+    // Simular login (aqui você integraria com seu backend)
+    const user = {
+      id: Date.now().toString(),
+      name: 'Usuário Teste',
+      email: email,
+      loginAt: new Date().toISOString()
+    };
+    
+    const token = 'fake_token_' + Date.now();
+    
+    // Salvar dados de autenticação
+    saveAuthData(user, token);
+    
+    // Mostrar conteúdo principal
+    showMainContent();
+    
+    console.log('Login realizado com sucesso:', user);
+  } catch (error) {
+    console.error('Erro no login:', error);
+    showAuthError('Email ou senha incorretos.');
+  }
+}
+
+// Login via Discord (simulado)
+async function handleDiscordLogin() {
+  try {
+    // Simular login via Discord (aqui você integraria com a API do Discord)
+    const user = {
+      id: 'discord_' + Date.now().toString(),
+      name: 'Usuário Discord',
+      email: 'usuario@discord.com',
+      provider: 'discord',
+      loginAt: new Date().toISOString()
+    };
+    
+    const token = 'discord_token_' + Date.now();
+    
+    // Salvar dados de autenticação
+    saveAuthData(user, token);
+    
+    // Mostrar conteúdo principal
+    showMainContent();
+    
+    console.log('Login via Discord realizado com sucesso:', user);
+  } catch (error) {
+    console.error('Erro no login via Discord:', error);
+    showAuthError('Erro ao fazer login com Discord. Tente novamente.');
+  }
+}
+
+// Logout
+function handleLogout() {
+  clearAuthData();
+  showAuthScreen();
+}
+
+// Voltar para a página inicial (sem autenticação)
+function backToHome() {
+  // Esta função pode ser usada se você quiser permitir acesso sem login
+  showMainContent();
+}
+
+// Inicializar eventos de autenticação
+function initAuthEvents() {
+  // Botões de alternância entre formulários
+  const showLoginBtns = document.querySelectorAll('.show-login');
+  const showRegisterBtns = document.querySelectorAll('.show-register');
+  
+  showLoginBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      if (loginForm && registerForm) {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+      }
+    });
+  });
+  
+  showRegisterBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      if (loginForm && registerForm) {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+      }
+    });
+  });
+  
+  // Formulários
+  const registerForm = document.getElementById('registerForm');
+  const loginForm = document.getElementById('loginForm');
+  
+  if (registerForm) {
+    registerForm.addEventListener('submit', handleRegister);
+  }
+  
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
+  }
+  
+  // Botões Discord
+  const discordBtns = document.querySelectorAll('.discord-login');
+  discordBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleDiscordLogin();
+    });
+  });
+  
+  // Botão de voltar (se existir)
+  const backBtn = document.getElementById('backToHome');
+  if (backBtn) {
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      backToHome();
+    });
+  }
+}
+
+// Inicializar sistema de autenticação
+function initAuthSystem() {
+  // Verificar se o usuário já está autenticado
+  if (checkAuthentication()) {
+    showMainContent();
+  } else {
+    showAuthScreen();
+  }
+  
+  // Inicializar eventos
+  initAuthEvents();
+}
 
 // Admin compras/assinaturas removido

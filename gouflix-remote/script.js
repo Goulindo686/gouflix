@@ -1,4 +1,33 @@
 // script.js - versão moderna estilo Netflix
+
+// Sistema de Autenticação
+function isUserAuthenticated() {
+  return localStorage.getItem('gouflix_user') !== null;
+}
+
+function saveUserData(userData) {
+  localStorage.setItem('gouflix_user', JSON.stringify(userData));
+}
+
+function getUserData() {
+  const userData = localStorage.getItem('gouflix_user');
+  return userData ? JSON.parse(userData) : null;
+}
+
+function clearUserData() {
+  localStorage.removeItem('gouflix_user');
+}
+
+function showAuthScreen() {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'none';
+}
+
+function showMainContent() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+}
+
 let TMDB_API_KEY = '8a2d4c3351370eb863b79cc6dda7bb81';
 let TMDB_TOKEN = null;
 let TMDB_BASE = 'https://api.themoviedb.org/3';
@@ -1643,10 +1672,120 @@ if(saveMpTokenBtn){
 
 // Removido: botão de executar bootstrap
 
+// ---- Autenticação: handlers e inicialização ----
+function setAuthError(msg){
+  const el = document.getElementById('authError');
+  if(!el) return;
+  if(msg){ el.textContent = msg; el.style.display = 'block'; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+}
+
+function validateEmail(email){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email||'').trim());
+}
+
+function showRegister(){
+  const r = document.getElementById('registerForm');
+  const l = document.getElementById('loginForm');
+  if(r) r.classList.remove('hidden');
+  if(l) l.classList.add('hidden');
+  setAuthError('');
+}
+
+function showLogin(){
+  const r = document.getElementById('registerForm');
+  const l = document.getElementById('loginForm');
+  if(r) r.classList.add('hidden');
+  if(l) l.classList.remove('hidden');
+  setAuthError('');
+}
+
+async function handleRegister(e){
+  e && e.preventDefault && e.preventDefault();
+  try{
+    const name = document.getElementById('registerName')?.value?.trim()||'';
+    const email = document.getElementById('registerEmail')?.value?.trim()||'';
+    const pass = document.getElementById('registerPassword')?.value||'';
+    const pass2 = document.getElementById('registerConfirmPassword')?.value||'';
+    const terms = document.getElementById('termsAccept')?.checked||false;
+    if(!name || !email || !pass || !pass2){ return setAuthError('Preencha todos os campos.'); }
+    if(!validateEmail(email)) return setAuthError('Email inválido.');
+    if(pass.length < 8) return setAuthError('A senha deve ter pelo menos 8 caracteres.');
+    if(pass !== pass2) return setAuthError('As senhas não coincidem.');
+    if(!terms) return setAuthError('Você precisa aceitar os termos para continuar.');
+    const user = { id: 'local-'+Date.now(), name, email };
+    saveUserData(user);
+    setAuthError('');
+    showMainContent();
+    // Carregar conteúdo ao autenticar
+    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
+  }catch(err){ setAuthError('Erro ao registrar: '+(err?.message||String(err))); }
+}
+
+async function handleLogin(e){
+  e && e.preventDefault && e.preventDefault();
+  try{
+    const email = document.getElementById('loginEmail')?.value?.trim()||'';
+    const pass = document.getElementById('loginPassword')?.value||'';
+    const remember = document.getElementById('rememberMe')?.checked||false;
+    if(!email || !pass) return setAuthError('Informe email e senha.');
+    if(!validateEmail(email)) return setAuthError('Email inválido.');
+    const name = email.split('@')[0];
+    const user = { id: 'local-'+Date.now(), name, email, remember };
+    saveUserData(user);
+    setAuthError('');
+    showMainContent();
+    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
+  }catch(err){ setAuthError('Erro ao entrar: '+(err?.message||String(err))); }
+}
+
+function loginWithDiscord(){
+  try{
+    const user = { id: 'discord-'+Date.now(), name: 'Usuário Discord', email: 'discord@user.local', provider: 'discord' };
+    saveUserData(user);
+    setAuthError('');
+    showMainContent();
+    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
+  }catch(err){ setAuthError('Erro no login com Discord: '+(err?.message||String(err))); }
+}
+
+function logoutUser(){
+  clearUserData();
+  showAuthScreen();
+}
+
+function initAuthEvents(){
+  // Alternância entre telas
+  Array.from(document.querySelectorAll('.show-login')).forEach(el=> el.addEventListener('click', showLogin));
+  Array.from(document.querySelectorAll('.show-register')).forEach(el=> el.addEventListener('click', showRegister));
+  // Discord login
+  Array.from(document.querySelectorAll('.discord-login')).forEach(el=> el.addEventListener('click', loginWithDiscord));
+  // Voltar ao início (mantém tela de auth, apenas navega)
+  const back = document.getElementById('backToHome');
+  if(back){ back.addEventListener('click', ()=>{ try{ setRoute('home'); }catch(_){} }); }
+  // Submits
+  const regForm = document.getElementById('registerFormElement');
+  if(regForm){ regForm.addEventListener('submit', handleRegister); }
+  const logForm = document.getElementById('loginFormElement');
+  if(logForm){ logForm.addEventListener('submit', handleLogin); }
+}
+
+function initAuthSystem(){
+  try{
+    initAuthEvents();
+    if(isUserAuthenticated()){
+      showMainContent();
+    }else{
+      showAuthScreen();
+    }
+  }catch(_){ /* ignore */ }
+}
+
 initEnvAndSupabase().then(()=>{
-  loadMovies();
-  fetchCurrentUser();
-  applyAdminVisibility();
+  initAuthSystem();
+  if(isUserAuthenticated()){
+    try{ loadMovies(); fetchCurrentUser(); applyAdminVisibility(); }catch(_){}
+  }
   // Garantir que o modal de pagamento esteja oculto ao carregar
   const pm = document.getElementById('paymentModal');
   if(pm){ pm.classList.add('hidden'); }
