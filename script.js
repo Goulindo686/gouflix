@@ -23,6 +23,95 @@ function apiUrl(p){
   }catch(_){ return p; }
 }
 
+// Gerenciamento de autenticação
+function initAuth() {
+  const authScreen = document.getElementById('auth-screen');
+  const navbar = document.querySelector('.navbar');
+  const registerForm = document.getElementById('register-form');
+  const backButton = document.getElementById('back-to-home');
+  
+  // Verifica se o usuário está autenticado
+  function checkAuth() {
+    if (!CURRENT_USER) {
+      authScreen.style.display = 'flex';
+      navbar.style.display = 'none';
+    } else {
+      authScreen.style.display = 'none';
+      navbar.style.display = 'flex';
+    }
+  }
+  
+  // Registra novo usuário
+  async function handleRegister(e) {
+    e.preventDefault();
+    
+    const fullname = document.getElementById('fullname').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const terms = document.getElementById('terms').checked;
+    
+    if (!terms) {
+      alert('Você precisa aceitar os termos de uso e política de privacidade.');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      alert('As senhas não conferem.');
+      return;
+    }
+    
+    try {
+      // Aqui você pode adicionar sua lógica de registro
+      // Por exemplo, chamando uma API ou serviço de autenticação
+      const response = await fetch(apiUrl('/api/auth/register'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fullname,
+          email,
+          password
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        CURRENT_USER = data.user;
+        checkAuth();
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Erro ao criar conta. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao registrar:', error);
+      alert('Erro ao criar conta. Tente novamente mais tarde.');
+    }
+  }
+  
+  // Event listeners
+  if (registerForm) {
+    registerForm.addEventListener('submit', handleRegister);
+  }
+  
+  if (backButton) {
+    backButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = '/';
+    });
+  }
+  
+  // Inicializa verificação de auth
+  checkAuth();
+  
+  // Expõe função para verificar auth
+  window.checkAuth = checkAuth;
+}
+
+// Inicializa sistema de autenticação
+document.addEventListener('DOMContentLoaded', initAuth);
+
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
 (function initConsoleSanitizer(){
   try{
