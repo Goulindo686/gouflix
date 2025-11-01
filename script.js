@@ -8,30 +8,7 @@ function tmdbImgBase(){
   try{ return String(TMDB_IMG||'').replace(/\/w\d+$/, ''); }catch(_){ return 'https://image.tmdb.org/t/p'; }
 }
 
-// Utilitários para limitar descrições longas
-function shortText(text, limit){
-  const t = String(text || '').trim();
-  if(t.length <= limit) return t;
-  const cut = t.slice(0, limit);
-  // Evita cortar no meio da última palavra
-  const lastSpace = cut.lastIndexOf(' ');
-  return lastSpace > 0 ? cut.slice(0, lastSpace).trim() : cut.trim();
-}
-
-function buildDescriptionHtml(text, limit = 300){
-  const clean = String(text || '').trim();
-  if(!clean) return '<p class="player-description">Sem descrição disponível.</p>';
-  if(clean.length <= limit){
-    return `<p class=\"player-description\">${clean}</p>`;
-  }
-  const short = shortText(clean, limit);
-  return `
-    <p class=\"player-description\">
-      <span id=\"descText\">${short}…</span>
-      <button id=\"readMoreBtn\" class=\"read-more\">Ver mais</button>
-    </p>
-  `;
-}
+// Removido: truncamento de descrições e botão "Ver mais"
 // Paginação dos lotes para sempre trazer conteúdos novos
 window.BULK_PAGES = { filme: 0, serie: 0 };
 
@@ -697,7 +674,7 @@ async function openModal(id){
           ${runtime ? `<span class="meta-chip">${runtime} min</span>` : ''}
           <span class="meta-chip type">${kind === 'filme' ? 'Filme' : 'Série'}</span>
         </div>
-        ${buildDescriptionHtml(movie.description, 300)}
+        <p class="player-description">${movie.description || 'Sem descrição disponível.'}</p>
         <div class="genre-tags">
           ${genres.map(g => `<span class="genre-tag">${g.name || g}</span>`).join('')}
         </div>
@@ -772,19 +749,7 @@ async function openModal(id){
     }; 
   }
 
-  // Toggle "Ver mais" para descrição
-  const readBtn = document.getElementById('readMoreBtn');
-  if(readBtn){
-    const descEl = document.getElementById('descText');
-    const full = String(movie.description || '').trim();
-    const truncated = shortText(full, 300) + (full.length > 300 ? '…' : '');
-    let expanded = false;
-    readBtn.onclick = () => {
-      expanded = !expanded;
-      descEl.textContent = expanded ? full : truncated;
-      readBtn.textContent = expanded ? 'Ver menos' : 'Ver mais';
-    };
-  }
+  // Removido: comportamento de "Ver mais" na descrição
 }
 
 function showPlayer(url, title) {
@@ -945,7 +910,7 @@ async function openModalFromTmdbData(data){
     <img src="${data.poster}" alt="${data.title} poster">
     <div class="modal-info">
       <h2>${data.title} <span style="color:#666;font-size:14px;">(${data.year || 'N/A'})</span></h2>
-      ${buildDescriptionHtml(data.description || '', 280)}
+      <p>${data.description || 'Sem descrição disponível.'}</p>
       <div class="genres">
         ${(data.genres||[]).map(g=>`<span class='genre-pill'>${g}</span>`).join('')}
       </div>
@@ -961,19 +926,7 @@ async function openModalFromTmdbData(data){
     modal.classList.remove('hidden');
     const goBtn = document.getElementById('goToPlansBtn');
     if(goBtn){ goBtn.onclick = ()=>{ modal.classList.add('hidden'); setRoute('plans'); } }
-    // Toggle descrição (branch sem assinatura)
-    const rb1 = document.getElementById('readMoreBtn');
-    if(rb1){
-      const el = document.getElementById('descText');
-      const full = String(data.description || '').trim();
-      const truncated = shortText(full, 280) + (full.length > 280 ? '…' : '');
-      let expanded = false;
-      rb1.onclick = ()=>{
-        expanded = !expanded;
-        el.textContent = expanded ? full : truncated;
-        rb1.textContent = expanded ? 'Ver menos' : 'Ver mais';
-      };
-    }
+    // Removido: toggle de descrição (branch sem assinatura)
   } else {
     body.innerHTML = baseInfo + `
       <div class="player" style="margin-top:12px;width:100%">
@@ -984,19 +937,7 @@ async function openModalFromTmdbData(data){
       </div>
     </div>`;
   modal.classList.remove('hidden');
-  // Toggle descrição (branch com assinatura)
-  const rb2 = document.getElementById('readMoreBtn');
-  if(rb2){
-    const el = document.getElementById('descText');
-    const full = String(data.description || '').trim();
-    const truncated = shortText(full, 280) + (full.length > 280 ? '…' : '');
-    let expanded = false;
-    rb2.onclick = ()=>{
-      expanded = !expanded;
-      el.textContent = expanded ? full : truncated;
-      rb2.textContent = expanded ? 'Ver menos' : 'Ver mais';
-    };
-  }
+  // Removido: toggle de descrição (branch com assinatura)
 }
 
   const addBtn = document.getElementById('addToSiteBtn');

@@ -517,17 +517,7 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
   line-height: 1.3;
 }
 
-/* Botão "Ver mais" da descrição */
-.read-more {
-  background: none;
-  border: none;
-  color: #e50914;
-  font-weight: 600;
-  margin-left: 8px;
-  cursor: pointer;
-  padding: 0;
-}
-.read-more:hover { text-decoration: underline; }
+/* Removido: estilos do botão "Ver mais" da descrição */
 
 .subscription-warning {
   background: linear-gradient(135deg, #e74c3c, #c0392b);
