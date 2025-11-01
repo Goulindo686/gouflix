@@ -1,5 +1,6 @@
 // Importa as funções auxiliares
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 // Helper para cookies
 function setCookie(res, name, value, options = {}) {
@@ -188,6 +189,12 @@ export default async function handler(req, res) {
       // Fallback: criar usuário local
       const userId = 'user_' + Math.random().toString(36).substr(2, 9);
       
+      // store hashed password in cookie so a later login can validate (HttpOnly)
+      try{
+        const hashed = crypto.createHash('sha256').update(password || '').digest('hex');
+        setCookie(res, 'upass', hashed);
+      }catch(_){ /* ignore hashing errors */ }
+
       setCookie(res, 'sid', userId);
       setCookie(res, 'uid', userId);
       setCookie(res, 'uname', fullname);
@@ -207,6 +214,46 @@ export default async function handler(req, res) {
       return res.status(500).json({ 
         message: error.message || 'Erro ao criar conta. Por favor, tente novamente mais tarde.'
       });
+    }
+  }
+
+  // Rota de login (email + password)
+  if (action === 'login' && method === 'POST') {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) return res.status(400).json({ message: 'Email e senha são obrigatórios' });
+
+      const SUPABASE_URL = process.env.SUPABASE_URL;
+      const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+      if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return res.status(401).json({ message: error.message || 'Credenciais inválidas' });
+        const user = data.user;
+        setCookie(res, 'sid', user.id);
+        setCookie(res, 'uid', user.id);
+        setCookie(res, 'uname', user.user_metadata?.full_name || user.email || 'Usuário');
+        setCookie(res, 'uemail', user.email);
+        return res.status(200).json({ ok: true, user: { id: user.id, email: user.email, name: user.user_metadata?.full_name } });
+      }
+
+      // Fallback local: compare against stored hashed cookie (upass)
+      const storedHash = readCookie(req, 'upass');
+      const providedHash = crypto.createHash('sha256').update(password || '').digest('hex');
+      const storedEmail = readCookie(req, 'uemail') || '';
+      if (storedEmail.toLowerCase() === (email||'').toLowerCase() && storedHash && storedHash === providedHash) {
+        const uid = readCookie(req, 'uid') || ('user_' + Math.random().toString(36).substr(2,9));
+        setCookie(res, 'sid', uid);
+        setCookie(res, 'uid', uid);
+        setCookie(res, 'uname', readCookie(req, 'uname') || 'Usuário');
+        setCookie(res, 'uemail', email);
+        return res.status(200).json({ ok: true, user: { id: uid, email, name: readCookie(req, 'uname') || '' } });
+      }
+
+      return res.status(401).json({ message: 'Credenciais inválidas' });
+    } catch (err) {
+      console.error('Erro no login:', err);
+      return res.status(500).json({ message: 'Erro no login', error: String(err) });
     }
   }
 

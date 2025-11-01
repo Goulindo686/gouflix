@@ -147,6 +147,62 @@ function initAuth() {
   if(showLogin){
     showLogin.addEventListener('click', (e)=>{ e.preventDefault(); window.location.href = '/api/auth?action=discord-start'; });
   }
+
+  // Tab switching between register and login
+  const tabRegister = document.getElementById('tab-register');
+  const tabLogin = document.getElementById('tab-login');
+  const registerFormEl = document.getElementById('register-form');
+  const loginFormEl = document.getElementById('login-form');
+  const showRegisterLink = document.getElementById('show-register');
+
+  function showRegister(){
+    if(tabRegister) tabRegister.classList.add('active');
+    if(tabLogin) tabLogin.classList.remove('active');
+    if(registerFormEl) registerFormEl.style.display = '';
+    if(loginFormEl) loginFormEl.style.display = 'none';
+  }
+  function showLoginForm(){
+    if(tabLogin) tabLogin.classList.add('active');
+    if(tabRegister) tabRegister.classList.remove('active');
+    if(registerFormEl) registerFormEl.style.display = 'none';
+    if(loginFormEl) loginFormEl.style.display = '';
+  }
+  if(tabRegister) tabRegister.addEventListener('click', (e)=>{ e.preventDefault(); showRegister(); });
+  if(tabLogin) tabLogin.addEventListener('click', (e)=>{ e.preventDefault(); showLoginForm(); });
+  if(showRegisterLink) showRegisterLink.addEventListener('click', (e)=>{ e.preventDefault(); showRegister(); });
+
+  // Login handler
+  async function handleLogin(e){
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const btn = loginFormEl && loginFormEl.querySelector('.btn-primary');
+    if(btn){ btn.disabled = true; btn.textContent = 'Entrando...'; }
+    try{
+      const res = await fetch('/api/auth?action=login', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ email, password }) });
+      const raw = await res.text();
+      let data = null;
+      try{ data = JSON.parse(raw); }catch(_){ data = null; }
+      if(!res.ok){
+        const msg = (data && data.message) ? data.message : raw || `HTTP ${res.status}`;
+        alert(msg);
+        return;
+      }
+      if(!data){
+        alert('Login efetuado — resposta inesperada do servidor. Atualize a página.');
+        location.reload();
+        return;
+      }
+      CURRENT_USER = data.user;
+      updateUserArea();
+      applyAdminVisibility();
+      checkAuth();
+    }catch(err){
+      console.error('Erro no login:', err);
+      alert(err.message || 'Erro ao efetuar login');
+    }finally{ if(btn){ btn.disabled = false; btn.textContent = 'Entrar'; } }
+  }
+  if(loginFormEl) loginFormEl.addEventListener('submit', handleLogin);
   
   if (backButton) {
     backButton.addEventListener('click', (e) => {

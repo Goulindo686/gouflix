@@ -21,6 +21,11 @@
         <h2>Criar sua conta</h2>
         <p class="auth-subtitle">Junte-se à nossa comunidade!</p>
         
+        <div class="auth-tabs">
+          <button id="tab-register" class="active">Criar conta</button>
+          <button id="tab-login">Já tenho conta</button>
+        </div>
+
         <form id="register-form">
           <div class="form-group">
             <label for="fullname">Nome completo</label>
@@ -59,8 +64,26 @@
           </a>
           
           <p class="auth-footer">
-            Já tem uma conta? <a href="#" class="link" id="show-login">Fazer login</a>
+            Quer entrar com Discord? <a href="/api/auth?action=discord-start" class="link">Entrar com Discord</a>
           </p>
+        </form>
+
+        <form id="login-form" style="display:none;">
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" placeholder="seu@email.com" required>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Senha</label>
+            <input type="password" id="login-password" placeholder="Sua senha" required>
+          </div>
+          <button type="submit" class="btn-primary">Entrar</button>
+          <div class="divider">ou</div>
+          <a href="/api/auth?action=discord-start" class="btn-discord">
+            <i class="fab fa-discord"></i>
+            Entrar com Discord
+          </a>
+          <p class="auth-footer">Ainda não tem conta? <a href="#" id="show-register" class="link">Criar conta</a></p>
         </form>
       </div>
     </div>
