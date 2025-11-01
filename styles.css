@@ -484,3 +484,12 @@ display:flex;align-items:flex-start;justify-content:center;z-index:200;overflow-
 .suggestion-form .panel-inner{align-items:flex-end}
 .suggestion-form input, .suggestion-form select{background:#0f1115;border:1px solid #243140}
 .suggestion-form .btn.primary{background:var(--accent);color:#02171d;box-shadow:0 0 14px rgba(0,229,255,.35)}
+
+/* Overrides móveis finais para garantir precedência sobre regras base */
+@media (max-width: 480px){
+  /* Cards menores e proporcionais (estilo Netflix) */
+  .row{ scroll-snap-type: x mandatory; gap: 12px; }
+  .card{ flex: 0 0 clamp(120px, 34vw, 170px); min-width: clamp(120px, 34vw, 170px); }
+  .card img{ height: auto; aspect-ratio: 2 / 3; }
+  .row-arrow{ width:32px; height:32px; }
+}
