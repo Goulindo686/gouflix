@@ -23,206 +23,6 @@ function apiUrl(p){
   }catch(_){ return p; }
 }
 
-// Gerenciamento de autenticação
-function initAuth() {
-  const authScreen = document.getElementById('auth-screen');
-  const mainContent = document.getElementById('main-content');
-  const registerForm = document.getElementById('register-form');
-  
-  // Verifica se o usuário está autenticado
-  function checkAuth() {
-    if (!CURRENT_USER) {
-      authScreen.style.display = 'flex';
-      mainContent.style.display = 'none';
-      document.body.style.overflow = 'hidden';
-    } else {
-      authScreen.style.display = 'none';
-      mainContent.style.display = 'block';
-      document.body.style.overflow = 'auto';
-    }
-  }
-  
-  // Registra novo usuário
-  async function handleRegister(e) {
-    e.preventDefault();
-    
-    const fullname = document.getElementById('fullname').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-    const terms = document.getElementById('terms').checked;
-    
-    if (!terms) {
-      alert('Você precisa aceitar os termos de uso e política de privacidade.');
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      alert('As senhas não conferem.');
-      return;
-    }
-
-    const registerBtn = document.querySelector('.btn-primary');
-    registerBtn.disabled = true;
-    registerBtn.textContent = 'Criando conta...';
-    
-    try {
-      // Se o Supabase estiver configurado, usar autenticação do Supabase
-      if (window.supabaseClient) {
-        const { data: { user }, error } = await window.supabaseClient.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullname
-            }
-          }
-        });
-
-        if (error) throw error;
-        
-        CURRENT_USER = user;
-        checkAuth();
-        return;
-      }
-
-      // Fallback: usar autenticação local
-      const response = await fetch('/api/auth?action=register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          fullname,
-          email,
-          password
-        })
-      });
-
-      // Try to parse JSON; if server returns non-JSON (HTML/text), fall back to text
-      const raw = await response.text();
-      let data = null;
-      try {
-        data = JSON.parse(raw);
-      } catch (e) {
-        // not JSON
-        data = null;
-      }
-
-      if (!response.ok) {
-        const serverMsg = (data && data.message) ? data.message : raw || `HTTP ${response.status}`;
-        console.error('Registro falhou:', { status: response.status, body: raw });
-        throw new Error(serverMsg || 'Erro ao criar conta');
-      }
-
-      if (!data) {
-        // Server returned success status but non-JSON body — show the text and ask user to login
-        console.warn('Resposta do servidor não é JSON:', raw);
-        alert('Conta criada com sucesso. Por favor, faça login.');
-        try{ showLoginForm(); }catch(_){ /* ignore */ }
-        // prefill email field in login form
-        try{ document.getElementById('login-email').value = email; }catch(_){ }
-        return;
-      }
-
-      // On successful registration, do NOT auto-login — show the login tab so the user can enter credentials
-      alert('Conta criada com sucesso. Por favor, faça login com seu email e senha.');
-      try{ showLoginForm(); }catch(_){ /* ignore */ }
-      try{ document.getElementById('login-email').value = (data.user && data.user.email) ? data.user.email : email; }catch(_){ }
-      return;
-    } catch (error) {
-      console.error('Erro ao registrar:', error);
-      alert(error.message || 'Erro ao criar conta. Por favor, tente novamente mais tarde.');
-    } finally {
-      registerBtn.disabled = false;
-      registerBtn.textContent = 'Criar conta';
-    }
-  }
-  
-  // Event listeners
-  if (registerForm) {
-    registerForm.addEventListener('submit', handleRegister);
-  }
-  // Link to show login / start OAuth
-  const showLogin = document.getElementById('show-login');
-  if(showLogin){
-    showLogin.addEventListener('click', (e)=>{ e.preventDefault(); window.location.href = '/api/auth?action=discord-start'; });
-  }
-
-  // Tab switching between register and login
-  const tabRegister = document.getElementById('tab-register');
-  const tabLogin = document.getElementById('tab-login');
-  const registerFormEl = document.getElementById('register-form');
-  const loginFormEl = document.getElementById('login-form');
-  const showRegisterLink = document.getElementById('show-register');
-
-  function showRegister(){
-    if(tabRegister) tabRegister.classList.add('active');
-    if(tabLogin) tabLogin.classList.remove('active');
-    if(registerFormEl) registerFormEl.style.display = '';
-    if(loginFormEl) loginFormEl.style.display = 'none';
-  }
-  function showLoginForm(){
-    if(tabLogin) tabLogin.classList.add('active');
-    if(tabRegister) tabRegister.classList.remove('active');
-    if(registerFormEl) registerFormEl.style.display = 'none';
-    if(loginFormEl) loginFormEl.style.display = '';
-  }
-  if(tabRegister) tabRegister.addEventListener('click', (e)=>{ e.preventDefault(); showRegister(); });
-  if(tabLogin) tabLogin.addEventListener('click', (e)=>{ e.preventDefault(); showLoginForm(); });
-  if(showRegisterLink) showRegisterLink.addEventListener('click', (e)=>{ e.preventDefault(); showRegister(); });
-
-  // Login handler
-  async function handleLogin(e){
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    const btn = loginFormEl && loginFormEl.querySelector('.btn-primary');
-    if(btn){ btn.disabled = true; btn.textContent = 'Entrando...'; }
-    try{
-      const res = await fetch('/api/auth?action=login', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ email, password }) });
-      const raw = await res.text();
-      let data = null;
-      try{ data = JSON.parse(raw); }catch(_){ data = null; }
-      if(!res.ok){
-        const msg = (data && data.message) ? data.message : raw || `HTTP ${res.status}`;
-        alert(msg);
-        return;
-      }
-      if(!data){
-        alert('Login efetuado — resposta inesperada do servidor. Atualize a página.');
-        location.reload();
-        return;
-      }
-      CURRENT_USER = data.user;
-      updateUserArea();
-      applyAdminVisibility();
-      checkAuth();
-    }catch(err){
-      console.error('Erro no login:', err);
-      alert(err.message || 'Erro ao efetuar login');
-    }finally{ if(btn){ btn.disabled = false; btn.textContent = 'Entrar'; } }
-  }
-  if(loginFormEl) loginFormEl.addEventListener('submit', handleLogin);
-  
-  if (backButton) {
-    backButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.href = '/';
-    });
-  }
-  
-  // Inicializa verificação de auth
-  checkAuth();
-  
-  // Expõe função para verificar auth
-  window.checkAuth = checkAuth;
-}
-
-// Inicializa sistema de autenticação
-document.addEventListener('DOMContentLoaded', initAuth);
-
 // Sanitizador de console: oculta tokens/segredos em logs sem alterar o restante
 (function initConsoleSanitizer(){
   try{
@@ -888,7 +688,7 @@ async function openModal(id){
 // --------- Usuário atual (Discord) ---------
 async function fetchCurrentUser(){
   try{
-  const res = await fetch('/api/auth?action=me', { credentials: 'include' });
+    const res = await fetch('/api/auth/me');
     if(!res.ok){ CURRENT_USER = null; updateUserArea(); return; }
     const j = await res.json();
     CURRENT_USER = (j.logged && j.user) ? j.user : null;
@@ -937,7 +737,7 @@ function updateUserArea(){
     if(menuFavorites){ menuFavorites.onclick = ()=>{ setRoute('minha-lista'); if(menu) menu.classList.add('hidden'); }; }
     if(menuPlans){ menuPlans.onclick = ()=>{ setRoute('plans'); if(menu) menu.classList.add('hidden'); }; }
     if(menuLogout){ menuLogout.onclick = async()=>{
-  try{ await fetch('/api/auth?action=logout', { credentials: 'include' }); }catch(_){/* ignore */}
+      try{ await fetch('/api/auth/logout'); }catch(_){/* ignore */}
       CURRENT_USER = null; updateUserArea(); applyAdminVisibility();
     }; }
   } else {
@@ -1083,8 +883,10 @@ async function addFromTmdbData(data){
     trailer: '',
     description: data.description || '',
     category: '',
-    row: row
+    row
   };
+  const key = getItemKey(item);
+  // Preferir API de estado (serverless) para evitar condições de corrida
   try{
     const res = await fetch('/api/state', {
       method: 'POST',

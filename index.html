@@ -9,88 +9,9 @@
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body id="app-body">
-  <div id="auth-screen" class="auth-screen">
-    <div class="auth-container">
-      <div class="auth-logo">
-        <h1 class="logo">Gou<span>Flix</span></h1>
-      </div>
-      <div class="auth-form">
-        <h2>Criar sua conta</h2>
-        <p class="auth-subtitle">Junte-se à nossa comunidade!</p>
-        
-        <div class="auth-tabs">
-          <button id="tab-register" class="active">Criar conta</button>
-          <button id="tab-login">Já tenho conta</button>
-        </div>
-
-        <form id="register-form">
-          <div class="form-group">
-            <label for="fullname">Nome completo</label>
-            <input type="text" id="fullname" placeholder="Seu nome completo" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email" placeholder="seu@email.com" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="password">Senha</label>
-            <input type="password" id="password" placeholder="Mínimo 8 caracteres" required minlength="8">
-          </div>
-          
-          <div class="form-group">
-            <label for="confirm-password">Confirmar senha</label>
-            <input type="password" id="confirm-password" placeholder="Confirme sua senha" required>
-          </div>
-          
-          <div class="form-group checkbox">
-            <input type="checkbox" id="terms" required>
-            <label for="terms">
-              Eu aceito os <a href="#" class="link">termos de uso</a> e <a href="#" class="link">política de privacidade</a>
-            </label>
-          </div>
-          
-          <button type="submit" class="btn-primary">Criar conta</button>
-          
-          <div class="divider">ou</div>
-          
-          <a href="/api/auth?action=discord-start" class="btn-discord">
-            <i class="fab fa-discord"></i>
-            Entrar com Discord
-          </a>
-          
-          <p class="auth-footer">
-            Quer entrar com Discord? <a href="/api/auth?action=discord-start" class="link">Entrar com Discord</a>
-          </p>
-        </form>
-
-        <form id="login-form" style="display:none;">
-          <div class="form-group">
-            <label for="login-email">Email</label>
-            <input type="email" id="login-email" placeholder="seu@email.com" required>
-          </div>
-          <div class="form-group">
-            <label for="login-password">Senha</label>
-            <input type="password" id="login-password" placeholder="Sua senha" required>
-          </div>
-          <button type="submit" class="btn-primary">Entrar</button>
-          <div class="divider">ou</div>
-          <a href="/api/auth?action=discord-start" class="btn-discord">
-            <i class="fab fa-discord"></i>
-            Entrar com Discord
-          </a>
-          <p class="auth-footer">Ainda não tem conta? <a href="#" id="show-register" class="link">Criar conta</a></p>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div id="main-content" style="display: none;">
-    <header class="navbar">
+<body>
+  <header class="navbar">
     <h1 class="logo">Gou<span>Flix</span></h1>
     <nav>
       <a href="#" id="navHome">Início</a>
