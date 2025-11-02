@@ -156,7 +156,7 @@
         <button class="btn primary plan-buy" data-plan="anual">Assinar Anual</button>
       </div>
     </div>
-    <p class="plans-tip">Pagamento via Mercado Pago (Pix): QR Code e copiar e colar.</p>
+    <p class="plans-tip">Pagamento via Sunize (Pix): QR Code e copiar e colar.</p>
   </section>
 
   
@@ -255,16 +255,16 @@
             <input id="publicUrl" type="text" placeholder="https://seu-dominio.com" />
           </div>
           <div class="field-group" style="flex:1;min-width:280px">
-            <label for="mpAccessToken">Mercado Pago Access Token</label>
-            <input id="mpAccessToken" type="password" placeholder="Prod/TEST access_token" />
-            <small id="mpTokenStatus" style="display:block;margin-top:4px;color:#888">Token não configurado</small>
+            <label for="sunizeApiSecret">Sunize API Secret</label>
+            <input id="sunizeApiSecret" type="password" placeholder="Bearer secret" />
+            <small id="sunizeSecretStatus" style="display:block;margin-top:4px;color:#888">Segredo não configurado</small>
           </div>
           <div class="field-group" style="flex:1;min-width:280px">
             <label for="discordInviteUrl">Link do Discord (invite)</label>
             <input id="discordInviteUrl" type="text" placeholder="https://discord.gg/xxxxx" />
             <small style="display:block;margin-top:4px;color:#888">Este link atualiza o botão flutuante no site.</small>
           </div>
-          <button id="saveMpTokenBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
+          <button id="saveSunizeSecretBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
         </div>
         <p class="panel-tip">O token é armazenado no servidor (Supabase/arquivo local) e não fica no código-fonte.</p>
       </div>
@@ -314,7 +314,7 @@
   <div id="paymentModal" class="payment-modal hidden">
     <div class="payment-modal-content">
       <div class="payment-header">
-        <h3>Pagamento Pix (Mercado Pago)</h3>
+        <h3>Pagamento Pix (Sunize)</h3>
         <button id="closePayment" class="close-payment">&times;</button>
       </div>
       <div class="payment-body">

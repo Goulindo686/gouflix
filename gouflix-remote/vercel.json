@@ -3,6 +3,8 @@
   "public": true,
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/api/sunize/create", "destination": "/api/sunize/create" },
+    { "source": "/api/sunize/status", "destination": "/api/sunize/status" },
     { "source": "/api/env", "destination": "/api/config?env=1" },
     { "source": "/api/state/add", "destination": "/api/state?action=add" },
     { "source": "/api/state/remove", "destination": "/api/state?action=remove" },

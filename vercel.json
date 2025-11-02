@@ -3,8 +3,8 @@
   "public": true,
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/payment/create", "destination": "/api/payment?route=create" },
-    { "source": "/api/payment/status", "destination": "/api/payment?route=status" },
+    { "source": "/api/sunize/create", "destination": "/api/sunize/create" },
+    { "source": "/api/sunize/status", "destination": "/api/sunize/status" },
     { "source": "/api/env", "destination": "/api/config?env=1" },
     { "source": "/api/state/add", "destination": "/api/state?action=add" },
     { "source": "/api/state/remove", "destination": "/api/state?action=remove" },

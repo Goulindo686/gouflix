@@ -1452,14 +1452,14 @@ updateAdminRowEnabled();
 // Botões de compra
 // Botões de compra removidos
 
-// Admin: salvar token Mercado Pago
-const saveMpTokenBtn = document.getElementById('saveMpTokenBtn');
-if(saveMpTokenBtn){
+// Admin: salvar segredo Sunize
+const saveSunizeSecretBtn = document.getElementById('saveSunizeSecretBtn');
+if(saveSunizeSecretBtn){
   const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || (window.location && window.location.origin) || '';
   const apiUrl = (p)=> `${API_BASE}${p}`;
-  saveMpTokenBtn.addEventListener('click', async ()=>{
+  saveSunizeSecretBtn.addEventListener('click', async ()=>{
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
-    const mpAccessToken = (document.getElementById('mpAccessToken').value||'').trim();
+    const sunizeApiSecret = (document.getElementById('sunizeApiSecret').value||'').trim();
     const discordInviteUrl = (document.getElementById('discordInviteUrl').value||'').trim();
     try{
       const probe = await fetch(apiUrl('/api/config'));
@@ -1480,11 +1480,11 @@ if(saveMpTokenBtn){
           return;
         }
       }
-      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, mpAccessToken, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, sunizeApiSecret, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
-      const stat = document.getElementById('mpTokenStatus');
-      if(stat){ stat.textContent = mpAccessToken ? 'Token configurado' : 'Token não configurado'; }
+      const stat = document.getElementById('sunizeSecretStatus');
+      if(stat){ stat.textContent = sunizeApiSecret ? 'Segredo configurado' : 'Segredo não configurado'; }
       const discordBtn = document.getElementById('discordFloatingBtn');
       if(discordBtn && discordInviteUrl){ discordBtn.href = discordInviteUrl; }
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
@@ -1504,9 +1504,9 @@ if(saveMpTokenBtn){
       const pub = document.getElementById('publicUrl');
       if(pub) pub.value = cfg.publicUrl || (window.location && window.location.origin) || 'https://gouflix.discloud.app';
       // Campos de bootstrap removidos do Admin
-      if(!cfg.writable && saveMpTokenBtn){ saveMpTokenBtn.disabled = true; saveMpTokenBtn.title = 'Somente leitura. Gerenciado por variáveis de ambiente.'; }
-      const stat = document.getElementById('mpTokenStatus');
-      if(stat){ stat.textContent = cfg.hasMpAccessToken ? 'Token configurado' : 'Token não configurado'; }
+      if(!cfg.writable && saveSunizeSecretBtn){ saveSunizeSecretBtn.disabled = true; saveSunizeSecretBtn.title = 'Somente leitura. Gerenciado por variáveis de ambiente.'; }
+      const stat = document.getElementById('sunizeSecretStatus');
+      if(stat){ stat.textContent = cfg.hasSunizeSecret ? 'Segredo configurado' : 'Segredo não configurado'; }
       const di = document.getElementById('discordInviteUrl');
       if(di){
         let discordVal = cfg.discordInviteUrl || '';
@@ -1591,10 +1591,10 @@ function pollPaymentStatus(id, plan){
     attempts++;
     if(attempts>90){ stopPaymentPoll(); statusEl.textContent = 'Tempo esgotado. Tente novamente.'; return; }
     try{
-      const r = await fetch(`/api/payment/status?id=${encodeURIComponent(id)}`);
+      const r = await fetch(`/api/sunize/status?id=${encodeURIComponent(id)}`);
       const json = await r.json();
       const status = String(json?.status||'').toLowerCase();
-      if(status === 'approved'){
+      if(['approved','paid','completed','confirmed'].includes(status)){
         stopPaymentPoll();
         // ativar assinatura imediatamente (fallback se webhook não acionou)
         try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: getEffectiveUserId(), plan, action:'activate' }) }); }catch(_){}
