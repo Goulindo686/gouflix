@@ -2,11 +2,6 @@
   "version": 2,
   "public": true,
   "cleanUrls": true,
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     { "source": "/api/env", "destination": "/api/config?env=1" },
     { "source": "/api/state/add", "destination": "/api/state?action=add" },
