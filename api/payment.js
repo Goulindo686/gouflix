@@ -23,16 +23,27 @@ export default async function handler(req, res){
       const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
       const amount = PLAN_PRICES[plan];
       if(!userId || !amount){ return res.status(400).json({ ok:false, error:'Parâmetros inválidos' }); }
+      // Definir um e-mail de payer válido (MP exige payer para PIX)
+      let emailDomain = 'gouflix.app';
+      try{
+        if(PUBLIC_URL){
+          const u = new URL(PUBLIC_URL);
+          if(u.hostname && u.hostname.includes('.')) emailDomain = u.hostname;
+        }
+      }catch(_){ /* ignore */ }
+      const safeUser = String(userId).replace(/[^a-zA-Z0-9_.+-]/g,'_');
+      const payerEmail = `${safeUser}@${emailDomain}`;
       const payload = {
-        transaction_amount: amount,
+        transaction_amount: Number(Number(amount).toFixed(2)),
         description: `Assinatura Gouflix - ${plan}`,
         payment_method_id: 'pix',
+        payer: { email: payerEmail },
         external_reference: `${userId}|${plan}|${Date.now()}`,
         notification_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mercadopago` : undefined
       };
       const r = await fetch('https://api.mercadopago.com/v1/payments',{
         method:'POST',
-        headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json' },
+        headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json', 'X-Idempotency-Key': payload.external_reference },
         body: JSON.stringify(payload)
       });
       const json = await r.json();

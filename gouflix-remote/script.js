@@ -1389,8 +1389,7 @@ document.getElementById('closeModal').addEventListener('click', ()=>{
 
 window.addEventListener('click', e=>{
   const modal = document.getElementById('modal');
-  // Só fecha o modal se clicar diretamente no fundo do modal (não em elementos filhos)
-  if(e.target === modal && !modal.classList.contains('hidden')){
+  if(e.target === modal){
     modal.classList.add('hidden');
   }
 });
