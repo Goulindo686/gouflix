@@ -6,13 +6,6 @@ function readCookie(req, name){
 }
 
 export default async function handler(req, res){
-  const action = (req.url || '').split('?')[0].replace(/^.*\/api\/auth\//,'').toLowerCase();
-  if(action === 'me') return handleMe(req, res);
-  if(action === 'logout') return handleLogout(req, res);
-  return res.status(404).json({ ok:false, error:'ação Auth inválida' });
-}
-
-async function handleMe(req, res){
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   try{
@@ -83,21 +76,5 @@ async function handleMe(req, res){
     return res.status(200).json({ ok:true, logged:true, user });
   }catch(err){
     return res.status(500).json({ ok:false, error: err?.message || 'Erro em /api/auth/me' });
-  }
-}
-
-async function handleLogout(req, res){
-  try{
-    res.setHeader('Set-Cookie', [
-      'sid=; Max-Age=0; Path=/; SameSite=Lax',
-      'uid=; Max-Age=0; Path=/; SameSite=Lax',
-      'uname=; Max-Age=0; Path=/; SameSite=Lax',
-      'uavatar=; Max-Age=0; Path=/; SameSite=Lax',
-      'uemail=; Max-Age=0; Path=/; SameSite=Lax',
-      'uexp=; Max-Age=0; Path=/; SameSite=Lax'
-    ]);
-    return res.status(200).json({ ok:true });
-  }catch(err){
-    return res.status(500).json({ ok:false, error: err?.message || 'Erro em /api/auth/logout' });
   }
 }

@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="robots" content="index, follow" />
-  <!-- Base da API (domínio que hospeda as rotas /api). -->
-  <meta name="config-api-base-url" content="https://www.gouc.com.br">
+  <!-- Base da API para ambientes estáticos (GitHub Pages). Preencha com seu domínio Vercel. -->
+  <meta name="config-api-base-url" content="">
   <title>GouFlix — Explore Filmes e Séries</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
@@ -214,11 +214,16 @@
             <input id="publicUrl" type="text" placeholder="https://seu-dominio.com" />
           </div>
           <div class="field-group" style="flex:1;min-width:280px">
+            <label for="mpAccessToken">Mercado Pago Access Token</label>
+            <input id="mpAccessToken" type="password" placeholder="Prod/TEST access_token" />
+            <small id="mpTokenStatus" style="display:block;margin-top:4px;color:#888">Token não configurado</small>
+          </div>
+          <div class="field-group" style="flex:1;min-width:280px">
             <label for="discordInviteUrl">Link do Discord (invite)</label>
             <input id="discordInviteUrl" type="text" placeholder="https://discord.gg/xxxxx" />
             <small style="display:block;margin-top:4px;color:#888">Este link atualiza o botão flutuante no site.</small>
           </div>
-          <button id="saveSunizeSecretBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
+          <button id="saveMpTokenBtn" class="btn primary" style="margin-left:auto">Salvar configurações</button>
         </div>
         <p class="panel-tip">O token é armazenado no servidor (Supabase/arquivo local) e não fica no código-fonte.</p>
       </div>
@@ -268,7 +273,7 @@
   <div id="paymentModal" class="payment-modal hidden">
     <div class="payment-modal-content">
       <div class="payment-header">
-        <h3>Pagamento Pix (Sunize)</h3>
+        <h3>Pagamento Pix (Mercado Pago)</h3>
         <button id="closePayment" class="close-payment">&times;</button>
       </div>
       <div class="payment-body">

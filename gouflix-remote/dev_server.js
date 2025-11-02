@@ -26,7 +26,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-// Integração de Pagamentos atual: Sunize (substitui Mercado Pago)
+// Removido: integração Mercado Pago
 
 const root = process.cwd();
 const port = process.env.PORT || 8000;
@@ -43,10 +43,6 @@ const types = {
 };
 
 // --- Persistência: arquivo local + opção remota ---
-// Fallback: credenciais Sunize diretamente no código (somente para dev/ambiente controlado)
-const CODE_SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY_CODE || '';
-const CODE_SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET_CODE || '';
-
 const statePath = path.join(root, 'data', 'state.json');
 function ensureState() {
   try {
@@ -57,7 +53,7 @@ function ensureState() {
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, suggestions: [], config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', sunizeApiSecret: process.env.SUNIZE_API_SECRET || '', sunizeClientKey: process.env.SUNIZE_CLIENT_KEY || '', sunizeClientSecret: process.env.SUNIZE_CLIENT_SECRET || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
+  return { added: [], removed: [], subscriptions: {}, suggestions: [], config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', mpAccessToken: process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
 }
 function normalizeState(s) {
   const state = s || {};
@@ -67,9 +63,7 @@ function normalizeState(s) {
   state.suggestions = Array.isArray(state.suggestions) ? state.suggestions : [];
   state.config = state.config || {};
   if (!state.config.publicUrl) state.config.publicUrl = process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
-  if (typeof state.config.sunizeApiSecret === 'undefined') state.config.sunizeApiSecret = process.env.SUNIZE_API_SECRET || '';
-  if (typeof state.config.sunizeClientKey === 'undefined') state.config.sunizeClientKey = process.env.SUNIZE_CLIENT_KEY || '';
-  if (typeof state.config.sunizeClientSecret === 'undefined') state.config.sunizeClientSecret = process.env.SUNIZE_CLIENT_SECRET || '';
+  if (typeof state.config.mpAccessToken === 'undefined') state.config.mpAccessToken = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
   if (typeof state.config.discordInviteUrl === 'undefined') state.config.discordInviteUrl = process.env.DISCORD_INVITE_URL || '';
   return state;
 }
@@ -167,19 +161,6 @@ function parseBody(req) {
   });
 }
 
-// ---- Helpers Sunize ----
-async function readJsonSafe(res){
-  try{ return await res.json(); }catch(_){ return {}; }
-}
-
-function normalizeSunizeCreate(json){
-  const id = json?.id || json?.transaction_id || json?.data?.id || json?.data?.transaction_id;
-  const qr = json?.pix_qr_code || json?.data?.pix_qr_code || json?.pix?.qr_code || json?.data?.pix?.qr_code;
-  const qrbase64 = json?.pix_qr_code_base64 || json?.data?.pix_qr_code_base64 || json?.pix?.qr_code_base64 || json?.data?.pix?.qr_code_base64;
-  const copiaecola = json?.pix_code || json?.data?.pix_code || json?.payload || json?.data?.payload;
-  return { id, qr, qrbase64, copiaecola };
-}
-
 // (Bootstrap removido)
 
 const server = http.createServer(async (req, res) => {
@@ -244,12 +225,8 @@ const server = http.createServer(async (req, res) => {
         const cfg = state.config || {};
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         const isAdmin = ensureIsAdminLocal(req);
-        const hasSunizeSecret = !!(
-          (cfg.sunizeApiSecret && String(cfg.sunizeApiSecret).length) ||
-          ((cfg.sunizeClientKey && cfg.sunizeClientSecret) && String(cfg.sunizeClientKey).length && String(cfg.sunizeClientSecret).length) ||
-          (CODE_SUNIZE_CLIENT_KEY && CODE_SUNIZE_CLIENT_SECRET)
-        );
-        res.end(JSON.stringify({ publicUrl, writable: !!isAdmin, hasSunizeSecret, discordInviteUrl: cfg.discordInviteUrl || '' }));
+        const hasMpAccessToken = !!(cfg.mpAccessToken && String(cfg.mpAccessToken).length);
+        res.end(JSON.stringify({ publicUrl, writable: !!isAdmin, hasMpAccessToken, discordInviteUrl: cfg.discordInviteUrl || '' }));
         return;
       }
       if (urlPath === '/api/config' && req.method === 'POST') {
@@ -257,12 +234,10 @@ const server = http.createServer(async (req, res) => {
         const body = await parseBody(req);
         const state = await readState();
         state.config.publicUrl = body.publicUrl || state.config.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
-        if (body.sunizeApiSecret !== undefined) state.config.sunizeApiSecret = String(body.sunizeApiSecret || '');
-        if (body.sunizeClientKey !== undefined) state.config.sunizeClientKey = String(body.sunizeClientKey || '');
-        if (body.sunizeClientSecret !== undefined) state.config.sunizeClientSecret = String(body.sunizeClientSecret || '');
+        if (body.mpAccessToken !== undefined) state.config.mpAccessToken = String(body.mpAccessToken || '');
         if (body.discordInviteUrl !== undefined) state.config.discordInviteUrl = String(body.discordInviteUrl || '');
         await writeState(state);
-        res.end(JSON.stringify({ ok: true, config: { ...state.config, sunizeApiSecret: undefined } }));
+        res.end(JSON.stringify({ ok: true, config: { ...state.config, mpAccessToken: undefined } }));
         return;
       }
       // ----- SUGESTÕES -----
@@ -360,77 +335,6 @@ const server = http.createServer(async (req, res) => {
           const json = await r.json();
           if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar pagamento', details: json })); return; }
           res.end(JSON.stringify({ ok:true, id: json.id, status: json.status, status_detail: json.status_detail }));
-        } catch (err) {
-          res.statusCode = 500;
-          res.end(JSON.stringify({ ok:false, error: err.message }));
-        }
-        return;
-      }
-      // ----- Pagamentos (Sunize PIX) -----
-      if (urlPath === '/api/sunize/create' && req.method === 'POST') {
-        try {
-          const currentState = await readState();
-          const SUNIZE_API_BASE = process.env.SUNIZE_API_BASE || 'https://api.sunize.com.br/v1';
-          const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || currentState.config?.sunizeApiSecret || '';
-          let SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
-          let SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
-          // fallback para valores codificados
-          SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
-          SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
-          const PUBLIC_URL = process.env.PUBLIC_URL || '';
-          const hasBearer = !!SUNIZE_API_SECRET;
-          const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
-          if (!hasBearer && !hasBasic) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (Bearer ou client key/secret)' })); return; }
-          const body = await parseBody(req);
-          const plan = String(body?.plan||'').toLowerCase();
-          const userId = String(body?.userId||'').trim();
-          const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
-          const amount = PLAN_PRICES[plan];
-          if(!userId || !amount){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Parâmetros inválidos (userId/plan)' })); return; }
-          const payload = {
-            amount: Number(Number(amount).toFixed(2)),
-            description: `Assinatura GouFlix — ${plan}`,
-            external_reference: `${userId}|${plan}|${Date.now()}`,
-            callback_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/sunize` : undefined
-          };
-          const r = await fetch(`${SUNIZE_API_BASE}/transactions`,{
-            method:'POST',
-            headers:{ 'Authorization': hasBearer ? `Bearer ${SUNIZE_API_SECRET}` : `Basic ${Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64')}` , 'Content-Type':'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const json = await readJsonSafe(r);
-          if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao criar transação', details: json })); return; }
-          const out = normalizeSunizeCreate(json);
-          res.end(JSON.stringify({ ok:true, ...out }));
-        } catch (err) {
-          res.statusCode = 500;
-          res.end(JSON.stringify({ ok:false, error: err.message }));
-        }
-        return;
-      }
-      if (urlPath === '/api/sunize/status' && req.method === 'GET') {
-        try {
-          const currentState = await readState();
-          const SUNIZE_API_BASE = process.env.SUNIZE_API_BASE || 'https://api.sunize.com.br/v1';
-          const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || currentState.config?.sunizeApiSecret || '';
-          let SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
-          let SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
-          // fallback para valores codificados
-          SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
-          SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
-          const hasBearer = !!SUNIZE_API_SECRET;
-          const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
-          if (!hasBearer && !hasBasic) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (Bearer ou client key/secret)' })); return; }
-          const paramsObj = new URLSearchParams(queryStr || '');
-          const id = paramsObj.get('id') || paramsObj.get('transactionId');
-          if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Informe id da transação' })); return; }
-          const r = await fetch(`${SUNIZE_API_BASE}/transactions/${encodeURIComponent(id)}`,{
-            headers:{ 'Authorization': hasBearer ? `Bearer ${SUNIZE_API_SECRET}` : `Basic ${Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64')}` }
-          });
-          const json = await readJsonSafe(r);
-          if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar transação', details: json })); return; }
-          const status = json?.status || json?.data?.status || json?.transaction_status || json?.data?.transaction_status || null;
-          res.end(JSON.stringify({ ok:true, id, status }));
         } catch (err) {
           res.statusCode = 500;
           res.end(JSON.stringify({ ok:false, error: err.message }));
