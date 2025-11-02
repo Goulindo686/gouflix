@@ -27,8 +27,7 @@ function apiUrl(p){
 (function initConsoleSanitizer(){
   try{
     const SECRET_KEYS = [
-      'supabase_anon_key','supabase_key','SUPABASE_ANON_KEY','SUPABASE_KEY','mp_access_token','MERCADOPAGO_ACCESS_TOKEN',
-      'MP_ACCESS_TOKEN','TMDB_TOKEN','nextauth_secret','NEXTAUTH_SECRET','NEXTAUTH_URL','token','auth','authorization',
+      'supabase_anon_key','supabase_key','SUPABASE_ANON_KEY','SUPABASE_KEY','TMDB_TOKEN','nextauth_secret','NEXTAUTH_SECRET','NEXTAUTH_URL','token','auth','authorization',
       'bearer','session','cookie','secret','password','api_key','apikey','key'
     ];
     const MASK = '[REDACTED]';
@@ -639,7 +638,7 @@ async function openModal(id){
   // Checar assinatura
   let active = false;
   try{
-    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(getEffectiveUserId())}`);
+  const r = await fetch(`/api/subscription?userId=${encodeURIComponent(getSubscriptionUserId())}`);
     if(r.ok){
       const sub = await r.json();
       active = !!sub?.active;
@@ -818,7 +817,7 @@ async function openModalFromTmdbData(data){
   // Checar assinatura
   let active = false;
   try{
-    const r = await fetch(`/api/subscription?userId=${encodeURIComponent(getEffectiveUserId())}`);
+  const r = await fetch(`/api/subscription?userId=${encodeURIComponent(getSubscriptionUserId())}`);
     if(r.ok){ const sub = await r.json(); active = !!sub?.active; }
   }catch(_){}
   const baseInfo = `
@@ -1591,15 +1590,13 @@ updateAdminRowEnabled();
 // Botões de compra
 // Botões de compra removidos
 
-// Admin: salvar token Mercado Pago
+// Admin: salvar configurações (Mercado Pago removido)
 const saveMpTokenBtn = document.getElementById('saveMpTokenBtn');
 if(saveMpTokenBtn){
   const API_BASE = (window.__ENV && (window.__ENV.CONFIG_API_BASE_URL||'').trim()) || (window.location && window.location.origin) || '';
   const apiUrl = (p)=> `${API_BASE}${p}`;
   saveMpTokenBtn.addEventListener('click', async ()=>{
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
-    // Campos de Bootstrap removidos
-    const mpAccessToken = (document.getElementById('mpAccessToken').value||'').trim();
     const discordInviteUrl = (document.getElementById('discordInviteUrl').value||'').trim();
     try{
       const probe = await fetch(apiUrl('/api/config'));
@@ -1620,11 +1617,9 @@ if(saveMpTokenBtn){
           return;
         }
       }
-      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, mpAccessToken, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
-      const stat = document.getElementById('mpTokenStatus');
-      if(stat){ stat.textContent = mpAccessToken ? 'Token configurado' : 'Token não configurado'; }
       const discordBtn = document.getElementById('discordFloatingBtn');
       if(discordBtn && discordInviteUrl){ discordBtn.href = discordInviteUrl; }
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
@@ -1688,108 +1683,48 @@ initEnvAndSupabase().then(async()=>{
   loadMovies();
 });
 
-// ----- Pagamentos (Mercado Pago PIX) -----
-function paymentLog(message, obj){
-  try{
-    const logsEl = document.getElementById('paymentLogs');
-    if(!logsEl) return;
-    const ts = new Date().toLocaleTimeString();
-    let line = `[${ts}] ${message}`;
-    if(obj){
-      try{
-        const preview = JSON.stringify(obj).slice(0, 800);
-        line += ` — ${preview}`;
-      }catch(_){ /* ignore */ }
-    }
-    const div = document.createElement('div');
-    div.className = 'log-line';
-    div.textContent = line;
-    logsEl.appendChild(div);
-    logsEl.scrollTop = logsEl.scrollHeight;
-  }catch(_){/* ignore */}
+// Checkout Sunize: redirecionar para links de pagamento
+const SUNIZE_LINKS = {
+  mensal: 'https://pay.sunize.com.br/RoaAdKdP',
+  trimestral: 'https://pay.sunize.com.br/QEpSMain',
+  anual: 'https://pay.sunize.com.br/TrdcIOBq'
+};
+
+function getSubscriptionUserId(){
+  // Preferir email para vincular por webhook; fallback para id/local
+  if (CURRENT_USER && CURRENT_USER.email) return CURRENT_USER.email;
+  return getEffectiveUserId();
 }
+
 function bindPlanButtons(){
   const buttons = Array.from(document.querySelectorAll('.plan-buy[data-plan]'));
   buttons.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const plan = btn.getAttribute('data-plan');
-      openPaymentModal(plan);
-    });
+    const plan = String(btn.getAttribute('data-plan')||'').toLowerCase();
+    const href = SUNIZE_LINKS[plan];
+    if(!href){
+      btn.disabled = true;
+      btn.textContent = 'Indisponível';
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+      return;
+    }
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = 'pointer';
+    btn.title = 'Abrir checkout Sunize';
+    btn.onclick = (e)=>{
+      e.preventDefault();
+      // Exigir login para ativação automática via webhook (chave por email)
+      if(!(CURRENT_USER && CURRENT_USER.email)){
+        alert('Entre com sua conta (Discord) para ativação automática após o pagamento.');
+        try{ setRoute('account'); }catch(_){}
+        return;
+      }
+      window.open(href, '_blank');
+    };
   });
 }
 
-async function openPaymentModal(plan){
-  const modal = document.getElementById('paymentModal');
-  const img = document.getElementById('qrCodeImage');
-  const codeEl = document.getElementById('pixCode');
-  const statusEl = document.getElementById('paymentStatus');
-  const instrEl = document.querySelector('.payment-instructions');
-  const logsEl = document.getElementById('paymentLogs');
-  if(!modal) return;
-  img.src = '';
-  codeEl.textContent = '';
-  statusEl.textContent = 'Gerando pagamento...';
-  modal.classList.remove('hidden');
-  if(logsEl){ logsEl.innerHTML=''; }
-  paymentLog('Abrindo modal de pagamento', { plan, userId: getEffectiveUserId() });
-  try{
-    const body = { plan, userId: getEffectiveUserId() };
-    paymentLog('POST /api/payment/create — enviando payload', body);
-    const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-    paymentLog('Resposta /api/payment/create', { status: r.status, ok: r.ok });
-    const json = await r.json().catch(()=>({}));
-    paymentLog('JSON /api/payment/create', json);
-    if(!r.ok || !json.ok){ throw new Error(json.error||'Falha ao gerar pagamento'); }
-    const { id, qr_code_base64, qr_code, payment_url } = json;
-    paymentLog('Transação criada', { id, hasQrBase64: !!qr_code_base64, hasQr: !!qr_code, payment_url });
-    if(qr_code_base64){ img.src = `data:image/png;base64,${qr_code_base64}`; }
-    if(qr_code){
-      codeEl.textContent = qr_code;
-      if(instrEl) instrEl.textContent = 'Escaneie o QR Code ou use o Pix copiar e colar.';
-    } else if (payment_url) {
-      codeEl.innerHTML = `<a href="${payment_url}" target="_blank" rel="noopener">Abrir link de pagamento</a>`;
-      if(instrEl) instrEl.textContent = 'Se preferir, use o link de pagamento abaixo.';
-    } else {
-      codeEl.textContent = '';
-    }
-    statusEl.textContent = 'Aguardando pagamento...';
-    pollPaymentStatus(id, plan);
-  }catch(err){
-    statusEl.textContent = 'Erro: ' + err.message;
-    paymentLog('Erro ao criar pagamento', { message: err.message, stack: (err && err.stack) || undefined });
-  }
-}
-
-let paymentPollTimer = null;
-function stopPaymentPoll(){ if(paymentPollTimer){ clearInterval(paymentPollTimer); paymentPollTimer=null; } }
-function pollPaymentStatus(id, plan){
-  stopPaymentPoll();
-  let attempts = 0;
-  const statusEl = document.getElementById('paymentStatus');
-  paymentPollTimer = setInterval(async ()=>{
-    attempts++;
-    if(attempts>90){ stopPaymentPoll(); statusEl.textContent = 'Tempo esgotado. Tente novamente.'; paymentLog('Polling encerrado por timeout', { attempts }); return; }
-    try{
-      paymentLog('GET /api/payment/status', { id, attempt: attempts });
-      const r = await fetch(`/api/payment/status?id=${encodeURIComponent(id)}`);
-      paymentLog('Resposta /api/payment/status', { status: r.status, ok: r.ok, attempt: attempts });
-      const json = await r.json().catch(()=>({}));
-      paymentLog('JSON /api/payment/status', json);
-      const status = String(json?.status||'').toLowerCase();
-      if(['approved','paid','confirmed','succeeded'].includes(status)){
-        stopPaymentPoll();
-        // ativar assinatura imediatamente (fallback se webhook não acionou)
-        try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: getEffectiveUserId(), plan, action:'activate' }) }); }catch(_){}
-        statusEl.textContent = 'Pagamento aprovado! Assinatura ativada.';
-        paymentLog('Pagamento aprovado', { id, status });
-        setTimeout(()=>{ document.getElementById('paymentModal').classList.add('hidden'); setRoute('home'); }, 1500);
-      }
-    }catch(_){ /* ignore */ }
-  }, 5000);
-}
-
-const closePaymentBtn = document.getElementById('closePayment');
-if(closePaymentBtn){ closePaymentBtn.addEventListener('click', ()=>{ document.getElementById('paymentModal').classList.add('hidden'); stopPaymentPoll(); }); }
 bindPlanButtons();
 
 // Admin compras/assinaturas removido

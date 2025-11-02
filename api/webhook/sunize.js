@@ -4,92 +4,85 @@ export default async function handler(req, res){
     return res.status(405).json({ ok:false, error:'Método não permitido' });
   }
   try{
+    const tokenEnv = process.env.SUNIZE_WEBHOOK_TOKEN || '';
+    const tokenHdr = (req.headers['x-sunize-token'] || req.headers['x-token'] || '').toString();
+    const tokenQry = (req.query && req.query.token) ? String(req.query.token) : '';
+    if(tokenEnv){
+      const provided = tokenHdr || tokenQry;
+      if(!provided || String(provided) !== String(tokenEnv)){
+        return res.status(401).json({ ok:false, error:'Token inválido no webhook' });
+      }
+    }
+
     const body = await readBody(req);
-    // Sunize envia notificações de transação; buscar status consultando a transação
-    const id = body?.id || body?.transaction_id || body?.data?.id || body?.event?.id || null;
-    let SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || '';
-    let SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || '';
-    let SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || '';
-    let PUBLIC_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || '';
-    if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET){
-      const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-      const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-      if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
-        try{
-          const r = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=sunize_client_key,sunize_client_secret,sunize_api_secret,public_url`,{ headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' } });
-          if(r.ok){
-            const j = await r.json();
-            const row = Array.isArray(j)&&j.length?j[0]:null;
-            SUNIZE_CLIENT_KEY = row?.sunize_client_key || SUNIZE_CLIENT_KEY;
-            SUNIZE_CLIENT_SECRET = row?.sunize_client_secret || SUNIZE_CLIENT_SECRET;
-            SUNIZE_API_SECRET = row?.sunize_api_secret || SUNIZE_API_SECRET;
-            if(!PUBLIC_URL) PUBLIC_URL = row?.public_url || PUBLIC_URL;
-          }
-        }catch(_){ /* ignore */ }
-      }
-      if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET){
-        return res.status(500).json({ ok:false, error:'Credenciais Sunize ausentes (SUNIZE_CLIENT_KEY/SUNIZE_CLIENT_SECRET ou SUNIZE_API_SECRET)' });
-      }
+    // Tentar mapear campos comuns de eventos Sunize
+    const event = normalizeStr(body.event || body.type || body.status_event || '');
+    const status = normalizeStr(body.status || body.payment_status || '');
+    const productName = String(
+      body.product || body.product_name || (body.product && body.product.name) || body.plan_name || body.item_name || ''
+    );
+    const buyer = body.buyer || body.client || body.customer || {};
+    const email = String(buyer.email || body.email || '').trim().toLowerCase();
+
+    const plan = detectPlanFromProduct(productName);
+    if(!plan){
+      return res.status(200).json({ ok:true, skipped:true, reason:'Produto não reconhecido' });
     }
-    if(!id){ return res.status(400).json({ ok:false, error:'Webhook Sunize sem id de transação' }); }
-    const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
-    // Cabeçalho Sunize: prefer Basic (client key/secret), fallback Bearer (api secret)
-    function buildSunizeHeaders(){
-      if(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET){
-        const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
-        return { Authorization: `Basic ${basic}` };
-      }
-      if(SUNIZE_API_SECRET){
-        return { Authorization: `Bearer ${SUNIZE_API_SECRET}` };
-      }
-      throw new Error('Credenciais Sunize ausentes');
+
+    if(!email){
+      return res.status(200).json({ ok:true, skipped:true, reason:'E-mail do comprador ausente' });
     }
-    const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(String(id))}`,{ headers: buildSunizeHeaders() });
-    const json = await r.json().catch(()=>({}));
-    if(!r.ok){ return res.status(r.status||500).json({ ok:false, error:'Falha ao consultar transação', details: json }); }
-    const status = String(json?.status||'').toLowerCase();
-    const ext = String(json?.external_id || json?.external_reference || '');
-    const [userIdRaw, planRaw] = ext.split('|');
-    const plan = String(planRaw||'').toLowerCase();
-    const userId = toUuidStable(userIdRaw);
-    if(['approved','paid','confirmed','succeeded'].includes(status) && userId && plan){
-      const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-      const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-      const table = process.env.SUBSCRIPTIONS_TABLE || 'subscriptions';
-      const durationDays = { mensal:30, trimestral:90, anual:365 }[plan] || 30;
-      const startIso = new Date().toISOString();
-      const endIso = new Date(Date.now() + durationDays*24*60*60*1000).toISOString();
-      let activated = false;
-      if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
-        try{
-          const payloadA = [{ user_id: userId, plan, status:'active', start_date: startIso, end_date: endIso }];
-          let r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
-            method:'POST',
-            headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
-            body: JSON.stringify(payloadA)
-          });
-          if(!r2.ok){
-            const payloadB = [{ user_id: userId, plan_id: plan, active: true, start_at: startIso, end_at: endIso }];
-            r2 = await fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=user_id`,{
-              method:'POST',
-              headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates' },
-              body: JSON.stringify(payloadB)
-            });
-          }
-          if(r2.ok){ activated = true; }
-        }catch(err){ console.error('Supabase activation error', err); }
-      }
-      if(!activated){
-        try{
-          const act = await fetch(`${PUBLIC_URL||''}/api/subscription`,{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ userId, plan, action:'activate' }) });
-          if(!act.ok){ console.error('Falha ao ativar assinatura via webhook (fallback)', await act.text()); }
-        }catch(err){ console.error('Erro ao ativar assinatura via webhook (fallback)', err); }
-      }
+
+    const shouldActivate = isApproved(event, status);
+    const shouldDeactivate = isCanceled(event, status);
+
+    if(!shouldActivate && !shouldDeactivate){
+      return res.status(200).json({ ok:true, ignored:true });
     }
-    res.status(200).json({ ok:true });
-  }catch(err){
-    res.status(500).json({ ok:false, error: err.message });
-  }
+
+    const API_BASE = (process.env.PUBLIC_URL || process.env.VERCEL_URL || '').startsWith('http')
+      ? (process.env.PUBLIC_URL || '')
+      : '';
+    const endpoint = '/api/subscription';
+    const url = API_BASE ? `${API_BASE}${endpoint}` : endpoint;
+    const payload = shouldActivate
+      ? { action:'activate', userId: email, plan }
+      : { action:'deactivate', userId: email };
+    try{
+      const r = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+      if(!r.ok){ const tx = await r.text(); return res.status(r.status).json({ ok:false, error:'Falha ao atualizar assinatura', details: tx }); }
+    }catch(err){ return res.status(500).json({ ok:false, error:'Erro ao chamar assinatura', details: err.message }); }
+
+    return res.status(200).json({ ok:true, processed:true, plan, email, action: shouldActivate?'activate':'deactivate' });
+  }catch(err){ return res.status(500).json({ ok:false, error: err.message }); }
+}
+
+function normalizeStr(s){ return String(s||'').trim().toLowerCase(); }
+function detectPlanFromProduct(name){
+  const n = normalizeStr(name);
+  if(!n) return null;
+  if(n.includes('mensal')) return 'mensal';
+  if(n.includes('trimestral')) return 'trimestral';
+  if(n.includes('anual')) return 'anual';
+  // fallback por ids no nome
+  if(n.includes('month')) return 'mensal';
+  if(n.includes('quarter')) return 'trimestral';
+  if(n.includes('year')) return 'anual';
+  return null;
+}
+function isApproved(event, status){
+  const e = normalizeStr(event);
+  const s = normalizeStr(status);
+  return (
+    e.includes('compra aprovada') || e.includes('assinatura renovada') || s==='approved' || s==='paid' || s==='confirmed'
+  );
+}
+function isCanceled(event, status){
+  const e = normalizeStr(event);
+  const s = normalizeStr(status);
+  return (
+    e.includes('assinatura cancelada') || e.includes('chargeback') || e.includes('reembolso') || s==='canceled' || s==='refunded'
+  );
 }
 
 async function readBody(req){
@@ -98,17 +91,4 @@ async function readBody(req){
     req.on('data',chunk=> data+=chunk);
     req.on('end',()=>{ try{ resolve(JSON.parse(data||'{}')); }catch(_){ resolve({}); } });
   });
-}
-
-function toUuidStable(input){
-  const s = String(input||'').trim();
-  if(!s) return '00000000-0000-0000-0000-000000000000';
-  if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) return s.toLowerCase();
-  const crypto = require('crypto');
-  const namespace = 'gouflix-namespace-fixed-v5';
-  const hash = crypto.createHash('sha1').update(namespace+':'+s).digest('hex');
-  let hex = hash.slice(0,32).toLowerCase();
-  hex = hex.slice(0,12) + '5' + hex.slice(13);
-  hex = hex.slice(0,16) + '8' + hex.slice(17);
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
 }
