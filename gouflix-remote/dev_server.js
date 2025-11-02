@@ -274,11 +274,13 @@ const server = http.createServer(async (req, res) => {
         try {
           const currentState = await readState();
           const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
+          const SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || '';
+          const SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || '';
           const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || '';
           const PUBLIC_URL = process.env.PUBLIC_URL || (currentState.config?.publicUrl || '');
-          if (!SUNIZE_API_SECRET) {
+          if (!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET) {
             res.statusCode = 500;
-            res.end(JSON.stringify({ ok:false, error:'SUNIZE_API_SECRET não configurado' }));
+            res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (SUNIZE_CLIENT_KEY/SUNIZE_CLIENT_SECRET ou SUNIZE_API_SECRET)' }));
             return;
           }
           const body = await parseBody(req);
@@ -304,9 +306,17 @@ const server = http.createServer(async (req, res) => {
             ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString(),
             customer: { name: safeUser, email: customerEmail }
           };
+          function buildSunizeHeadersLocal(){
+            if(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET){
+              const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
+              return { Authorization: `Basic ${basic}` };
+            }
+            if(SUNIZE_API_SECRET){ return { Authorization: `Bearer ${SUNIZE_API_SECRET}` }; }
+            return {};
+          }
           const r = await fetch(`${SUNIZE_BASE}/transactions`,{
             method:'POST',
-            headers:{ 'Authorization': `Bearer ${SUNIZE_API_SECRET}`, 'Content-Type':'application/json' },
+            headers:{ ...buildSunizeHeadersLocal(), 'Content-Type':'application/json' },
             body: JSON.stringify(payload)
           });
           const json = await r.json();
@@ -329,12 +339,20 @@ const server = http.createServer(async (req, res) => {
           const paramsObj = new URLSearchParams(queryStr || '');
           const id = paramsObj.get('id') || paramsObj.get('paymentId');
           const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
+          const SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || '';
+          const SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || '';
           const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || '';
-          if (!SUNIZE_API_SECRET) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'SUNIZE_API_SECRET não configurado' })); return; }
+          if (!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (SUNIZE_CLIENT_KEY/SUNIZE_CLIENT_SECRET ou SUNIZE_API_SECRET)' })); return; }
           if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Informe id da transação' })); return; }
-          const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(id)}`,{
-            headers:{ 'Authorization': `Bearer ${SUNIZE_API_SECRET}` }
-          });
+          function buildSunizeHeadersLocal(){
+            if(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET){
+              const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
+              return { Authorization: `Basic ${basic}` };
+            }
+            if(SUNIZE_API_SECRET){ return { Authorization: `Bearer ${SUNIZE_API_SECRET}` }; }
+            return {};
+          }
+          const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(id)}`,{ headers: buildSunizeHeadersLocal() });
           const json = await r.json();
           if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar transação', details: json })); return; }
           res.end(JSON.stringify({ ok:true, id: json.id || id, status: json.status || 'PENDING' }));

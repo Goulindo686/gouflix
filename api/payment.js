@@ -26,53 +26,15 @@ export default async function handler(req, res){
       }
     }
 
-    // Cache simples de token em memória (Vercel instancia por execução)
-    let SUNIZE_TOKEN_CACHE = { token: '', expiresAt: 0 };
-
-    async function getSunizeAccessToken(){
-      const now = Date.now();
-      if(SUNIZE_TOKEN_CACHE.token && SUNIZE_TOKEN_CACHE.expiresAt > now + 5000){
-        return SUNIZE_TOKEN_CACHE.token;
+    function buildSunizeHeaders(){
+      if(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET){
+        const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
+        return { Authorization: `Basic ${basic}` };
       }
       if(SUNIZE_API_SECRET){
-        SUNIZE_TOKEN_CACHE = { token: SUNIZE_API_SECRET, expiresAt: now + (60*60*1000) };
-        return SUNIZE_API_SECRET;
+        return { Authorization: `Bearer ${SUNIZE_API_SECRET}` };
       }
-      if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET)){
-        throw new Error('Credenciais Sunize ausentes');
-      }
-      const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
-      const candidates = [
-        `${SUNIZE_BASE}/oauth/token`,
-        `${SUNIZE_BASE}/auth/oauth/v2/token`,
-        `${SUNIZE_BASE}/auth/token`
-      ];
-      let lastErr = null;
-      for(const url of candidates){
-        try{
-          const r = await fetch(url,{
-            method:'POST',
-            headers:{ 'Authorization': `Basic ${basic}`, 'Content-Type':'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ grant_type:'client_credentials' }).toString()
-          });
-          const j = await r.json().catch(()=>({}));
-          if(r.ok && (j.access_token || j.token)){
-            const token = j.access_token || j.token;
-            const expiresSec = Number(j.expires_in||3600);
-            SUNIZE_TOKEN_CACHE = { token, expiresAt: Date.now() + (expiresSec*1000) };
-            return token;
-          }
-          lastErr = new Error(`Falha ao obter token Sunize em ${url}: ${j.error||j.message||r.status}`);
-        }catch(err){ lastErr = err; }
-      }
-      throw lastErr || new Error('Falha ao obter token Sunize');
-    }
-
-    async function buildSunizeHeaders(){
-      const headers = {};
-      const token = await getSunizeAccessToken();
-      headers['Authorization'] = `Bearer ${token}`;
-      return headers;
+      throw new Error('Credenciais Sunize ausentes');
     }
     if(req.method === 'POST' || route === 'create'){
       if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET){
@@ -107,7 +69,7 @@ export default async function handler(req, res){
       };
       const r = await fetch(`${SUNIZE_BASE}/transactions`,{
         method:'POST',
-        headers:{ ...(await buildSunizeHeaders()), 'Content-Type':'application/json' },
+        headers:{ ...buildSunizeHeaders(), 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
       const json = await r.json().catch(()=>({}));
@@ -132,7 +94,7 @@ export default async function handler(req, res){
       }
       const id = req.query?.id || req.query?.paymentId;
       if(!id){ return res.status(400).json({ ok:false, error:'Informe id da transação' }); }
-      const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(String(id))}`,{ headers: { ...(await buildSunizeHeaders()) } });
+      const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(String(id))}`,{ headers: { ...buildSunizeHeaders() } });
       const json = await r.json().catch(()=>({}));
       if(!r.ok){ return res.status(r.status||500).json({ ok:false, error: json?.message || json?.error_description || 'Falha ao consultar transação Sunize', details: json }); }
       return res.status(200).json({ ok:true, id: json.id || id, status: json.status || 'PENDING' });

@@ -33,29 +33,18 @@ export default async function handler(req, res){
     }
     if(!id){ return res.status(400).json({ ok:false, error:'Webhook Sunize sem id de transação' }); }
     const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
-    // Obter token via client_credentials quando disponível
-    async function getToken(){
-      if(SUNIZE_API_SECRET) return SUNIZE_API_SECRET;
-      if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET)) throw new Error('Credenciais Sunize ausentes');
-      const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
-      const candidates = [
-        `${SUNIZE_BASE}/oauth/token`,
-        `${SUNIZE_BASE}/auth/oauth/v2/token`,
-        `${SUNIZE_BASE}/auth/token`
-      ];
-      let lastErr = null;
-      for(const url of candidates){
-        try{
-          const r = await fetch(url,{ method:'POST', headers:{ 'Authorization': `Basic ${basic}`, 'Content-Type':'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type:'client_credentials' }).toString() });
-          const j = await r.json().catch(()=>({}));
-          if(r.ok && (j.access_token || j.token)) return j.access_token || j.token;
-          lastErr = new Error(j.error||j.message||String(r.status));
-        }catch(err){ lastErr = err; }
+    // Cabeçalho Sunize: prefer Basic (client key/secret), fallback Bearer (api secret)
+    function buildSunizeHeaders(){
+      if(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET){
+        const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
+        return { Authorization: `Basic ${basic}` };
       }
-      throw lastErr || new Error('Falha ao obter token Sunize');
+      if(SUNIZE_API_SECRET){
+        return { Authorization: `Bearer ${SUNIZE_API_SECRET}` };
+      }
+      throw new Error('Credenciais Sunize ausentes');
     }
-    const token = await getToken();
-    const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(String(id))}`,{ headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(String(id))}`,{ headers: buildSunizeHeaders() });
     const json = await r.json().catch(()=>({}));
     if(!r.ok){ return res.status(r.status||500).json({ ok:false, error:'Falha ao consultar transação', details: json }); }
     const status = String(json?.status||'').toLowerCase();
