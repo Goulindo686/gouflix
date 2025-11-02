@@ -51,11 +51,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Parâmetros inválidos (userId/plan)' });
     }
 
+    // Estrutura de payload compatível com modo PIX/Basic (igual ao [action].js)
+    const clientIp = (req.headers['x-forwarded-for']||'').toString().split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || '';
+    let emailDomain = 'gouflix.app';
+    try{ if(PUBLIC_URL){ const u = new URL(PUBLIC_URL); if(u.hostname && u.hostname.includes('.')) emailDomain = u.hostname; } }catch(_){ }
+    const safeUser = String(userId).replace(/[^a-zA-Z0-9_.+-]/g,'_');
+    const payerEmail = `${safeUser}@${emailDomain}`;
     const payload = {
-      amount: Number(Number(amount).toFixed(2)),
-      description: `Assinatura GouFlix — ${plan}`,
-      external_reference: `${userId}|${plan}|${Date.now()}`,
-      callback_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/sunize` : undefined
+      external_id: `${userId}|${plan}|${Date.now()}`,
+      total_amount: Number(Number(amount).toFixed(2)),
+      payment_method: 'PIX',
+      items: [{ id: plan, title: `Assinatura GouFlix — ${plan}`, description: `Plano ${plan}`, price: Number(Number(amount).toFixed(2)), quantity: 1, is_physical: false }],
+      ip: clientIp,
+      customer: { name: 'Usuário GouFlix', email: payerEmail },
+      ...(PUBLIC_URL ? { callback_url: `${PUBLIC_URL}/api/webhook/sunize` } : {})
     };
 
     const authValue = hasBearer ? `Bearer ${SUNIZE_API_SECRET}` : `Basic ${Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64')}`;
