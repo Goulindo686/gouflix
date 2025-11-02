@@ -56,6 +56,9 @@ export default async function handler(req, res){
       const safeUser = String(userId).replace(/[^a-zA-Z0-9_.+-]/g,'_');
       const customerEmail = `${safeUser}@${emailDomain}`;
       const externalId = `${userId}|${plan}|${Date.now()}`;
+      const digits = String(userId).replace(/\D/g,'');
+      const customerDocument = (digits && digits.length>=11) ? digits.slice(0,11) : (digits + '00000000000').slice(0,11);
+      const customerPhone = '11999999999';
       // Monta payload Sunize
       const payload = {
         external_id: externalId,
@@ -65,7 +68,7 @@ export default async function handler(req, res){
           { id: `plan_${plan}`, title: `Assinatura GouFlix — ${plan}`, description: `Plano ${plan}`, price: Number(Number(amount).toFixed(2)), quantity: 1, is_physical: false }
         ],
         ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString(),
-        customer: { name: safeUser, email: customerEmail }
+        customer: { name: safeUser, email: customerEmail, phone: String(customerPhone), document_type: 'CPF', document: String(customerDocument) }
       };
       const r = await fetch(`${SUNIZE_BASE}/transactions`,{
         method:'POST',
