@@ -53,7 +53,7 @@ function ensureState() {
   } catch (_) {}
 }
 function defaultState() {
-  return { added: [], removed: [], subscriptions: {}, suggestions: [], config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', sunizeApiSecret: process.env.SUNIZE_API_SECRET || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
+  return { added: [], removed: [], subscriptions: {}, suggestions: [], config: { publicUrl: process.env.PUBLIC_URL || 'https://gouflix.discloud.app', sunizeApiSecret: process.env.SUNIZE_API_SECRET || '', sunizeClientKey: process.env.SUNIZE_CLIENT_KEY || '', sunizeClientSecret: process.env.SUNIZE_CLIENT_SECRET || '', discordInviteUrl: process.env.DISCORD_INVITE_URL || '' } };
 }
 function normalizeState(s) {
   const state = s || {};
@@ -64,6 +64,8 @@ function normalizeState(s) {
   state.config = state.config || {};
   if (!state.config.publicUrl) state.config.publicUrl = process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
   if (typeof state.config.sunizeApiSecret === 'undefined') state.config.sunizeApiSecret = process.env.SUNIZE_API_SECRET || '';
+  if (typeof state.config.sunizeClientKey === 'undefined') state.config.sunizeClientKey = process.env.SUNIZE_CLIENT_KEY || '';
+  if (typeof state.config.sunizeClientSecret === 'undefined') state.config.sunizeClientSecret = process.env.SUNIZE_CLIENT_SECRET || '';
   if (typeof state.config.discordInviteUrl === 'undefined') state.config.discordInviteUrl = process.env.DISCORD_INVITE_URL || '';
   return state;
 }
@@ -238,7 +240,10 @@ const server = http.createServer(async (req, res) => {
         const cfg = state.config || {};
         const publicUrl = cfg.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         const isAdmin = ensureIsAdminLocal(req);
-        const hasSunizeSecret = !!(cfg.sunizeApiSecret && String(cfg.sunizeApiSecret).length);
+        const hasSunizeSecret = !!(
+          (cfg.sunizeApiSecret && String(cfg.sunizeApiSecret).length) ||
+          ((cfg.sunizeClientKey && cfg.sunizeClientSecret) && String(cfg.sunizeClientKey).length && String(cfg.sunizeClientSecret).length)
+        );
         res.end(JSON.stringify({ publicUrl, writable: !!isAdmin, hasSunizeSecret, discordInviteUrl: cfg.discordInviteUrl || '' }));
         return;
       }
@@ -248,6 +253,8 @@ const server = http.createServer(async (req, res) => {
         const state = await readState();
         state.config.publicUrl = body.publicUrl || state.config.publicUrl || process.env.PUBLIC_URL || 'https://gouflix.discloud.app';
         if (body.sunizeApiSecret !== undefined) state.config.sunizeApiSecret = String(body.sunizeApiSecret || '');
+        if (body.sunizeClientKey !== undefined) state.config.sunizeClientKey = String(body.sunizeClientKey || '');
+        if (body.sunizeClientSecret !== undefined) state.config.sunizeClientSecret = String(body.sunizeClientSecret || '');
         if (body.discordInviteUrl !== undefined) state.config.discordInviteUrl = String(body.discordInviteUrl || '');
         await writeState(state);
         res.end(JSON.stringify({ ok: true, config: { ...state.config, sunizeApiSecret: undefined } }));

@@ -1600,6 +1600,8 @@ if(saveSunizeSecretBtn){
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
     // Campos de Bootstrap removidos
     const sunizeApiSecret = (document.getElementById('sunizeApiSecret').value||'').trim();
+    const sunizeClientKey = (document.getElementById('sunizeClientKey').value||'').trim();
+    const sunizeClientSecret = (document.getElementById('sunizeClientSecret').value||'').trim();
     const discordInviteUrl = (document.getElementById('discordInviteUrl').value||'').trim();
     try{
       const probe = await fetch(apiUrl('/api/config'));
@@ -1620,11 +1622,11 @@ if(saveSunizeSecretBtn){
           return;
         }
       }
-      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, sunizeApiSecret, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, sunizeApiSecret, sunizeClientKey, sunizeClientSecret, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
       const stat = document.getElementById('sunizeSecretStatus');
-      if(stat){ stat.textContent = sunizeApiSecret ? 'Segredo configurado' : 'Segredo não configurado'; }
+      if(stat){ stat.textContent = (sunizeApiSecret || (sunizeClientKey && sunizeClientSecret)) ? 'Segredo configurado' : 'Segredo não configurado'; }
       const discordBtn = document.getElementById('discordFloatingBtn');
       if(discordBtn && discordInviteUrl){ discordBtn.href = discordInviteUrl; }
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
