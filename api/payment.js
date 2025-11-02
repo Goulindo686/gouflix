@@ -1,29 +1,51 @@
 export default async function handler(req, res){
   try{
     const route = String(req.query?.route||'').toLowerCase();
-    if(req.method === 'POST' || route === 'create'){
-      // ----- Create (PIX) -----
-      let MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
-      let PUBLIC_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || '';
-      if(!MP_ACCESS_TOKEN){
-        const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-        const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-        if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
-          try{
-            const r = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=mp_access_token,public_url`,{ headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' } });
-            if(r.ok){ const j = await r.json(); const row = Array.isArray(j)&&j.length?j[0]:null; MP_ACCESS_TOKEN = row?.mp_access_token || ''; if(!PUBLIC_URL) PUBLIC_URL = row?.public_url || ''; }
-          }catch(_){ /* ignore */ }
-        }
-        if(!MP_ACCESS_TOKEN){ return res.status(500).json({ ok:false, error:'MP_ACCESS_TOKEN não configurado' }); }
+    const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
+    let PUBLIC_URL = process.env.PUBLIC_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || '';
+    // Sunize Auth: prefer Basic com CLIENT KEY/SECRET; manter fallback para API SECRET (Bearer)
+    let SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || '';
+    let SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || '';
+    let SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || '';
+    if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET){
+      // Tentar obter do Supabase app_config
+      const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
+        try{
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=sunize_client_key,sunize_client_secret,sunize_api_secret,public_url`,{ headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' } });
+          if(r.ok){
+            const j = await r.json();
+            const row = Array.isArray(j)&&j.length?j[0]:null;
+            SUNIZE_CLIENT_KEY = row?.sunize_client_key || SUNIZE_CLIENT_KEY;
+            SUNIZE_CLIENT_SECRET = row?.sunize_client_secret || SUNIZE_CLIENT_SECRET;
+            SUNIZE_API_SECRET = row?.sunize_api_secret || SUNIZE_API_SECRET;
+            if(!PUBLIC_URL) PUBLIC_URL = row?.public_url || PUBLIC_URL;
+          }
+        }catch(_){ /* ignore */ }
       }
-      if(!PUBLIC_URL){ console.warn('PUBLIC_URL não configurado — webhook pode não ser entregue'); }
+    }
+
+    function buildSunizeHeaders(){
+      const headers = {};
+      if(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET){
+        const basic = Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64');
+        headers['Authorization'] = `Basic ${basic}`;
+      }else if(SUNIZE_API_SECRET){
+        headers['Authorization'] = `Bearer ${SUNIZE_API_SECRET}`;
+      }
+      return headers;
+    }
+    if(req.method === 'POST' || route === 'create'){
+      if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET){
+        return res.status(500).json({ ok:false, error:'Credenciais Sunize não configuradas (SUNIZE_CLIENT_KEY/SUNIZE_CLIENT_SECRET ou SUNIZE_API_SECRET)' });
+      }
       const body = await readBody(req);
       const plan = String(body?.plan||'').toLowerCase();
       const userId = String(body?.userId||'').trim();
       const PLAN_PRICES = { mensal: 19.90, trimestral: 49.90, anual: 147.90 };
       const amount = PLAN_PRICES[plan];
       if(!userId || !amount){ return res.status(400).json({ ok:false, error:'Parâmetros inválidos' }); }
-      // Definir um e-mail de payer válido (MP exige payer para PIX)
       let emailDomain = 'gouflix.app';
       try{
         if(PUBLIC_URL){
@@ -32,53 +54,50 @@ export default async function handler(req, res){
         }
       }catch(_){ /* ignore */ }
       const safeUser = String(userId).replace(/[^a-zA-Z0-9_.+-]/g,'_');
-      const payerEmail = `${safeUser}@${emailDomain}`;
+      const customerEmail = `${safeUser}@${emailDomain}`;
+      const externalId = `${userId}|${plan}|${Date.now()}`;
+      // Monta payload Sunize
       const payload = {
-        transaction_amount: Number(Number(amount).toFixed(2)),
-        description: `Assinatura Gouflix - ${plan}`,
-        payment_method_id: 'pix',
-        payer: { email: payerEmail },
-        external_reference: `${userId}|${plan}|${Date.now()}`,
-        notification_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mercadopago` : undefined
+        external_id: externalId,
+        total_amount: Number(Number(amount).toFixed(2)),
+        payment_method: 'PIX',
+        items: [
+          { id: `plan_${plan}`, title: `Assinatura GouFlix — ${plan}`, description: `Plano ${plan}`, price: Number(Number(amount).toFixed(2)), quantity: 1, is_physical: false }
+        ],
+        ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString(),
+        customer: { name: safeUser, email: customerEmail }
       };
-      const r = await fetch('https://api.mercadopago.com/v1/payments',{
+      const r = await fetch(`${SUNIZE_BASE}/transactions`,{
         method:'POST',
-        headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json', 'X-Idempotency-Key': payload.external_reference },
+        headers:{ ...buildSunizeHeaders(), 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
-      const json = await r.json();
-      if(!r.ok){ return res.status(r.status).json({ ok:false, error: json?.message || 'Falha ao criar pagamento', details: json }); }
-      const poi = json?.point_of_interaction?.transaction_data || {};
+      const json = await r.json().catch(()=>({}));
+      if(!r.ok){ return res.status(r.status||500).json({ ok:false, error: json?.message || 'Falha ao criar transação Sunize', details: json }); }
+      // Tenta mapear possíveis campos de PIX
+      const pix = json.pix || json.payment || {};
+      const ticketUrl = json.ticket_url || json.payment_url || json.url || null;
       const out = {
         ok:true,
-        id: json.id,
-        status: json.status,
-        qr_code_base64: poi.qr_code_base64 || null,
-        qr_code: poi.qr_code || null,
-        external_reference: json.external_reference || null
+        id: json.id || json.transaction_id || null,
+        status: json.status || 'PENDING',
+        qr_code_base64: pix.qr_code_base64 || json.qr_code_base64 || null,
+        qr_code: pix.code || json.qr_code || json.emv || null,
+        payment_url: ticketUrl,
+        external_reference: externalId
       };
       return res.status(200).json(out);
     }
     if(req.method === 'GET' || route === 'status'){
-      // ----- Status -----
-      let MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || '';
-      if(!MP_ACCESS_TOKEN){
-        const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-        const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-        if(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY){
-          try{
-            const r = await fetch(`${SUPABASE_URL}/rest/v1/app_config?id=eq.global&select=mp_access_token`,{ headers:{ apikey: SUPABASE_SERVICE_ROLE_KEY, Authorization:`Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, Accept:'application/json' } });
-            if(r.ok){ const j = await r.json(); const row = Array.isArray(j)&&j.length?j[0]:null; MP_ACCESS_TOKEN = row?.mp_access_token || ''; }
-          }catch(_){ /* ignore */ }
-        }
-        if(!MP_ACCESS_TOKEN){ return res.status(500).json({ ok:false, error:'MP_ACCESS_TOKEN não configurado' }); }
+      if(!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET) && !SUNIZE_API_SECRET){
+        return res.status(500).json({ ok:false, error:'Credenciais Sunize não configuradas (SUNIZE_CLIENT_KEY/SUNIZE_CLIENT_SECRET ou SUNIZE_API_SECRET)' });
       }
       const id = req.query?.id || req.query?.paymentId;
-      if(!id){ return res.status(400).json({ ok:false, error:'Informe id do pagamento' }); }
-      const r = await fetch(`https://api.mercadopago.com/v1/payments/${id}`,{ headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` } });
-      const json = await r.json();
-      if(!r.ok){ return res.status(r.status).json({ ok:false, error: json?.message || 'Falha ao consultar pagamento', details: json }); }
-      return res.status(200).json({ ok:true, id: json.id, status: json.status, status_detail: json.status_detail });
+      if(!id){ return res.status(400).json({ ok:false, error:'Informe id da transação' }); }
+      const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(String(id))}`,{ headers: { ...buildSunizeHeaders() } });
+      const json = await r.json().catch(()=>({}));
+      if(!r.ok){ return res.status(r.status||500).json({ ok:false, error: json?.message || 'Falha ao consultar transação Sunize', details: json }); }
+      return res.status(200).json({ ok:true, id: json.id || id, status: json.status || 'PENDING' });
     }
     res.setHeader('Allow','GET, POST');
     return res.status(405).json({ ok:false, error:'Método não permitido' });

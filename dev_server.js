@@ -271,15 +271,16 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       // Removido: endpoint manual de bootstrap
-      // ----- Pagamentos (Mercado Pago PIX) -----
+      // ----- Pagamentos (Sunize PIX) -----
       if (urlPath === '/api/payment/create' && req.method === 'POST') {
         try {
           const currentState = await readState();
-          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || currentState.config?.mpAccessToken || '';
-          const PUBLIC_URL = process.env.PUBLIC_URL || '';
-          if (!MP_ACCESS_TOKEN) {
+          const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
+          const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || '';
+          const PUBLIC_URL = process.env.PUBLIC_URL || (currentState.config?.publicUrl || '');
+          if (!SUNIZE_API_SECRET) {
             res.statusCode = 500;
-            res.end(JSON.stringify({ ok:false, error:'MP_ACCESS_TOKEN não configurado' }));
+            res.end(JSON.stringify({ ok:false, error:'SUNIZE_API_SECRET não configurado' }));
             return;
           }
           const body = await parseBody(req);
@@ -295,28 +296,30 @@ const server = http.createServer(async (req, res) => {
           let emailDomain = 'gouflix.app';
           try{ if(PUBLIC_URL){ const u = new URL(PUBLIC_URL); if(u.hostname && u.hostname.includes('.')) emailDomain = u.hostname; } }catch(_){}
           const safeUser = String(userId).replace(/[^a-zA-Z0-9_.+-]/g,'_');
-          const payerEmail = `${safeUser}@${emailDomain}`;
-          const preference = {
-            transaction_amount: Number(Number(amount).toFixed(2)),
-            description: `Assinatura GouFlix — ${plan}`,
-            payment_method_id: 'pix',
-            payer: { email: payerEmail },
-            notification_url: PUBLIC_URL ? `${PUBLIC_URL}/api/webhook/mercadopago` : undefined,
-            external_reference: `${userId}|${plan}|${Date.now()}`
+          const customerEmail = `${safeUser}@${emailDomain}`;
+          const externalId = `${userId}|${plan}|${Date.now()}`;
+          const payload = {
+            external_id: externalId,
+            total_amount: Number(Number(amount).toFixed(2)),
+            payment_method: 'PIX',
+            items: [ { id: `plan_${plan}`, title: `Assinatura GouFlix — ${plan}`, description: `Plano ${plan}`, price: Number(Number(amount).toFixed(2)), quantity: 1, is_physical: false } ],
+            ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString(),
+            customer: { name: safeUser, email: customerEmail }
           };
-          const r = await fetch('https://api.mercadopago.com/v1/payments',{
+          const r = await fetch(`${SUNIZE_BASE}/transactions`,{
             method:'POST',
-            headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type':'application/json', 'X-Idempotency-Key': preference.external_reference },
-            body: JSON.stringify(preference)
+            headers:{ 'Authorization': `Bearer ${SUNIZE_API_SECRET}`, 'Content-Type':'application/json' },
+            body: JSON.stringify(payload)
           });
           const json = await r.json();
           if(!r.ok){
             res.statusCode = r.status || 500;
-            res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao criar pagamento', details: json }));
+            res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao criar transação', details: json }));
             return;
           }
-          const poi = json?.point_of_interaction?.transaction_data || {};
-          res.end(JSON.stringify({ ok:true, id: json.id, status: json.status, qr_code_base64: poi.qr_code_base64 || null, qr_code: poi.qr_code || null, external_reference: json.external_reference || null }));
+          const pix = json.pix || json.payment || {};
+          const ticketUrl = json.ticket_url || json.payment_url || json.url || null;
+          res.end(JSON.stringify({ ok:true, id: json.id || json.transaction_id || null, status: json.status || 'PENDING', qr_code_base64: pix.qr_code_base64 || json.qr_code_base64 || null, qr_code: pix.code || json.qr_code || json.emv || null, payment_url: ticketUrl, external_reference: externalId }));
         } catch (err) {
           res.statusCode = 500;
           res.end(JSON.stringify({ ok:false, error: err.message }));
@@ -325,18 +328,18 @@ const server = http.createServer(async (req, res) => {
       }
       if (urlPath === '/api/payment/status' && req.method === 'GET') {
         try {
-          const currentState = await readState();
-          const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || process.env.MERCADOPAGO_ACCESS_TOKEN || currentState.config?.mpAccessToken || '';
-          if (!MP_ACCESS_TOKEN) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'MP_ACCESS_TOKEN não configurado' })); return; }
           const paramsObj = new URLSearchParams(queryStr || '');
           const id = paramsObj.get('id') || paramsObj.get('paymentId');
-          if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Informe id do pagamento' })); return; }
-          const r = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`,{
-            headers:{ 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+          const SUNIZE_BASE = process.env.SUNIZE_BASE_URL || 'https://api.sunize.com.br/v1';
+          const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || '';
+          if (!SUNIZE_API_SECRET) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'SUNIZE_API_SECRET não configurado' })); return; }
+          if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Informe id da transação' })); return; }
+          const r = await fetch(`${SUNIZE_BASE}/transactions/${encodeURIComponent(id)}`,{
+            headers:{ 'Authorization': `Bearer ${SUNIZE_API_SECRET}` }
           });
           const json = await r.json();
-          if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar pagamento', details: json })); return; }
-          res.end(JSON.stringify({ ok:true, id: json.id, status: json.status, status_detail: json.status_detail }));
+          if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar transação', details: json })); return; }
+          res.end(JSON.stringify({ ok:true, id: json.id || id, status: json.status || 'PENDING' }));
         } catch (err) {
           res.statusCode = 500;
           res.end(JSON.stringify({ ok:false, error: err.message }));

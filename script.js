@@ -1704,6 +1704,7 @@ async function openPaymentModal(plan){
   const img = document.getElementById('qrCodeImage');
   const codeEl = document.getElementById('pixCode');
   const statusEl = document.getElementById('paymentStatus');
+  const instrEl = document.querySelector('.payment-instructions');
   if(!modal) return;
   img.src = '';
   codeEl.textContent = '';
@@ -1713,9 +1714,17 @@ async function openPaymentModal(plan){
     const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ plan, userId: getEffectiveUserId() }) });
     const json = await r.json();
     if(!r.ok || !json.ok){ throw new Error(json.error||'Falha ao gerar pagamento'); }
-    const { id, qr_code_base64, qr_code } = json;
+    const { id, qr_code_base64, qr_code, payment_url } = json;
     if(qr_code_base64){ img.src = `data:image/png;base64,${qr_code_base64}`; }
-    codeEl.textContent = qr_code || '';
+    if(qr_code){
+      codeEl.textContent = qr_code;
+      if(instrEl) instrEl.textContent = 'Escaneie o QR Code ou use o Pix copiar e colar.';
+    } else if (payment_url) {
+      codeEl.innerHTML = `<a href="${payment_url}" target="_blank" rel="noopener">Abrir link de pagamento</a>`;
+      if(instrEl) instrEl.textContent = 'Se preferir, use o link de pagamento abaixo.';
+    } else {
+      codeEl.textContent = '';
+    }
     statusEl.textContent = 'Aguardando pagamento...';
     pollPaymentStatus(id, plan);
   }catch(err){
@@ -1736,7 +1745,7 @@ function pollPaymentStatus(id, plan){
       const r = await fetch(`/api/payment/status?id=${encodeURIComponent(id)}`);
       const json = await r.json();
       const status = String(json?.status||'').toLowerCase();
-      if(status === 'approved'){
+      if(['approved','paid','confirmed','succeeded'].includes(status)){
         stopPaymentPoll();
         // ativar assinatura imediatamente (fallback se webhook não acionou)
         try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: getEffectiveUserId(), plan, action:'activate' }) }); }catch(_){}
