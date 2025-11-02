@@ -68,7 +68,12 @@ export default async function handler(req, res){
           { id: `plan_${plan}`, title: `Assinatura GouFlix — ${plan}`, description: `Plano ${plan}`, price: Number(Number(amount).toFixed(2)), quantity: 1, is_physical: false }
         ],
         ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString(),
-        customer: { name: safeUser, email: customerEmail, phone: String(customerPhone), document_type: 'CPF', document: String(customerDocument) }
+        customer: {
+          name: safeUser,
+          email: customerEmail,
+          phone: { number: String(customerPhone) },
+          document: { type: 'CPF', number: String(customerDocument) }
+        }
       };
       const r = await fetch(`${SUNIZE_BASE}/transactions`,{
         method:'POST',
