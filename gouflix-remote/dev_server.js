@@ -367,8 +367,12 @@ const server = http.createServer(async (req, res) => {
           const currentState = await readState();
           const SUNIZE_API_BASE = process.env.SUNIZE_API_BASE || 'https://api.sunize.com.br/v1';
           const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || currentState.config?.sunizeApiSecret || '';
+          const SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
+          const SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
           const PUBLIC_URL = process.env.PUBLIC_URL || '';
-          if (!SUNIZE_API_SECRET) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'SUNIZE_API_SECRET não configurado' })); return; }
+          const hasBearer = !!SUNIZE_API_SECRET;
+          const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
+          if (!hasBearer && !hasBasic) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (Bearer ou client key/secret)' })); return; }
           const body = await parseBody(req);
           const plan = String(body?.plan||'').toLowerCase();
           const userId = String(body?.userId||'').trim();
@@ -383,7 +387,7 @@ const server = http.createServer(async (req, res) => {
           };
           const r = await fetch(`${SUNIZE_API_BASE}/transactions`,{
             method:'POST',
-            headers:{ 'Authorization': `Bearer ${SUNIZE_API_SECRET}`, 'Content-Type':'application/json' },
+            headers:{ 'Authorization': hasBearer ? `Bearer ${SUNIZE_API_SECRET}` : `Basic ${Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64')}` , 'Content-Type':'application/json' },
             body: JSON.stringify(payload)
           });
           const json = await readJsonSafe(r);
@@ -401,12 +405,16 @@ const server = http.createServer(async (req, res) => {
           const currentState = await readState();
           const SUNIZE_API_BASE = process.env.SUNIZE_API_BASE || 'https://api.sunize.com.br/v1';
           const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || currentState.config?.sunizeApiSecret || '';
-          if (!SUNIZE_API_SECRET) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'SUNIZE_API_SECRET não configurado' })); return; }
+          const SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
+          const SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
+          const hasBearer = !!SUNIZE_API_SECRET;
+          const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
+          if (!hasBearer && !hasBasic) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (Bearer ou client key/secret)' })); return; }
           const paramsObj = new URLSearchParams(queryStr || '');
           const id = paramsObj.get('id') || paramsObj.get('transactionId');
           if(!id){ res.statusCode = 400; res.end(JSON.stringify({ ok:false, error:'Informe id da transação' })); return; }
           const r = await fetch(`${SUNIZE_API_BASE}/transactions/${encodeURIComponent(id)}`,{
-            headers:{ 'Authorization': `Bearer ${SUNIZE_API_SECRET}` }
+            headers:{ 'Authorization': hasBearer ? `Bearer ${SUNIZE_API_SECRET}` : `Basic ${Buffer.from(`${SUNIZE_CLIENT_KEY}:${SUNIZE_CLIENT_SECRET}`).toString('base64')}` }
           });
           const json = await readJsonSafe(r);
           if(!r.ok){ res.statusCode = r.status || 500; res.end(JSON.stringify({ ok:false, error: json?.message || 'Falha ao consultar transação', details: json })); return; }
