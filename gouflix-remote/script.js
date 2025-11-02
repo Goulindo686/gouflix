@@ -1547,6 +1547,25 @@ initEnvAndSupabase().then(()=>{
 });
 
 // ----- Pagamentos (Mercado Pago PIX) -----
+function paymentLog(message, obj){
+  try{
+    const logsEl = document.getElementById('paymentLogs');
+    if(!logsEl) return;
+    const ts = new Date().toLocaleTimeString();
+    let line = `[${ts}] ${message}`;
+    if(obj){
+      try{
+        const preview = JSON.stringify(obj).slice(0, 800);
+        line += ` — ${preview}`;
+      }catch(_){ /* ignore */ }
+    }
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.textContent = line;
+    logsEl.appendChild(div);
+    logsEl.scrollTop = logsEl.scrollHeight;
+  }catch(_){/* ignore */}
+}
 function bindPlanButtons(){
   const buttons = Array.from(document.querySelectorAll('.plan-buy[data-plan]'));
   buttons.forEach(btn=>{
@@ -1562,16 +1581,24 @@ async function openPaymentModal(plan){
   const img = document.getElementById('qrCodeImage');
   const codeEl = document.getElementById('pixCode');
   const statusEl = document.getElementById('paymentStatus');
+  const logsEl = document.getElementById('paymentLogs');
   if(!modal) return;
   img.src = '';
   codeEl.textContent = '';
   statusEl.textContent = 'Gerando pagamento...';
   modal.classList.remove('hidden');
+  if(logsEl){ logsEl.innerHTML=''; }
+  paymentLog('Abrindo modal de pagamento', { plan, userId: getEffectiveUserId() });
   try{
-    const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ plan, userId: getEffectiveUserId() }) });
-    const json = await r.json();
+    const body = { plan, userId: getEffectiveUserId() };
+    paymentLog('POST /api/payment/create — enviando payload', body);
+    const r = await fetch('/api/payment/create',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    paymentLog('Resposta /api/payment/create', { status: r.status, ok: r.ok });
+    const json = await r.json().catch(()=>({}));
+    paymentLog('JSON /api/payment/create', json);
     if(!r.ok || !json.ok){ throw new Error(json.error||'Falha ao gerar pagamento'); }
     const { id, qr_code_base64, qr_code, payment_url } = json;
+    paymentLog('Transação criada', { id, hasQrBase64: !!qr_code_base64, hasQr: !!qr_code, payment_url });
     if(qr_code_base64){ img.src = `data:image/png;base64,${qr_code_base64}`; }
     if(qr_code){
       codeEl.textContent = qr_code;
@@ -1586,6 +1613,7 @@ async function openPaymentModal(plan){
     pollPaymentStatus(id, plan);
   }catch(err){
     statusEl.textContent = 'Erro: ' + err.message;
+    paymentLog('Erro ao criar pagamento', { message: err.message, stack: (err && err.stack) || undefined });
   }
 }
 
@@ -1597,16 +1625,20 @@ function pollPaymentStatus(id, plan){
   const statusEl = document.getElementById('paymentStatus');
   paymentPollTimer = setInterval(async ()=>{
     attempts++;
-    if(attempts>90){ stopPaymentPoll(); statusEl.textContent = 'Tempo esgotado. Tente novamente.'; return; }
+    if(attempts>90){ stopPaymentPoll(); statusEl.textContent = 'Tempo esgotado. Tente novamente.'; paymentLog('Polling encerrado por timeout', { attempts }); return; }
     try{
+      paymentLog('GET /api/payment/status', { id, attempt: attempts });
       const r = await fetch(`/api/payment/status?id=${encodeURIComponent(id)}`);
-      const json = await r.json();
+      paymentLog('Resposta /api/payment/status', { status: r.status, ok: r.ok, attempt: attempts });
+      const json = await r.json().catch(()=>({}));
+      paymentLog('JSON /api/payment/status', json);
       const status = String(json?.status||'').toLowerCase();
       if(['approved','paid','confirmed','succeeded'].includes(status)){
         stopPaymentPoll();
         // ativar assinatura imediatamente (fallback se webhook não acionou)
         try{ await fetch('/api/subscription',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: getEffectiveUserId(), plan, action:'activate' }) }); }catch(_){}
         statusEl.textContent = 'Pagamento aprovado! Assinatura ativada.';
+        paymentLog('Pagamento aprovado', { id, status });
         setTimeout(()=>{ document.getElementById('paymentModal').classList.add('hidden'); setRoute('home'); }, 1500);
       }
     }catch(_){ /* ignore */ }
