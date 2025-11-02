@@ -1620,7 +1620,7 @@ if(saveSunizeSecretBtn){
           return;
         }
       }
-      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, bootstrapMoviesUrl, bootstrapAuto, sunizeApiSecret, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, sunizeApiSecret, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
       const stat = document.getElementById('sunizeSecretStatus');
