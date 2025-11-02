@@ -1459,9 +1459,6 @@ if(saveSunizeSecretBtn){
   const apiUrl = (p)=> `${API_BASE}${p}`;
   saveSunizeSecretBtn.addEventListener('click', async ()=>{
     const publicUrl = (document.getElementById('publicUrl').value||'').trim();
-    // Campos atualizados: somente Client Key/Secret
-    const sunizeClientKey = (document.getElementById('sunizeClientKey').value||'').trim();
-    const sunizeClientSecret = (document.getElementById('sunizeClientSecret').value||'').trim();
     const discordInviteUrl = (document.getElementById('discordInviteUrl').value||'').trim();
     try{
       const probe = await fetch(apiUrl('/api/config'));
@@ -1482,11 +1479,16 @@ if(saveSunizeSecretBtn){
           return;
         }
       }
-      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, sunizeClientKey, sunizeClientSecret, discordInviteUrl }) });
+      const res = await fetch(apiUrl('/api/config'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ publicUrl, discordInviteUrl }) });
       if(!res.ok) throw new Error('Falha ao salvar configurações');
       alert('Configurações salvas com sucesso.');
-      const stat = document.getElementById('sunizeSecretStatus');
-      if(stat){ stat.textContent = ((sunizeClientKey && sunizeClientSecret)) ? 'Segredo configurado' : 'Segredo não configurado'; }
+      // Status do segredo é derivado do backend (env/config). Recarregar configuração.
+      try{
+        const check = await fetch(apiUrl('/api/config'));
+        const cfg = check.ok ? await check.json() : null;
+        const stat = document.getElementById('sunizeSecretStatus');
+        if(stat && cfg){ stat.textContent = cfg.hasSunizeSecret ? 'Segredo configurado' : 'Segredo não configurado'; }
+      }catch(_){ /* ignore */ }
       const discordBtn = document.getElementById('discordFloatingBtn');
       if(discordBtn && discordInviteUrl){ discordBtn.href = discordInviteUrl; }
     }catch(err){ alert('Erro ao salvar configurações: '+err.message); }
