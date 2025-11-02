@@ -1,3 +1,7 @@
+// Preencha estes dois valores para usar credenciais diretamente no código
+const CODE_SUNIZE_CLIENT_KEY = '';
+const CODE_SUNIZE_CLIENT_SECRET = '';
+
 export default async function handler(req, res) {
   const method = req.method;
   if (method !== 'GET') {
@@ -28,6 +32,9 @@ export default async function handler(req, res) {
         }
       } catch (_) { /* ignore */ }
     }
+    // Fallback para credenciais definidas diretamente no código
+    SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
+    SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
     const hasBearer = !!SUNIZE_API_SECRET;
     const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
     if (!hasBearer && !hasBasic) {

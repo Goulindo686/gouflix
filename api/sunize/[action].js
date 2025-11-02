@@ -1,3 +1,8 @@
+// Preencha estes dois valores para usar credenciais diretamente no código
+// ATENÇÃO: substituir por valores reais do Sunize
+const CODE_SUNIZE_CLIENT_KEY = 'ck_6bd83e10e5bd12a26b9f8dca9a00ed96';
+const CODE_SUNIZE_CLIENT_SECRET = 'cs_84bfd72a65da7af5f48a4fa4c905deab';
+
 export default async function handler(req, res) {
   const urlPath = (req.url || '').split('?')[0];
   const action = (urlPath.replace(/^.*\/api\/sunize\//, '') || '').toLowerCase();
@@ -39,6 +44,9 @@ async function handleCreate(req, res) {
         }
       } catch (_) { /* ignore */ }
     }
+    // Fallback para credenciais definidas diretamente no código
+    SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
+    SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
     const hasBearer = !!SUNIZE_API_SECRET;
     const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
     if (!hasBearer && !hasBasic) {
@@ -108,6 +116,9 @@ async function handleStatus(req, res) {
         }
       } catch (_) { /* ignore */ }
     }
+    // Fallback para credenciais definidas diretamente no código
+    SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
+    SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
     const hasBearer = !!SUNIZE_API_SECRET;
     const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
     if (!hasBearer && !hasBasic) {

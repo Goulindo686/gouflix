@@ -43,6 +43,10 @@ const types = {
 };
 
 // --- Persistência: arquivo local + opção remota ---
+// Fallback: credenciais Sunize diretamente no código (somente para dev/ambiente controlado)
+const CODE_SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY_CODE || '';
+const CODE_SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET_CODE || '';
+
 const statePath = path.join(root, 'data', 'state.json');
 function ensureState() {
   try {
@@ -242,7 +246,8 @@ const server = http.createServer(async (req, res) => {
         const isAdmin = ensureIsAdminLocal(req);
         const hasSunizeSecret = !!(
           (cfg.sunizeApiSecret && String(cfg.sunizeApiSecret).length) ||
-          ((cfg.sunizeClientKey && cfg.sunizeClientSecret) && String(cfg.sunizeClientKey).length && String(cfg.sunizeClientSecret).length)
+          ((cfg.sunizeClientKey && cfg.sunizeClientSecret) && String(cfg.sunizeClientKey).length && String(cfg.sunizeClientSecret).length) ||
+          (CODE_SUNIZE_CLIENT_KEY && CODE_SUNIZE_CLIENT_SECRET)
         );
         res.end(JSON.stringify({ publicUrl, writable: !!isAdmin, hasSunizeSecret, discordInviteUrl: cfg.discordInviteUrl || '' }));
         return;
@@ -367,8 +372,11 @@ const server = http.createServer(async (req, res) => {
           const currentState = await readState();
           const SUNIZE_API_BASE = process.env.SUNIZE_API_BASE || 'https://api.sunize.com.br/v1';
           const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || currentState.config?.sunizeApiSecret || '';
-          const SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
-          const SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
+          let SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
+          let SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
+          // fallback para valores codificados
+          SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
+          SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
           const PUBLIC_URL = process.env.PUBLIC_URL || '';
           const hasBearer = !!SUNIZE_API_SECRET;
           const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
@@ -405,8 +413,11 @@ const server = http.createServer(async (req, res) => {
           const currentState = await readState();
           const SUNIZE_API_BASE = process.env.SUNIZE_API_BASE || 'https://api.sunize.com.br/v1';
           const SUNIZE_API_SECRET = process.env.SUNIZE_API_SECRET || currentState.config?.sunizeApiSecret || '';
-          const SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
-          const SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
+          let SUNIZE_CLIENT_KEY = process.env.SUNIZE_CLIENT_KEY || currentState.config?.sunizeClientKey || '';
+          let SUNIZE_CLIENT_SECRET = process.env.SUNIZE_CLIENT_SECRET || currentState.config?.sunizeClientSecret || '';
+          // fallback para valores codificados
+          SUNIZE_CLIENT_KEY = SUNIZE_CLIENT_KEY || CODE_SUNIZE_CLIENT_KEY;
+          SUNIZE_CLIENT_SECRET = SUNIZE_CLIENT_SECRET || CODE_SUNIZE_CLIENT_SECRET;
           const hasBearer = !!SUNIZE_API_SECRET;
           const hasBasic = !!(SUNIZE_CLIENT_KEY && SUNIZE_CLIENT_SECRET);
           if (!hasBearer && !hasBasic) { res.statusCode = 500; res.end(JSON.stringify({ ok:false, error:'Credenciais Sunize não configuradas (Bearer ou client key/secret)' })); return; }

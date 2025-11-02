@@ -1,3 +1,7 @@
+// Opcional: defina client key/secret aqui para sinalizar "hasSunizeSecret" sem env
+const CODE_SUNIZE_CLIENT_KEY = '';
+const CODE_SUNIZE_CLIENT_SECRET = '';
+
 export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -73,7 +77,8 @@ export default async function handler(req, res) {
       const hasSunizeSecret = !!(
         row?.sunize_api_secret || process.env.SUNIZE_API_SECRET ||
         (row?.sunize_client_key && row?.sunize_client_secret) ||
-        (process.env.SUNIZE_CLIENT_KEY && process.env.SUNIZE_CLIENT_SECRET)
+        (process.env.SUNIZE_CLIENT_KEY && process.env.SUNIZE_CLIENT_SECRET) ||
+        (CODE_SUNIZE_CLIENT_KEY && CODE_SUNIZE_CLIENT_SECRET)
       );
       return res.status(200).json({
         ok: true,
