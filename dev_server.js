@@ -505,7 +505,8 @@ function ensureIsAdminLocal(req){
   try{
     const ids = String(process.env.ADMIN_IDS||'').split(',').map(s=>s.trim()).filter(Boolean);
     const names = String(process.env.ADMIN_USERNAMES||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-    if(ids.length === 0) return false;
+    // Em ambiente local, se ADMIN_IDS não estiver configurado, permitir escrita
+    if(ids.length === 0) return true;
     const cookies = parseCookieHeader(req.headers.cookie||'');
     const uid = cookies['uid'] || null;
     const uname = (cookies['uname']||'').toLowerCase();
