@@ -74,11 +74,12 @@ export default async function handler(req, res) {
         // ignorar e cair para env/cookies
       }
       const isAdmin = await ensureIsAdmin(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const hasSunizeSecret = !!(row?.sunize_api_secret || process.env.SUNIZE_API_SECRET);
       return res.status(200).json({
         ok: true,
         writable: !!isAdmin,
         publicUrl: row?.public_url || COOKIE_PUBLIC || ENV_PUBLIC_URL || null,
-        hasMpAccessToken: !!row?.mp_access_token,
+        hasSunizeSecret,
         discordInviteUrl: row?.discord_invite_url || COOKIE_DISCORD || null,
         ...ENV_EXTRA,
       });
@@ -94,7 +95,7 @@ export default async function handler(req, res) {
         const payload = {
           id: configId,
           public_url: body?.publicUrl || null,
-          mp_access_token: body?.mpAccessToken || null,
+          sunize_api_secret: body?.sunizeApiSecret || null,
           discord_invite_url: body?.discordInviteUrl || null,
           updated_at: new Date().toISOString(),
         };
