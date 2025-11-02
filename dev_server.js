@@ -241,6 +241,17 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: true, config: { ...state.config, mpAccessToken: undefined } }));
         return;
       }
+      // Helpers para compatibilidade com handlers do /api (status/json)
+      function wrapRes(r){
+        if(typeof r.status !== 'function'){
+          r.status = (code)=>{ r.statusCode = code; return r; };
+        }
+        if(typeof r.json !== 'function'){
+          r.json = (obj)=>{ r.setHeader('Content-Type','application/json'); r.end(JSON.stringify(obj)); };
+        }
+        return r;
+      }
+      function wrapReq(q){ req.query = Object.fromEntries(q.entries()); return req; }
       // ----- SUGESTÕES -----
       if (urlPath === '/api/suggestions' && req.method === 'GET') {
         const state = await readState();
@@ -361,6 +372,110 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: true }));
         return;
       }
+
+      // ---- SUBSCRIPTION (fallback local quando Supabase não está configurado) ----
+      if (urlPath === '/api/subscription') {
+        const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+        // Se Supabase estiver configurado, delegar para o handler real via import dinâmico
+        if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+          try {
+            const { pathToFileURL } = require('url');
+            const filePath = path.join(root, 'api', 'subscription', 'index.js');
+            const mod = await import(pathToFileURL(filePath).href);
+            const handler = mod.default || mod.handler;
+            // Adicionar req.query para compatibilidade
+            wrapReq(params);
+            await handler(req, wrapRes(res));
+            return;
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+            return;
+          }
+        }
+        // Fallback local em memória (apenas para desenvolvimento/teste)
+        global.__SUBS = global.__SUBS || new Map();
+        if (req.method === 'GET') {
+          const userId = String(params.get('userId') || '').trim();
+          if (!userId) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, error: 'userId obrigatório' })); return; }
+          const item = global.__SUBS.get(userId);
+          const active = !!(item && item.active);
+          const plan = item && item.plan || null;
+          const end_date = item && item.end || null;
+          res.end(JSON.stringify({ ok: true, active, plan, end_date }));
+          return;
+        }
+        if (req.method === 'POST') {
+          const body = await parseBody(req);
+          const action = String(body && body.action || '').trim() || 'activate';
+          const userId = String(body && body.userId || '').trim();
+          const plan = String(body && body.plan || '').trim().toLowerCase();
+          if (action === 'activate') {
+            if (!userId || !plan) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, error: 'Parâmetros inválidos (userId/plan)' })); return; }
+            const now = new Date();
+            const durationDays = plan === 'mensal' ? 30 : plan === 'trimestral' ? 90 : plan === 'anual' ? 365 : 30;
+            const end = new Date(now.getTime() + durationDays*24*60*60*1000).toISOString();
+            global.__SUBS.set(userId, { active: true, plan, start: now.toISOString(), end });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          } else if (action === 'deactivate') {
+            if (!userId) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, error: 'Parâmetros inválidos (userId)' })); return; }
+            const item = global.__SUBS.get(userId) || {};
+            global.__SUBS.set(userId, { ...item, active: false });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          }
+          res.statusCode = 400;
+          res.end(JSON.stringify({ ok: false, error: 'Ação inválida' }));
+          return;
+        }
+        res.setHeader('Allow', 'GET, POST');
+        res.statusCode = 405;
+        res.end(JSON.stringify({ ok: false, error: 'Method Not Allowed' }));
+        return;
+      }
+
+      // ---- WEBHOOK SUNIZE: delega para handler em api/webhook/sunize.js ----
+      if (urlPath === '/api/webhook/sunize' && req.method === 'POST') {
+        try {
+          const { pathToFileURL } = require('url');
+          const filePath = path.join(root, 'api', 'webhook', 'sunize.js');
+          const mod = await import(pathToFileURL(filePath).href);
+          const handler = mod.default || mod.handler;
+          // Adicionar req.query para compatibilidade
+          wrapReq(params);
+          await handler(req, wrapRes(res));
+          return;
+        } catch (err) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ ok: false, error: err.message }));
+          return;
+        }
+      }
+
+      // ---- Import dinâmico genérico para outros handlers em /api/* ----
+      try {
+        const rel = urlPath.replace(/^\/api\//, 'api/');
+        let tryPath = path.join(root, rel);
+        if (!path.extname(tryPath)) {
+          // se for diretório ou sem extensão, tentar index.js e .js direto
+          const asIndex = path.join(tryPath, 'index.js');
+          const asJs = `${tryPath}.js`;
+          if (fs.existsSync(asIndex)) tryPath = asIndex; else if (fs.existsSync(asJs)) tryPath = asJs;
+        }
+        if (fs.existsSync(tryPath) && fs.statSync(tryPath).isFile()) {
+          const { pathToFileURL } = require('url');
+          const mod = await import(pathToFileURL(tryPath).href);
+          const handler = mod.default || mod.handler;
+          wrapReq(params);
+          await handler(req, wrapRes(res));
+          return;
+        }
+      } catch (_) {
+        // ignorar e cair para 404 abaixo
+      }
+
       res.statusCode = 404;
       res.end(JSON.stringify({ ok: false, error: 'Not Found' }));
       return;

@@ -40,11 +40,19 @@ export default async function handler(req, res){
       return res.status(200).json({ ok:true, ignored:true });
     }
 
-    const API_BASE = (process.env.PUBLIC_URL || process.env.VERCEL_URL || '').startsWith('http')
-      ? (process.env.PUBLIC_URL || '')
-      : '';
+    // Construir URL absoluta para chamar /api/subscription
+    // Prioriza PUBLIC_URL; se VERCEL_URL vier sem protocolo, prefixa https; caso contrário usa host/protocolo do request
+    const rawBase = (process.env.PUBLIC_URL || process.env.VERCEL_URL || '').trim();
+    let API_BASE = '';
+    if (rawBase) {
+      API_BASE = rawBase.startsWith('http') ? rawBase : `https://${rawBase}`;
+    } else {
+      const proto = String(req.headers['x-forwarded-proto'] || 'https');
+      const host = String(req.headers['host'] || '').trim();
+      if (host) API_BASE = `${proto}://${host}`;
+    }
     const endpoint = '/api/subscription';
-    const url = API_BASE ? `${API_BASE}${endpoint}` : endpoint;
+    const url = API_BASE ? `${API_BASE}${endpoint}` : `${endpoint}`;
     const payload = shouldActivate
       ? { action:'activate', userId: email, plan }
       : { action:'deactivate', userId: email };
